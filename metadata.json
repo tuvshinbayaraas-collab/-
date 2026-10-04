@@ -1,0 +1,6 @@
+{
+  "name": "Мэдлэгийн Цом",
+  "description": "10 төрлийн сонирхолтой сэдвээр мэдлэгээ сорьж, 100 оноо цуглуулах монгол хэл дээрх интерактив асуулт хариултын тоглоом.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
