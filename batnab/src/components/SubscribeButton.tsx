@@ -3,6 +3,7 @@ import {useEffect, useState} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {signIn, useUser} from '../lib/auth';
 import {formatViews} from '../lib/format';
+import {notify} from '../lib/notifications';
 import {Link} from '../lib/router';
 
 export const SUBS_CHANGED = 'batnab:subs-changed';
@@ -57,6 +58,7 @@ export default function SubscribeButton({channel, onCount, compact = false}: Pro
     try {
       await api.subscribe({uid: channel.uid, name: channel.name, photo: channel.photo ?? undefined}, next);
       window.dispatchEvent(new Event(SUBS_CHANGED));
+      if (next) notify(channel.uid, {type: 'subscribe'});
     } catch (e) {
       setSubscribed(!next);
       setCount((c) => (c ?? 0) + (next ? -1 : 1));

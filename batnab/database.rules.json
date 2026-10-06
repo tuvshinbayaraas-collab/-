@@ -112,6 +112,33 @@
         }
       }
     },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".indexOn": ["createdAt"],
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()",
+        "$nid": {
+          ".write": "auth != null && ((!data.exists() && newData.exists() && newData.child('actorUid').val() === auth.uid && $uid !== auth.uid) || (auth.uid === $uid && !newData.exists()))",
+          ".validate": "newData.hasChildren(['type', 'actorUid', 'actorName', 'createdAt'])",
+          "type": {".validate": "newData.isString() && newData.val().matches(/^(comment|reply|mention|commentLike|heart|pin|subscribe|newVideo)$/)"},
+          "actorUid": {".validate": "newData.val() === auth.uid || data.val() === newData.val()"},
+          "actorName": {".validate": "newData.isString() && newData.val().length <= 50"},
+          "actorPhoto": {".validate": "newData.isString() && newData.val().length <= 1000"},
+          "videoId": {".validate": "newData.isString() && root.child('videos/' + newData.val()).exists()"},
+          "videoTitle": {".validate": "newData.isString() && newData.val().length <= 120"},
+          "thumbId": {".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,200}$/)"},
+          "short": {".validate": "newData.isBoolean()"},
+          "commentId": {".validate": "newData.isString() && newData.val().length <= 40"},
+          "text": {".validate": "newData.isString() && newData.val().length <= 200"},
+          "createdAt": {".validate": "newData.isNumber() && newData.val() <= now"},
+          "read": {
+            ".write": "auth != null && auth.uid === $uid && data.parent().exists()",
+            ".validate": "newData.val() === true"
+          },
+          "$other": {".validate": false}
+        }
+      }
+    },
     "userLikes": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

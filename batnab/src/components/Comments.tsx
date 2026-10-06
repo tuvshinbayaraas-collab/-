@@ -3,6 +3,7 @@ import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} fr
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
 import {formatViews, timeAgo} from '../lib/format';
+import {notify, type NotificationInput} from '../lib/notifications';
 import type {Comment, Video} from '../lib/types';
 import Avatar from './Avatar';
 
@@ -11,7 +12,7 @@ type Sort = 'top' | 'new';
 /** YouTube-style handle: the display name without spaces, so @mentions stay one token. */
 const handle = (name: string) => `@${name.replace(/\s+/g, '')}`;
 
-export default function Comments({video, onCount}: {video: Video; onCount?: (n: number) => void}) {
+export default function Comments({video, onCount, highlight}: {video: Video; onCount?: (n: number) => void; highlight?: string}) {
   const {user} = useUser();
   const [comments, setComments] = useState<Comment[]>([]);
   const [likes, setLikes] = useState<Record<string, string[]>>({});
@@ -34,9 +35,17 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
     return () => {
       alive = false;
     };
-  }, [video.id]);
+    // Also reload when opened from a notification, so a reply posted after page load is there.
+  }, [video.id, highlight]);
 
   useEffect(() => onCount?.(comments.length), [comments.length, onCount]);
+
+  // Opened from a notification: bring the comment into view once it has rendered.
+  useEffect(() => {
+    if (!loaded || !highlight) return;
+    const t = setTimeout(() => document.getElementById(`c-${highlight}`)?.scrollIntoView({block: 'center', behavior: 'smooth'}), 150);
+    return () => clearTimeout(t);
+  }, [loaded, highlight]);
 
   const isCreator = user?.uid === video.uid;
   const replies = useMemo(() => {
@@ -54,11 +63,36 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
     return pinned ? [pinned, ...list] : list;
   }, [comments, likes, replies, pinnedId, sort]);
 
+  const about = (c: Comment, type: NotificationInput['type']): NotificationInput => ({
+    type,
+    videoId: video.id,
+    videoTitle: video.title,
+    thumbId: video.thumbDriveId ?? video.driveId,
+    ...(video.short ? {short: true} : {}),
+    commentId: c.id,
+    text: c.text,
+  });
+
   // ----- mutations shared by every comment row -----
   const actions: Actions = {
     add: async (text, parentId) => {
       const c = await api.comment(video.id, text, parentId);
       setComments((list) => [...list, c]);
+      // Who hears about it: the parent comment's author (reply), the creator (any comment), anyone @mentioned.
+      const told = new Set<string>();
+      const tell = (uid: string | undefined, type: NotificationInput['type']) => {
+        if (!uid || told.has(uid)) return;
+        told.add(uid);
+        notify(uid, about(c, type));
+      };
+      if (parentId) tell(comments.find((x) => x.id === parentId)?.uid, 'reply');
+      tell(video.uid, 'comment');
+      const handles = new Set((c.text.match(/@[^\s@]+/g) ?? []).map((h) => h.toLowerCase()));
+      if (handles.size) {
+        const people = new Map<string, string>([[handle(video.channel).toLowerCase(), video.uid]]);
+        for (const x of comments) people.set(handle(x.author).toLowerCase(), x.uid);
+        for (const h of handles) tell(people.get(h), 'mention');
+      }
     },
     edit: async (c, text) => {
       const editedAt = await api.editComment(video.id, c.id, text);
@@ -85,6 +119,7 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
       apply(on);
       try {
         await api.likeComment(video.id, c.id, on);
+        if (on) notify(c.uid, about(c, 'commentLike'));
       } catch (e) {
         apply(!on);
         alert(errorMessage(e));
@@ -96,6 +131,7 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
       apply(on);
       try {
         await api.heartComment(video.id, c.id, on);
+        if (on) notify(c.uid, about(c, 'heart'));
       } catch (e) {
         apply(!on);
         alert(errorMessage(e));
@@ -107,6 +143,7 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
       setPinnedId(next ?? undefined);
       try {
         await api.pinComment(video.id, next);
+        if (next) notify(c.uid, about(c, 'pin'));
       } catch (e) {
         setPinnedId(prev);
         alert(errorMessage(e));
@@ -151,6 +188,7 @@ export default function Comments({video, onCount}: {video: Video; onCount?: (n: 
               video={video}
               likes={likes}
               pinned={c.id === pinnedId}
+              highlight={highlight}
               isCreator={isCreator}
               actions={actions}
             />
@@ -172,6 +210,7 @@ interface Actions {
 
 interface ItemProps {
   video: Video;
+  highlight?: string;
   likes: Record<string, string[]>;
   isCreator: boolean;
   actions: Actions;
@@ -180,6 +219,11 @@ interface ItemProps {
 function CommentThreadItem({comment, replies, pinned, ...rest}: ItemProps & {comment: Comment; replies: Comment[]; pinned: boolean}) {
   const {user} = useUser();
   const [showReplies, setShowReplies] = useState(false);
+  const highlightIsReply = replies.some((r) => r.id === rest.highlight);
+  // A linked reply (e.g. from a notification) must be visible, so open its thread.
+  useEffect(() => {
+    if (highlightIsReply) setShowReplies(true);
+  }, [highlightIsReply]);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [lastPosted, setLastPosted] = useState(0);
 
@@ -244,6 +288,7 @@ function CommentRow({
   likes,
   isCreator,
   actions,
+  highlight,
   pinned = false,
   small = false,
   onReply,
@@ -258,7 +303,10 @@ function CommentRow({
   const canDelete = mine || isCreator;
 
   return (
-    <div className="group flex gap-3">
+    <div
+      id={`c-${c.id}`}
+      className={`group flex scroll-mt-20 gap-3 ${highlight === c.id ? '-m-2 rounded-xl bg-neutral-800/70 p-2 ring-1 ring-blue-500/40' : ''}`}
+    >
       <Avatar name={c.author} photo={c.photo} size={small ? 24 : 40} />
       <div className="min-w-0 flex-1">
         {pinned && (

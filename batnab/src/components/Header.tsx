@@ -3,6 +3,7 @@ import {useEffect, useState, type FormEvent} from 'react';
 import {Link, navigate} from '../lib/router';
 import {displayName, logOut, signIn, useUser} from '../lib/auth';
 import Avatar from './Avatar';
+import NotificationBell from './NotificationBell';
 import Logo from './Logo';
 
 export default function Header({query, onMenu}: {query: string; onMenu: () => void}) {
@@ -78,6 +79,7 @@ export default function Header({query, onMenu}: {query: string; onMenu: () => vo
           <Upload size={18} />
           <span className="hidden md:inline">Бичлэг оруулах</span>
         </Link>
+        {user && <NotificationBell />}
         {user ? (
           <div className="relative">
             <button onClick={() => setMenuOpen((o) => !o)} aria-label="Миний бүртгэл" className="block rounded-full">

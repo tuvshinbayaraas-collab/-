@@ -1,7 +1,8 @@
-import {BarChart3, History, Home, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
+import {BarChart3, Bell, History, Home, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {api} from '../lib/api';
 import {useUser} from '../lib/auth';
+import {useNotifications} from '../lib/notifications';
 import {Link} from '../lib/router';
 import type {Subscription} from '../lib/types';
 import Avatar from './Avatar';
@@ -17,6 +18,7 @@ interface Props {
 export default function Sidebar({path, open, onClose}: Props) {
   const {user} = useUser();
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const {unread} = useNotifications();
 
   useEffect(() => {
     const load = () => api.mySubscriptions().then(setSubs, () => setSubs([]));
@@ -25,10 +27,11 @@ export default function Sidebar({path, open, onClose}: Props) {
     return () => window.removeEventListener(SUBS_CHANGED, load);
   }, [user?.uid]);
 
-  const main: Array<{href: string; label: string; icon: ReactNode}> = [
+  const main: Array<{href: string; label: string; icon: ReactNode; badge?: number}> = [
     {href: '/', label: 'Нүүр', icon: <Home size={22} />},
     {href: '/shorts', label: 'Shorts', icon: <ShortsLogo />},
     {href: '/subscriptions', label: 'Захиалгууд', icon: <Users size={22} />},
+    ...(user ? [{href: '/notifications', label: 'Мэдэгдэл', icon: <Bell size={22} />, badge: unread}] : []),
   ];
   const mine: Array<{href: string; label: string; icon: ReactNode}> = [
     ...(user ? [{href: `/channel/${user.uid}`, label: 'Миний суваг', icon: <UserSquare size={22} />}] : []),
@@ -39,7 +42,7 @@ export default function Sidebar({path, open, onClose}: Props) {
   ];
 
   const close = () => window.innerWidth < 1024 && onClose();
-  const item = (it: {href: string; label: string; icon: ReactNode}) => {
+  const item = (it: {href: string; label: string; icon: ReactNode; badge?: number}) => {
     const active = it.href === '/' ? path === '/' : path.startsWith(it.href);
     return (
       <Link
@@ -51,7 +54,12 @@ export default function Sidebar({path, open, onClose}: Props) {
         }`}
       >
         {it.icon}
-        {it.label}
+        <span className="flex-1">{it.label}</span>
+        {!!it.badge && (
+          <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
+            {it.badge > 99 ? '99+' : it.badge}
+          </span>
+        )}
       </Link>
     );
   };
@@ -60,7 +68,7 @@ export default function Sidebar({path, open, onClose}: Props) {
     <>
       {open && <div className="fixed inset-0 z-30 bg-black/60 lg:hidden" onClick={onClose} />}
       <nav
-        className={`fixed top-14 bottom-0 left-0 z-40 w-60 overflow-y-auto bg-[#0f0f0f] p-3 transition-transform lg:z-20 ${
+        className={`fixed top-14 bottom-0 left-0 z-40 w-60 overflow-y-auto bg-[#0f0f0f] p-3 transition-transform ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

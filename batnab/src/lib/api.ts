@@ -14,6 +14,7 @@ import {
 import {displayName} from './auth';
 import {deleteFile, ensureFolder, getDriveToken, makePublic, uploadFile} from './drive';
 import {auth, db} from './firebase';
+import {notifyMany, subscriberUids} from './notifications';
 import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats} from './types';
 
 const VIDEO_TYPES: Record<string, string> = {
@@ -294,6 +295,18 @@ export const api = {
         views: 0,
         createdAt: serverTimestamp(),
       });
+      // Tell subscribers in the background; publishing doesn't wait on it.
+      subscriberUids(user.uid)
+        .then((uids) =>
+          notifyMany(uids, {
+            type: 'newVideo',
+            videoId: id,
+            videoTitle: safeTitle,
+            thumbId: thumbDriveId ?? driveId,
+            ...(input.short ? {short: true} : {}),
+          }),
+        )
+        .catch(() => {});
       return id;
     } catch (e) {
       await Promise.all(uploaded.map((f) => deleteFile(token, f).catch(() => {})));
