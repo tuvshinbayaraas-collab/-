@@ -54,6 +54,19 @@ npm run deploy       # build хийгээд hosting болон database rules-и
 
 Сайт `https://batnab.web.app` (мөн `https://rgtbn-bb94f.web.app`) хаяг дээр гарна.
 
+## Автомат байршуулалт (GitHub Actions)
+
+`.github/workflows/batnab-deploy.yml` нь `batnab/` өөрчлөгдөж push хийгдэх бүрт (`main` болон
+`claude/youtube-site-batnab-jfgjry` branch) сайтыг build хийж Firebase руу байршуулна.
+GitHub → Actions → **Deploy Batnab** → **Run workflow**-оор гараар ч ажиллуулж болно.
+
+Нэг удаа хийх тохиргоо:
+1. [Google Cloud → Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts?project=rgtbn-bb94f)
+   → **Create service account** (`github-deploy`), roles: **Firebase Admin**, **Service Usage Consumer**.
+2. Тэр service account → **Keys** → **Add key → Create new key → JSON** → файл татагдана.
+3. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**,
+   нэр: `FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F`, утга: JSON файлын бүх агуулга.
+
 ## Аюулгүй байдлын дүрмүүд
 
 - `database.rules.json` — хүн бүр бичлэг үзэж болно; зөвхөн нэвтэрсэн хэрэглэгч бичлэг/сэтгэгдэл/лайк нэмнэ;
