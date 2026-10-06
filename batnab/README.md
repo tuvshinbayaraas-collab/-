@@ -30,7 +30,7 @@
 2. **Realtime Database** үүсгэсэн байх (аль хэдийн байгаа: `rgtbn-bb94f-default-rtdb`).
 3. [Google Cloud Console → Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com?project=rgtbn-bb94f)
    → **Enable** дарна.
-4. Өөр домэйнээс ажиллуулах бол **Authentication → Settings → Authorized domains**-д нэмнэ.
+4. `batnab.web.app` болон өөр домэйнээс ажиллуулах бол **Authentication → Settings → Authorized domains**-д нэмнэ.
 
 ## Ажиллуулах
 
@@ -47,7 +47,7 @@ npx firebase-tools login
 npm run deploy       # build хийгээд hosting болон database rules-ийг байршуулна
 ```
 
-Сайт `https://rgtbn-bb94f.web.app` хаяг дээр гарна.
+Сайт `https://batnab.web.app` (мөн `https://rgtbn-bb94f.web.app`) хаяг дээр гарна.
 
 ## Аюулгүй байдлын дүрмүүд
 
