@@ -1,0 +1,61 @@
+# Builds batnab/ and deploys it to Firebase (Hosting + Realtime Database rules)
+# on every push that touches the site. Needs one repository secret:
+#   FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F — the JSON key of a Google Cloud
+#   service account with the "Firebase Admin" and "Service Usage Consumer" roles.
+name: Deploy Batnab
+
+on:
+  push:
+    branches: [main, claude/youtube-site-batnab-jfgjry]
+    paths: ['batnab/**', '.github/workflows/batnab-deploy.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: batnab-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: batnab
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/package-lock.json
+
+      - name: Check the deploy key is set
+        id: key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::Deploy skipped: repository secret FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F is not set yet (see batnab/README.md, Автомат байршуулалт)."
+            echo "### Deploy skipped — add the FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F secret" >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+      - name: Deploy to Firebase
+        if: steps.key.outputs.present == 'true'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+        run: |
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@15 deploy --only hosting,database --project rgtbn-bb94f --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+          echo "### Deployed to https://batnab.web.app" >> "$GITHUB_STEP_SUMMARY"
