@@ -2,35 +2,37 @@ import {Trash2} from 'lucide-react';
 import {useState} from 'react';
 import Avatar from '../components/Avatar';
 import {EmptyState, VideoCard} from '../components/VideoCard';
-import {api} from '../lib/api';
+import {api, errorMessage} from '../lib/api';
+import {displayName, useUser} from '../lib/auth';
 import {formatViews} from '../lib/format';
 import {Link} from '../lib/router';
-import {storage} from '../lib/storage';
+import type {Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 
-export default function Channel({name}: {name: string}) {
+export default function Channel({uid}: {uid: string}) {
+  const {user} = useUser();
   const [removed, setRemoved] = useState<string[]>([]);
-  const {data, error, loading} = useAsync(() => api.list({channel: name}), [name]);
+  const {data, error, loading} = useAsync(() => api.byChannel(uid), [uid]);
   const videos = (data ?? []).filter((v) => !removed.includes(v.id));
-  const totalViews = videos.reduce((sum, v) => sum + v.views, 0);
-  const isMine = storage.getChannel() === name;
+  const isMine = user?.uid === uid;
+  const name = isMine ? displayName(user) : (data?.[0]?.channel ?? 'Суваг');
+  const photo = isMine ? user.photoURL : data?.[0]?.channelPhoto;
+  const totalViews = videos.reduce((sum, v) => sum + (v.views ?? 0), 0);
 
-  const remove = async (id: string, title: string) => {
-    const token = storage.getOwnerToken(id);
-    if (!token || !confirm(`"${title}" бичлэгийг устгах уу?`)) return;
+  const remove = async (video: Video) => {
+    if (!confirm(`"${video.title}" бичлэгийг устгах уу?`)) return;
     try {
-      await api.remove(id, token);
-      storage.removeOwnerToken(id);
-      setRemoved((r) => [...r, id]);
+      await api.remove(video);
+      setRemoved((r) => [...r, video.id]);
     } catch (e) {
-      alert((e as Error).message);
+      alert(errorMessage(e));
     }
   };
 
   return (
     <div>
       <div className="mb-8 flex items-center gap-4 sm:gap-6">
-        <Avatar name={name} size={88} />
+        <Avatar name={name} photo={photo} size={88} />
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">{name}</h1>
           <p className="mt-1 text-sm text-neutral-400">
@@ -58,9 +60,9 @@ export default function Channel({name}: {name: string}) {
           {videos.map((v) => (
             <div key={v.id} className="relative">
               <VideoCard video={v} />
-              {storage.getOwnerToken(v.id) && (
+              {isMine && (
                 <button
-                  onClick={() => remove(v.id, v.title)}
+                  onClick={() => remove(v)}
                   className="absolute right-2 top-2 rounded-full bg-black/75 p-2 text-neutral-200 hover:bg-red-600"
                   aria-label="Устгах"
                   title="Устгах"

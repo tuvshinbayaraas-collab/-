@@ -1,9 +1,10 @@
-import {Film, ImagePlus, Upload as UploadIcon, X} from 'lucide-react';
+import {Film, ImagePlus, LogIn, Upload as UploadIcon, X} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode} from 'react';
-import {api} from '../lib/api';
+import {api, errorMessage} from '../lib/api';
+import {displayName, signIn, useUser} from '../lib/auth';
 import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
-import {storage} from '../lib/storage';
+import Avatar from '../components/Avatar';
 
 const MAX_MB = 500;
 const VIDEO_EXT = /\.(mp4|m4v|webm|mov|mkv|ogv|avi|3gp)$/i;
@@ -49,7 +50,7 @@ export default function Upload() {
   const [thumb, setThumb] = useState<{blob: Blob; url: string; custom: boolean} | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [channel, setChannel] = useState(() => storage.getChannel());
+  const {user, ready} = useUser();
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -106,28 +107,39 @@ export default function Upload() {
     e.preventDefault();
     if (!picked || progress !== null) return;
     if (!title.trim()) return setError('Гарчиг оруулна уу');
-    if (!channel.trim()) return setError('Сувгийн нэр оруулна уу');
     setError('');
-    storage.setChannel(channel.trim());
-
-    const form = new FormData();
-    form.append('title', title.trim());
-    form.append('description', description.trim());
-    form.append('channel', channel.trim());
-    form.append('duration', String(picked.duration || 0));
-    if (thumb) form.append('thumbnail', thumb.blob, 'thumbnail.jpg');
-    form.append('video', picked.file);
-
     setProgress(0);
     try {
-      const video = await api.upload(form, setProgress);
-      storage.setOwnerToken(video.id, video.ownerToken);
-      navigate(`/watch?v=${video.id}`);
+      const id = await api.upload(
+        {file: picked.file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration},
+        setProgress,
+      );
+      navigate(`/watch?v=${id}`);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
       setProgress(null);
     }
   };
+
+  if (!ready) return null;
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center py-24 text-center">
+        <div className="flex h-28 w-28 items-center justify-center rounded-full bg-neutral-800">
+          <UploadIcon size={48} className="text-neutral-400" />
+        </div>
+        <h1 className="mt-6 text-2xl font-bold">Бичлэг оруулахын тулд нэвтэрнэ үү</h1>
+        <p className="mt-2 max-w-md text-neutral-400">Google бүртгэлээрээ нэвтэрч өөрийн сувгаа үүсгээрэй.</p>
+        <button
+          onClick={signIn}
+          className="mt-6 flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200"
+        >
+          <LogIn size={18} /> Google-ээр нэвтрэх
+        </button>
+      </div>
+    );
+  }
 
   if (!picked) {
     return (
@@ -208,17 +220,13 @@ export default function Upload() {
               className="w-full resize-y bg-transparent outline-none"
             />
           </Field>
-          <Field label="Сувгийн нэр (заавал)">
-            <input
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              maxLength={50}
-              required
-              disabled={uploading}
-              placeholder="Жишээ нь: Batnab TV"
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
+          <div className="flex items-center gap-3 rounded-lg border border-neutral-800 px-3 py-2.5">
+            <Avatar name={displayName(user)} photo={user.photoURL} size={32} />
+            <div className="text-sm">
+              <p className="text-xs text-neutral-400">Суваг</p>
+              <p className="font-medium">{displayName(user)}</p>
+            </div>
+          </div>
 
           <div>
             <p className="font-semibold">Нүүр зураг</p>

@@ -1,14 +1,15 @@
-import {ArrowLeft, Menu, Search, Upload} from 'lucide-react';
+import {ArrowLeft, LogIn, LogOut, Menu, Search, Upload, UserSquare} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
 import {Link, navigate} from '../lib/router';
-import {storage} from '../lib/storage';
+import {displayName, logOut, signIn, useUser} from '../lib/auth';
 import Avatar from './Avatar';
 import Logo from './Logo';
 
 export default function Header({query, onMenu}: {query: string; onMenu: () => void}) {
   const [text, setText] = useState(query);
   const [mobileSearch, setMobileSearch] = useState(false);
-  const channel = storage.getChannel();
+  const {user, ready} = useUser();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => setText(query), [query]);
 
@@ -77,10 +78,52 @@ export default function Header({query, onMenu}: {query: string; onMenu: () => vo
           <Upload size={18} />
           <span className="hidden md:inline">Бичлэг оруулах</span>
         </Link>
-        {channel && (
-          <Link href={`/channel/${encodeURIComponent(channel)}`} aria-label="Миний суваг">
-            <Avatar name={channel} size={32} />
-          </Link>
+        {user ? (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((o) => !o)} aria-label="Миний бүртгэл" className="block rounded-full">
+              <Avatar name={displayName(user)} photo={user.photoURL} size={32} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-xl bg-neutral-800 py-2 shadow-xl">
+                  <div className="flex items-center gap-3 border-b border-neutral-700 px-4 pb-3 pt-1">
+                    <Avatar name={displayName(user)} photo={user.photoURL} size={40} />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{displayName(user)}</p>
+                      {user.email && <p className="truncate text-sm text-neutral-400">{user.email}</p>}
+                    </div>
+                  </div>
+                  <Link
+                    href={`/channel/${user.uid}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                  >
+                    <UserSquare size={20} /> Миний суваг
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      logOut();
+                    }}
+                    className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                  >
+                    <LogOut size={20} /> Гарах
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          ready && (
+            <button
+              onClick={signIn}
+              className="flex items-center gap-2 rounded-full border border-neutral-700 px-3 py-1.5 text-sm font-medium text-blue-400 hover:bg-blue-500/10"
+            >
+              <LogIn size={18} />
+              <span className="hidden sm:inline">Нэвтрэх</span>
+            </button>
+          )
         )}
       </div>
     </header>

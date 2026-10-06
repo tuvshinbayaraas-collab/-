@@ -1,7 +1,7 @@
 import {History, Home, ThumbsUp, Upload, UserSquare} from 'lucide-react';
 import type {ReactNode} from 'react';
 import {Link} from '../lib/router';
-import {storage} from '../lib/storage';
+import {useUser} from '../lib/auth';
 
 interface Props {
   path: string;
@@ -10,13 +10,11 @@ interface Props {
 }
 
 export default function Sidebar({path, open, onClose}: Props) {
-  const channel = storage.getChannel();
+  const {user} = useUser();
   const items: Array<{href: string; label: string; icon: ReactNode}> = [
     {href: '/', label: 'Нүүр', icon: <Home size={22} />},
     {href: '/upload', label: 'Бичлэг оруулах', icon: <Upload size={22} />},
-    ...(channel
-      ? [{href: `/channel/${encodeURIComponent(channel)}`, label: 'Миний суваг', icon: <UserSquare size={22} />}]
-      : []),
+    ...(user ? [{href: `/channel/${user.uid}`, label: 'Миний суваг', icon: <UserSquare size={22} />}] : []),
     {href: '/history', label: 'Үзсэн түүх', icon: <History size={22} />},
     {href: '/liked', label: 'Таалагдсан', icon: <ThumbsUp size={22} />},
   ];

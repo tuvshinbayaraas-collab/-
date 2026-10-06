@@ -1,12 +1,13 @@
-import {Check, Share2, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {Check, Share2, ThumbsDown, ThumbsUp, Trash2} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
 import Avatar from '../components/Avatar';
 import {EmptyState, VideoRow} from '../components/VideoCard';
-import {api} from '../lib/api';
+import {api, errorMessage} from '../lib/api';
+import {displayName, signIn, useUser} from '../lib/auth';
 import {formatCount, formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
-import {storage, type Reaction} from '../lib/storage';
-import type {Comment, Video} from '../lib/types';
+import {history} from '../lib/storage';
+import type {Comment, Reaction, Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 
 export default function Watch({id}: {id: string}) {
@@ -19,8 +20,8 @@ export default function Watch({id}: {id: string}) {
   useEffect(() => {
     if (!data) return;
     document.title = `${data.title} - Batnab`;
-    storage.pushHistory(data.id);
-    api.view(data.id).then(({views}) => setVideo((v) => (v ? {...v, views} : v)), () => {});
+    history.push(data.id);
+    api.view(data.id).then((views) => setVideo((v) => (v ? {...v, views} : v)), () => {});
     return () => {
       document.title = 'Batnab';
     };
@@ -46,12 +47,12 @@ export default function Watch({id}: {id: string}) {
         <h1 className="mt-3 text-xl font-bold leading-snug">{video.title}</h1>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <Link href={`/channel/${encodeURIComponent(video.channel)}`} className="flex items-center gap-3">
-            <Avatar name={video.channel} size={40} />
+          <Link href={`/channel/${video.uid}`} className="flex items-center gap-3">
+            <Avatar name={video.channel} photo={video.channelPhoto} size={40} />
             <span className="font-semibold">{video.channel}</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Reactions key={video.id} video={video} onChange={(likes, dislikes) => setVideo((v) => v && {...v, likes, dislikes})} />
+            <Reactions key={video.id} videoId={video.id} />
             <ShareButton />
           </div>
         </div>
@@ -69,23 +70,28 @@ export default function Watch({id}: {id: string}) {
   );
 }
 
-function Reactions({video, onChange}: {video: Video; onChange: (likes: number, dislikes: number) => void}) {
-  const [reaction, setReaction] = useState<Reaction>(() => storage.getReaction(video.id));
+function Reactions({videoId}: {videoId: string}) {
+  const {user} = useUser();
+  const [state, setState] = useState<{likes: number; dislikes: number; mine: Reaction}>({likes: 0, dislikes: 0, mine: null});
+
+  useEffect(() => {
+    api.reactions(videoId).then(setState, () => {});
+  }, [videoId, user?.uid]);
 
   const toggle = async (next: 'like' | 'dislike') => {
-    const target: Reaction = reaction === next ? null : next;
-    const likes = (target === 'like' ? 1 : 0) - (reaction === 'like' ? 1 : 0);
-    const dislikes = (target === 'dislike' ? 1 : 0) - (reaction === 'dislike' ? 1 : 0);
-    setReaction(target);
-    storage.setReaction(video.id, target);
-    onChange(video.likes + likes, video.dislikes + dislikes);
+    if (!user) return signIn();
+    const prev = state;
+    const target: Reaction = prev.mine === next ? null : next;
+    setState({
+      likes: prev.likes + (target === 'like' ? 1 : 0) - (prev.mine === 'like' ? 1 : 0),
+      dislikes: prev.dislikes + (target === 'dislike' ? 1 : 0) - (prev.mine === 'dislike' ? 1 : 0),
+      mine: target,
+    });
     try {
-      const res = await api.react(video.id, likes, dislikes);
-      onChange(res.likes, res.dislikes);
-    } catch {
-      setReaction(reaction);
-      storage.setReaction(video.id, reaction);
-      onChange(video.likes, video.dislikes);
+      await api.react(videoId, target);
+    } catch (e) {
+      setState(prev);
+      alert(errorMessage(e));
     }
   };
 
@@ -94,20 +100,20 @@ function Reactions({video, onChange}: {video: Video; onChange: (likes: number, d
       <button
         onClick={() => toggle('like')}
         className="flex h-full items-center gap-2 rounded-l-full pl-4 pr-3 hover:bg-neutral-700"
-        aria-pressed={reaction === 'like'}
+        aria-pressed={state.mine === 'like'}
         title="Таалагдлаа"
       >
-        <ThumbsUp size={18} fill={reaction === 'like' ? 'currentColor' : 'none'} />
-        {formatViews(video.likes)}
+        <ThumbsUp size={18} fill={state.mine === 'like' ? 'currentColor' : 'none'} />
+        {formatViews(state.likes)}
       </button>
       <span className="h-6 w-px bg-neutral-600" />
       <button
         onClick={() => toggle('dislike')}
         className="flex h-full items-center rounded-r-full pl-3 pr-4 hover:bg-neutral-700"
-        aria-pressed={reaction === 'dislike'}
+        aria-pressed={state.mine === 'dislike'}
         title="Таалагдсангүй"
       >
-        <ThumbsDown size={18} fill={reaction === 'dislike' ? 'currentColor' : 'none'} />
+        <ThumbsDown size={18} fill={state.mine === 'dislike' ? 'currentColor' : 'none'} />
       </button>
     </div>
   );
@@ -165,82 +171,104 @@ function Description({video}: {video: Video}) {
 }
 
 function Comments({video}: {video: Video}) {
-  const [comments, setComments] = useState<Comment[]>(video.comments ?? []);
+  const {user} = useUser();
+  const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState('');
-  const [author, setAuthor] = useState(() => storage.getChannel());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    api.comments(video.id).then(setComments, () => {});
+  }, [video.id]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || !user) return;
     setBusy(true);
     setError('');
     try {
-      const name = author.trim() || 'Зочин';
-      const comment = await api.comment(video.id, name, text);
-      if (author.trim() && !storage.getChannel()) storage.setChannel(author.trim());
+      const comment = await api.comment(video.id, text);
       setComments((c) => [comment, ...c]);
       setText('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const remove = async (c: Comment) => {
+    if (!confirm('Сэтгэгдлийг устгах уу?')) return;
+    try {
+      await api.deleteComment(video.id, c.id);
+      setComments((list) => list.filter((x) => x.id !== c.id));
+    } catch (err) {
+      alert(errorMessage(err));
     }
   };
 
   return (
     <section className="mt-6">
       <h2 className="text-lg font-bold">{comments.length} сэтгэгдэл</h2>
-      <form onSubmit={submit} className="mt-4 flex gap-3">
-        <Avatar name={author || 'Зочин'} size={40} />
-        <div className="flex-1 space-y-2">
-          {!storage.getChannel() && (
-            <input
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Таны нэр (заавал биш)"
-              maxLength={50}
-              className="w-full border-b border-neutral-700 bg-transparent pb-1 text-sm outline-none focus:border-white"
+      {user ? (
+        <form onSubmit={submit} className="mt-4 flex gap-3">
+          <Avatar name={displayName(user)} photo={user.photoURL} size={40} />
+          <div className="flex-1 space-y-2">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Сэтгэгдэл бичих…"
+              rows={1}
+              maxLength={2000}
+              className="w-full resize-none border-b border-neutral-700 bg-transparent pb-1 text-sm outline-none focus:border-white"
             />
-          )}
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Сэтгэгдэл бичих…"
-            rows={1}
-            maxLength={2000}
-            className="w-full resize-none border-b border-neutral-700 bg-transparent pb-1 text-sm outline-none focus:border-white"
-          />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          {text && (
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setText('')} className="rounded-full px-4 py-2 text-sm hover:bg-neutral-800">
-                Цуцлах
-              </button>
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
-              >
-                Сэтгэгдэл үлдээх
-              </button>
-            </div>
-          )}
-        </div>
-      </form>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            {text && (
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setText('')} className="rounded-full px-4 py-2 text-sm hover:bg-neutral-800">
+                  Цуцлах
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
+                >
+                  Сэтгэгдэл үлдээх
+                </button>
+              </div>
+            )}
+          </div>
+        </form>
+      ) : (
+        <p className="mt-4 text-sm text-neutral-400">
+          <button onClick={signIn} className="font-semibold text-blue-400 hover:underline">
+            Нэвтэрч
+          </button>{' '}
+          сэтгэгдэл үлдээнэ үү.
+        </p>
+      )}
 
       <ul className="mt-6 space-y-5">
         {comments.map((c) => (
-          <li key={c.id} className="flex gap-3">
-            <Avatar name={c.author} size={40} />
-            <div className="min-w-0">
+          <li key={c.id} className="group flex gap-3">
+            <Avatar name={c.author} photo={c.photo} size={40} />
+            <div className="min-w-0 flex-1">
               <p className="text-[13px]">
                 <span className="font-semibold">@{c.author}</span>{' '}
                 <span className="text-neutral-400">{timeAgo(c.createdAt)}</span>
               </p>
               <p className="mt-0.5 whitespace-pre-wrap break-words text-sm">{c.text}</p>
             </div>
+            {user && (user.uid === c.uid || user.uid === video.uid) && (
+              <button
+                onClick={() => remove(c)}
+                className="self-start rounded-full p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+                aria-label="Сэтгэгдэл устгах"
+                title="Устгах"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </li>
         ))}
       </ul>

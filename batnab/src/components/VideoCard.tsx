@@ -12,15 +12,15 @@ export function VideoCard({video}: {video: Video}) {
         <Thumbnail video={video} className="transition-[border-radius] group-hover:rounded-none" />
       </Link>
       <div className="mt-3 flex gap-3">
-        <Link href={`/channel/${encodeURIComponent(video.channel)}`}>
-          <Avatar name={video.channel} />
+        <Link href={`/channel/${video.uid}`}>
+          <Avatar name={video.channel} photo={video.channelPhoto} />
         </Link>
         <div className="min-w-0">
           <Link href={`/watch?v=${video.id}`} className="line-clamp-2 font-semibold leading-snug" title={video.title}>
             {video.title}
           </Link>
           <Link
-            href={`/channel/${encodeURIComponent(video.channel)}`}
+            href={`/channel/${video.uid}`}
             className="mt-1 block text-sm text-neutral-400 hover:text-neutral-200"
           >
             {video.channel}

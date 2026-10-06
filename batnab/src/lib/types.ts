@@ -1,22 +1,26 @@
 export interface Comment {
   id: string;
+  uid: string;
   author: string;
+  photo?: string;
   text: string;
   createdAt: number;
 }
 
 export interface Video {
   id: string;
+  uid: string;
   title: string;
   description: string;
   channel: string;
+  channelPhoto?: string;
   videoUrl: string;
-  thumbnailUrl: string | null;
+  videoPath: string;
+  thumbnailUrl?: string;
+  thumbPath?: string;
   duration: number;
   views: number;
-  likes: number;
-  dislikes: number;
   createdAt: number;
-  commentCount: number;
-  comments?: Comment[];
 }
+
+export type Reaction = 'like' | 'dislike' | null;

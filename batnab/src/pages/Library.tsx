@@ -1,19 +1,29 @@
 import {useState} from 'react';
 import {EmptyState, VideoRow} from '../components/VideoCard';
 import {api} from '../lib/api';
-import {storage} from '../lib/storage';
+import {signIn, useUser} from '../lib/auth';
+import {history} from '../lib/storage';
 import {useAsync} from '../lib/useAsync';
 
 export default function Library({kind}: {kind: 'history' | 'liked'}) {
+  const {user, ready} = useUser();
   const [version, setVersion] = useState(0);
   const {data, loading} = useAsync(async () => {
-    const ids = kind === 'history' ? storage.getHistory() : storage.likedIds();
-    const all = await api.list();
-    const byId = new Map(all.map((v) => [v.id, v]));
-    return ids.flatMap((id) => byId.get(id) ?? []);
-  }, [kind, version]);
+    const ids = kind === 'history' ? history.get() : await api.likedIds();
+    return api.byIds(ids);
+  }, [kind, version, user?.uid]);
 
   const title = kind === 'history' ? 'Үзсэн түүх' : 'Таалагдсан бичлэгүүд';
+
+  if (kind === 'liked' && ready && !user) {
+    return (
+      <EmptyState title="Таалагдсан бичлэгээ харахын тулд нэвтэрнэ үү">
+        <button onClick={signIn} className="mt-2 rounded-full bg-white px-5 py-2 font-semibold text-black hover:bg-neutral-200">
+          Нэвтрэх
+        </button>
+      </EmptyState>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -22,7 +32,7 @@ export default function Library({kind}: {kind: 'history' | 'liked'}) {
         {kind === 'history' && !!data?.length && (
           <button
             onClick={() => {
-              storage.clearHistory();
+              history.clear();
               setVersion((v) => v + 1);
             }}
             className="rounded-full px-4 py-2 text-sm hover:bg-neutral-800"

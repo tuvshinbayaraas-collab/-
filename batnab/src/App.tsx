@@ -30,7 +30,7 @@ export default function App() {
   else if (path === '/upload') page = <Upload />;
   else if (path === '/history') page = <Library kind="history" />;
   else if (path === '/liked') page = <Library kind="liked" />;
-  else if (path.startsWith('/channel/')) page = <Channel name={decodeURIComponent(path.slice('/channel/'.length))} />;
+  else if (path.startsWith('/channel/')) page = <Channel uid={decodeURIComponent(path.slice('/channel/'.length))} />;
   else
     page = (
       <EmptyState title="Хуудас олдсонгүй">

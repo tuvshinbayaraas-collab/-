@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // videos/{uid}/{videoId}/video.<ext> and videos/{uid}/{videoId}/thumb.jpg
+    match /videos/{uid}/{videoId}/{file} {
+      allow read;
+      allow create: if request.auth != null && request.auth.uid == uid && (
+        (file.matches('video[.][a-z0-9]+')
+          && request.resource.size < 500 * 1024 * 1024
+          && request.resource.contentType.matches('video/.*'))
+        || (file == 'thumb.jpg'
+          && request.resource.size < 5 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*'))
+      );
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
