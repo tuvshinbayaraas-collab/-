@@ -1,4 +1,4 @@
-import {ArrowLeft, LogIn, LogOut, Menu, Search, Upload, UserSquare} from 'lucide-react';
+import {ArrowLeft, BarChart3, LogIn, LogOut, Menu, Search, Upload, UserSquare} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
 import {Link, navigate} from '../lib/router';
 import {displayName, logOut, signIn, useUser} from '../lib/auth';
@@ -100,6 +100,13 @@ export default function Header({query, onMenu}: {query: string; onMenu: () => vo
                     className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
                   >
                     <UserSquare size={20} /> Миний суваг
+                  </Link>
+                  <Link
+                    href="/studio"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                  >
+                    <BarChart3 size={20} /> Үзүүлэлт
                   </Link>
                   <button
                     onClick={() => {

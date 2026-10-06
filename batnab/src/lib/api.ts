@@ -14,7 +14,7 @@ import {
 import {displayName} from './auth';
 import {deleteFile, ensureFolder, getDriveToken, makePublic, uploadFile} from './drive';
 import {auth, db} from './firebase';
-import type {Comment, Reaction, Video} from './types';
+import type {Comment, Reaction, Subscription, Video, VideoStats} from './types';
 
 const VIDEO_TYPES: Record<string, string> = {
   mp4: 'video/mp4',
@@ -33,6 +33,11 @@ function rows<T>(snapshot: {forEach: (cb: (child: {key: string | null; val: () =
     out.push({...(child.val() as object), id: child.key} as T);
   });
   return out;
+}
+
+/** Local calendar day as YYYYMMDD — the key for daily view counters. */
+export function dayKey(d = new Date()) {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function requireUser() {
@@ -74,8 +79,80 @@ export const api = {
   },
 
   view: async (id: string) => {
-    const res = await runTransaction(ref(db, `videos/${id}/views`), (v: number | null) => (v ?? 0) + 1);
+    // Counters only accept +1, so read the current value first: a blind transaction that guesses
+    // 0 is rejected by the rules instead of being retried.
+    const bump = async (path: string) => {
+      const node = ref(db, path);
+      await get(node);
+      return runTransaction(node, (v: number | null) => (v ?? 0) + 1);
+    };
+    const [res] = await Promise.all([bump(`videos/${id}/views`), bump(`viewsDaily/${id}/${dayKey()}`).catch(() => {})]);
     return res.snapshot.val() as number;
+  },
+
+  shorts: async () => (await listAll()).filter((v) => v.short),
+
+  // ---------- Subscriptions ----------
+
+  subscriberCount: async (channelUid: string) => {
+    const snap = await get(ref(db, `subscribers/${channelUid}`));
+    return snap.size;
+  },
+
+  isSubscribed: async (channelUid: string) => {
+    const user = auth.currentUser;
+    if (!user) return false;
+    return (await get(ref(db, `subscriptions/${user.uid}/${channelUid}`))).exists();
+  },
+
+  subscribe: async (channel: {uid: string; name: string; photo?: string}, on: boolean) => {
+    const user = requireUser();
+    if (channel.uid === user.uid) throw new Error('Өөрийн сувгийг захиалах боломжгүй');
+    await update(ref(db), {
+      [`subscriptions/${user.uid}/${channel.uid}`]: on
+        ? {name: channel.name.slice(0, 50), ...(channel.photo ? {photo: channel.photo} : {}), at: serverTimestamp()}
+        : null,
+      [`subscribers/${channel.uid}/${user.uid}`]: on ? true : null,
+    });
+  },
+
+  mySubscriptions: async (): Promise<Subscription[]> => {
+    const user = auth.currentUser;
+    if (!user) return [];
+    const snap = await get(ref(db, `subscriptions/${user.uid}`));
+    const subs: Subscription[] = [];
+    snap.forEach((c) => {
+      subs.push({...(c.val() as Omit<Subscription, 'uid'>), uid: c.key!});
+    });
+    return subs.sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  subscriptionFeed: async () => {
+    const subs = await api.mySubscriptions();
+    const lists = await Promise.all(subs.map((s) => api.byChannel(s.uid)));
+    return lists.flat().sort((a, b) => b.createdAt - a.createdAt);
+  },
+
+  // ---------- Studio ----------
+
+  channelStats: async (uid: string): Promise<VideoStats[]> => {
+    const videos = await api.byChannel(uid);
+    return Promise.all(
+      videos.map(async (video) => {
+        const [reactions, comments, daily] = await Promise.all([
+          get(ref(db, `reactions/${video.id}`)),
+          get(ref(db, `comments/${video.id}`)),
+          get(ref(db, `viewsDaily/${video.id}`)).catch(() => null),
+        ]);
+        let likes = 0;
+        let dislikes = 0;
+        reactions.forEach((c) => {
+          if (c.val() === 'like') likes++;
+          else if (c.val() === 'dislike') dislikes++;
+        });
+        return {video, likes, dislikes, comments: comments.size, daily: (daily?.val() as Record<string, number>) ?? {}};
+      }),
+    );
   },
 
   reactions: async (id: string) => {
@@ -132,7 +209,7 @@ export const api = {
   deleteComment: (videoId: string, commentId: string) => set(ref(db, `comments/${videoId}/${commentId}`), null),
 
   upload: async (
-    input: {file: File; thumbnail: Blob | null; title: string; description: string; duration: number},
+    input: {file: File; thumbnail: Blob | null; title: string; description: string; duration: number; short: boolean},
     onProgress: (fraction: number) => void,
   ) => {
     // First await: the Drive consent popup must open while the click is still "fresh".
@@ -178,6 +255,7 @@ export const api = {
         driveId,
         ...(thumbDriveId ? {thumbDriveId} : {}),
         duration: Math.max(0, Math.round(input.duration || 0)),
+        ...(input.short ? {short: true} : {}),
         views: 0,
         createdAt: serverTimestamp(),
       });
@@ -194,6 +272,7 @@ export const api = {
       [`videos/${video.id}`]: null,
       [`comments/${video.id}`]: null,
       [`reactions/${video.id}`]: null,
+      [`viewsDaily/${video.id}`]: null,
     });
     try {
       const token = await getDriveToken();

@@ -14,6 +14,7 @@
         "driveId": {".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,200}$/)"},
         "thumbDriveId": {".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,200}$/)"},
         "duration": {".validate": "newData.isNumber() && newData.val() >= 0"},
+        "short": {".validate": "newData.isBoolean() && (newData.val() === false || newData.parent().child('duration').val() <= 180)"},
         "createdAt": {".validate": "newData.isNumber() && newData.val() <= now"},
         "views": {
           ".write": "data.exists()",
@@ -46,6 +47,39 @@
         "$uid": {
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.val() === 'like' || newData.val() === 'dislike'"
+        }
+      }
+    },
+    "viewsDaily": {
+      "$videoId": {
+        ".read": "auth != null && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        "$day": {
+          ".read": true,
+          ".write": "root.child('videos/' + $videoId).exists() && $day.matches(/^[0-9]{8}$/)",
+          ".validate": "newData.isNumber() && (data.exists() ? newData.val() === data.val() + 1 : newData.val() === 1)"
+        }
+      }
+    },
+    "subscriptions": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$channelUid": {
+          ".write": "auth != null && auth.uid === $uid && $channelUid !== $uid",
+          ".validate": "newData.hasChildren(['name', 'at'])",
+          "name": {".validate": "newData.isString() && newData.val().length <= 50"},
+          "photo": {".validate": "newData.isString()"},
+          "at": {".validate": "newData.isNumber() && newData.val() <= now"},
+          "$other": {".validate": false}
+        }
+      }
+    },
+    "subscribers": {
+      "$channelUid": {
+        ".read": true,
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && $channelUid !== $uid",
+          ".validate": "newData.val() === true"
         }
       }
     },

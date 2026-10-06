@@ -6,6 +6,9 @@ import Channel from './pages/Channel';
 import Home from './pages/Home';
 import Library from './pages/Library';
 import Results from './pages/Results';
+import Shorts from './pages/Shorts';
+import Studio from './pages/Studio';
+import Subscriptions from './pages/Subscriptions';
 import Upload from './pages/Upload';
 import Watch from './pages/Watch';
 import {Link, useLocation} from './lib/router';
@@ -27,6 +30,10 @@ export default function App() {
   if (path === '/') page = <Home />;
   else if (path === '/watch' && query.get('v')) page = <Watch id={query.get('v')!} />;
   else if (path === '/results') page = <Results query={search} />;
+  else if (path === '/shorts' || path.startsWith('/shorts/'))
+    page = <Shorts startId={path.split('/')[2] ? decodeURIComponent(path.split('/')[2]) : undefined} />;
+  else if (path === '/subscriptions') page = <Subscriptions />;
+  else if (path === '/studio') page = <Studio />;
   else if (path === '/upload') page = <Upload />;
   else if (path === '/history') page = <Library kind="history" />;
   else if (path === '/liked') page = <Library kind="liked" />;

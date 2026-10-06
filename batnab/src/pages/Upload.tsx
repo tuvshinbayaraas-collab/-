@@ -5,6 +5,7 @@ import {displayName, signIn, useUser} from '../lib/auth';
 import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
 import Avatar from '../components/Avatar';
+import {ShortsLogo} from '../components/ShortCard';
 
 const MAX_MB = 10 * 1024;
 const VIDEO_EXT = /\.(mp4|m4v|webm|mov|mkv|ogv|avi|3gp)$/i;
@@ -13,17 +14,21 @@ interface Picked {
   file: File;
   url: string;
   duration: number;
+  vertical: boolean;
 }
 
+const SHORT_MAX_SECONDS = 180;
+
 // Grab a frame ~1s in (or 10% for short clips) to use as the default thumbnail.
-function captureFrame(url: string): Promise<{blob: Blob | null; duration: number}> {
+function captureFrame(url: string): Promise<{blob: Blob | null; duration: number; vertical: boolean}> {
   return new Promise((resolve) => {
     const v = document.createElement('video');
     v.preload = 'auto';
     v.muted = true;
     v.playsInline = true;
     v.src = url;
-    const fail = () => resolve({blob: null, duration: Number.isFinite(v.duration) ? v.duration : 0});
+    const fail = () =>
+      resolve({blob: null, duration: Number.isFinite(v.duration) ? v.duration : 0, vertical: v.videoHeight > v.videoWidth});
     v.onerror = fail;
     v.onloadedmetadata = () => {
       v.currentTime = Math.min(1, (v.duration || 0) * 0.1);
@@ -36,7 +41,7 @@ function captureFrame(url: string): Promise<{blob: Blob | null; duration: number
         canvas.width = w || 1280;
         canvas.height = h;
         canvas.getContext('2d')!.drawImage(v, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve({blob, duration: v.duration}), 'image/jpeg', 0.85);
+        canvas.toBlob((blob) => resolve({blob, duration: v.duration, vertical: v.videoHeight > v.videoWidth}), 'image/jpeg', 0.85);
       } catch {
         fail();
       }
@@ -54,6 +59,7 @@ export default function Upload() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [short, setShort] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
 
@@ -74,10 +80,12 @@ export default function Upload() {
       return;
     }
     const url = URL.createObjectURL(file);
-    setPicked({file, url, duration: 0});
+    setPicked({file, url, duration: 0, vertical: false});
     setTitle((t) => t || file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 120));
     const frame = await captureFrame(url);
-    setPicked((p) => (p?.url === url ? {...p, duration: frame.duration} : p));
+    setPicked((p) => (p?.url === url ? {...p, duration: frame.duration, vertical: frame.vertical} : p));
+    // Vertical clips up to 3 minutes default to Shorts, like YouTube.
+    setShort(frame.vertical && frame.duration > 0 && frame.duration <= SHORT_MAX_SECONDS);
     if (frame.blob) {
       const blob = frame.blob;
       setThumb((t) => (t?.custom ? t : {blob, url: URL.createObjectURL(blob), custom: false}));
@@ -111,10 +119,10 @@ export default function Upload() {
     setProgress(0);
     try {
       const id = await api.upload(
-        {file: picked.file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration},
+        {file: picked.file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short},
         setProgress,
       );
-      navigate(`/watch?v=${id}`);
+      navigate(canBeShort && short ? `/shorts/${id}` : `/watch?v=${id}`);
     } catch (err) {
       setError(errorMessage(err));
       setProgress(null);
@@ -184,6 +192,7 @@ export default function Upload() {
   }
 
   const uploading = progress !== null;
+  const canBeShort = picked.duration > 0 && picked.duration <= SHORT_MAX_SECONDS;
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-5xl">
@@ -227,6 +236,30 @@ export default function Upload() {
               <p className="font-medium">{displayName(user)}</p>
             </div>
           </div>
+
+          <label
+            className={`flex items-start gap-3 rounded-lg border border-neutral-800 px-3 py-3 ${canBeShort ? 'cursor-pointer' : 'opacity-60'}`}
+          >
+            <input
+              type="checkbox"
+              checked={canBeShort && short}
+              disabled={!canBeShort || uploading}
+              onChange={(e) => setShort(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-red-500"
+            />
+            <span className="text-sm">
+              <span className="flex items-center gap-2 font-semibold">
+                <ShortsLogo size={18} /> Shorts болгож нийтлэх
+              </span>
+              <span className="text-neutral-400">
+                {canBeShort
+                  ? picked.vertical
+                    ? 'Босоо, богино бичлэг тул Shorts хэсэгт гаргахыг санал болгож байна.'
+                    : 'Shorts нь босоо бичлэг байвал хамгийн гоё харагдана.'
+                  : 'Зөвхөн 3 минутаас богино бичлэгийг Shorts болгоно.'}
+              </span>
+            </span>
+          </label>
 
           <div>
             <p className="font-semibold">Нүүр зураг</p>

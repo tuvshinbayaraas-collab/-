@@ -1,7 +1,9 @@
 import {Clapperboard, Upload} from 'lucide-react';
+import ShortCard, {ShortsLogo} from '../components/ShortCard';
 import {EmptyState, GridSkeleton, VideoGrid} from '../components/VideoCard';
 import {api} from '../lib/api';
 import {Link} from '../lib/router';
+import type {Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 
 export default function Home() {
@@ -26,5 +28,28 @@ export default function Home() {
         </Link>
       </div>
     );
-  return <VideoGrid videos={data} />;
+  const shorts = data.filter((v) => v.short);
+  const videos = data.filter((v) => !v.short);
+  return (
+    <div className="space-y-10">
+      {videos.length > 0 && <VideoGrid videos={videos.slice(0, 8)} />}
+      {shorts.length > 0 && <ShortsShelf shorts={shorts} />}
+      {videos.length > 8 && <VideoGrid videos={videos.slice(8)} />}
+    </div>
+  );
+}
+
+function ShortsShelf({shorts}: {shorts: Video[]}) {
+  return (
+    <section>
+      <Link href="/shorts" className="mb-4 flex items-center gap-2 text-xl font-bold">
+        <ShortsLogo size={26} /> Shorts
+      </Link>
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:thin] sm:-mx-6 sm:px-6">
+        {shorts.slice(0, 20).map((v) => (
+          <ShortCard key={v.id} video={v} />
+        ))}
+      </div>
+    </section>
+  );
 }

@@ -1,6 +1,7 @@
 import {Check, Share2, ThumbsDown, ThumbsUp, Trash2} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
 import Avatar from '../components/Avatar';
+import SubscribeButton, {subscriberLabel} from '../components/SubscribeButton';
 import {EmptyState, VideoRow} from '../components/VideoCard';
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
@@ -8,13 +9,15 @@ import {formatCount, formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
 import {drivePlayerUrl} from '../lib/drive';
 import {history} from '../lib/storage';
-import type {Comment, Reaction, Video} from '../lib/types';
+import type {Comment, Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
+import {useReactions} from '../lib/useReactions';
 
 export default function Watch({id}: {id: string}) {
   const {data, error, loading} = useAsync(() => api.get(id), [id]);
   const related = useAsync(() => api.list(), [id]);
   const [video, setVideo] = useState<Video | null>(null);
+  const [subs, setSubs] = useState<number | null>(null);
 
   useEffect(() => setVideo(data ?? null), [data]);
 
@@ -54,10 +57,16 @@ export default function Watch({id}: {id: string}) {
         <h1 className="mt-3 text-xl font-bold leading-snug">{video.title}</h1>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <Link href={`/channel/${video.uid}`} className="flex items-center gap-3">
-            <Avatar name={video.channel} photo={video.channelPhoto} size={40} />
-            <span className="font-semibold">{video.channel}</span>
-          </Link>
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href={`/channel/${video.uid}`} className="flex min-w-0 items-center gap-3">
+              <Avatar name={video.channel} photo={video.channelPhoto} size={40} />
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{video.channel}</p>
+                {subs !== null && <p className="text-xs text-neutral-400">{subscriberLabel(subs)}</p>}
+              </div>
+            </Link>
+            <SubscribeButton channel={{uid: video.uid, name: video.channel, photo: video.channelPhoto}} onCount={setSubs} />
+          </div>
           <div className="flex items-center gap-2">
             <Reactions key={video.id} videoId={video.id} />
             <ShareButton />
@@ -78,29 +87,8 @@ export default function Watch({id}: {id: string}) {
 }
 
 function Reactions({videoId}: {videoId: string}) {
-  const {user} = useUser();
-  const [state, setState] = useState<{likes: number; dislikes: number; mine: Reaction}>({likes: 0, dislikes: 0, mine: null});
-
-  useEffect(() => {
-    api.reactions(videoId).then(setState, () => {});
-  }, [videoId, user?.uid]);
-
-  const toggle = async (next: 'like' | 'dislike') => {
-    if (!user) return signIn();
-    const prev = state;
-    const target: Reaction = prev.mine === next ? null : next;
-    setState({
-      likes: prev.likes + (target === 'like' ? 1 : 0) - (prev.mine === 'like' ? 1 : 0),
-      dislikes: prev.dislikes + (target === 'dislike' ? 1 : 0) - (prev.mine === 'dislike' ? 1 : 0),
-      mine: target,
-    });
-    try {
-      await api.react(videoId, target);
-    } catch (e) {
-      setState(prev);
-      alert(errorMessage(e));
-    }
-  };
+  const state = useReactions(videoId);
+  const toggle = state.toggle;
 
   return (
     <div className="flex h-9 items-center rounded-full bg-neutral-800 text-sm font-medium">

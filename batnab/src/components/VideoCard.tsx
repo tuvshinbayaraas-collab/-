@@ -2,13 +2,15 @@ import type {ReactNode} from 'react';
 import {formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
 import type {Video} from '../lib/types';
+
+export const videoHref = (v: Video) => (v.short ? `/shorts/${v.id}` : `/watch?v=${v.id}`);
 import Avatar from './Avatar';
 import Thumbnail from './Thumbnail';
 
 export function VideoCard({video}: {video: Video}) {
   return (
     <div className="group">
-      <Link href={`/watch?v=${video.id}`}>
+      <Link href={videoHref(video)}>
         <Thumbnail video={video} className="transition-[border-radius] group-hover:rounded-none" />
       </Link>
       <div className="mt-3 flex gap-3">
@@ -16,7 +18,7 @@ export function VideoCard({video}: {video: Video}) {
           <Avatar name={video.channel} photo={video.channelPhoto} />
         </Link>
         <div className="min-w-0">
-          <Link href={`/watch?v=${video.id}`} className="line-clamp-2 font-semibold leading-snug" title={video.title}>
+          <Link href={videoHref(video)} className="line-clamp-2 font-semibold leading-snug" title={video.title}>
             {video.title}
           </Link>
           <Link
@@ -36,7 +38,7 @@ export function VideoCard({video}: {video: Video}) {
 
 export function VideoRow({video, compact = false}: {video: Video; compact?: boolean}) {
   return (
-    <Link href={`/watch?v=${video.id}`} className="flex gap-3 sm:gap-4">
+    <Link href={videoHref(video)} className="flex gap-3 sm:gap-4">
       <Thumbnail video={video} className={`shrink-0 ${compact ? 'w-40 rounded-lg' : 'w-44 sm:w-80'}`} />
       <div className="min-w-0 py-0.5">
         <p className={`line-clamp-2 font-semibold leading-snug ${compact ? 'text-sm' : 'sm:text-lg'}`}>{video.title}</p>
