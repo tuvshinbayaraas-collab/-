@@ -5,6 +5,18 @@ export interface Comment {
   photo?: string;
   text: string;
   createdAt: number;
+  editedAt?: number;
+  /** Set on replies: the top-level comment this answers (one level deep, like YouTube). */
+  parentId?: string;
+  /** The video's creator gave this comment a heart. */
+  hearted?: boolean;
+}
+
+export interface CommentThread {
+  comments: Comment[];
+  /** commentId -> uids who liked it */
+  likes: Record<string, string[]>;
+  pinnedId?: string;
 }
 
 export interface Video {
@@ -21,6 +33,7 @@ export interface Video {
   duration: number;
   /** Vertical clip shown in the Shorts feed. */
   short?: boolean;
+  pinnedComment?: string;
   views: number;
   createdAt: number;
 }

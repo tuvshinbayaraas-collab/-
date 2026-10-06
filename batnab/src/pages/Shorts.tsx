@@ -135,6 +135,7 @@ function ShortItem({video, active}: {video: Video; active: boolean}) {
 
 function ShortActions({video}: {video: Video}) {
   const {likes, mine, toggle} = useReactions(video.id);
+  const comments = useAsync(() => api.commentCount(video.id), [video.id]);
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
@@ -167,7 +168,7 @@ function ShortActions({video}: {video: Video}) {
         <Link href={`/watch?v=${video.id}`} className={btn} title="Сэтгэгдэл">
           <MessageSquare size={22} />
         </Link>
-        Сэтгэгдэл
+        {comments.data ? formatViews(comments.data) : 'Сэтгэгдэл'}
       </div>
       <div className="flex flex-col items-center gap-1">
         <button onClick={share} className={btn} title="Хуваалцах">

@@ -14,6 +14,10 @@
         "driveId": {".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,200}$/)"},
         "thumbDriveId": {".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,200}$/)"},
         "duration": {".validate": "newData.isNumber() && newData.val() >= 0"},
+        "pinnedComment": {
+          ".write": "auth != null && data.parent().exists() && data.parent().child('uid').val() === auth.uid",
+          ".validate": "newData.isString() && root.child('comments/' + $videoId + '/' + newData.val()).exists() && !root.child('comments/' + $videoId + '/' + newData.val() + '/parentId').exists()"
+        },
         "short": {".validate": "newData.isBoolean() && (newData.val() === false || newData.parent().child('duration').val() <= 180)"},
         "createdAt": {".validate": "newData.isNumber() && newData.val() <= now"},
         "views": {
@@ -29,14 +33,39 @@
         ".indexOn": ["createdAt"],
         ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
         "$commentId": {
-          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && root.child('videos/' + $videoId).exists()) || (!newData.exists() && (data.child('uid').val() === auth.uid || root.child('videos/' + $videoId + '/uid').val() === auth.uid)))",
+          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && root.child('videos/' + $videoId).exists()) || (!newData.exists() && (data.child('uid').val() === auth.uid || root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('comments/' + $videoId + '/' + data.child('parentId').val() + '/uid').val() === auth.uid)))",
           ".validate": "newData.hasChildren(['uid', 'author', 'text', 'createdAt'])",
-          "uid": {".validate": "newData.val() === auth.uid"},
+          "uid": {".validate": "newData.val() === auth.uid || data.val() === newData.val()"},
           "author": {".validate": "newData.isString() && newData.val().length <= 50"},
           "photo": {".validate": "newData.isString()"},
-          "text": {".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000"},
+          "text": {
+            ".write": "auth != null && data.exists() && data.parent().child('uid').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000"
+          },
+          "editedAt": {
+            ".write": "auth != null && data.parent().exists() && data.parent().child('uid').val() === auth.uid",
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "parentId": {".validate": "newData.isString() && !data.exists() && root.child('comments/' + $videoId + '/' + newData.val()).exists() && !root.child('comments/' + $videoId + '/' + newData.val() + '/parentId').exists()"},
+          "hearted": {
+            ".write": "auth != null && data.parent().exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+            ".validate": "newData.val() === true && root.child('videos/' + $videoId + '/uid').val() === auth.uid"
+          },
           "createdAt": {".validate": "newData.isNumber() && newData.val() <= now"},
           "$other": {".validate": false}
+        }
+      }
+    },
+    "commentLikes": {
+      "$videoId": {
+        ".read": true,
+        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        "$commentId": {
+          ".write": "auth != null && !newData.exists() && !newData.parent().parent().parent().child('comments/' + $videoId + '/' + $commentId).exists()",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('comments/' + $videoId + '/' + $commentId).exists()",
+            ".validate": "newData.val() === true"
+          }
         }
       }
     },

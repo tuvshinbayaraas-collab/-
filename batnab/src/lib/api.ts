@@ -14,7 +14,7 @@ import {
 import {displayName} from './auth';
 import {deleteFile, ensureFolder, getDriveToken, makePublic, uploadFile} from './drive';
 import {auth, db} from './firebase';
-import type {Comment, Reaction, Subscription, Video, VideoStats} from './types';
+import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats} from './types';
 
 const VIDEO_TYPES: Record<string, string> = {
   mp4: 'video/mp4',
@@ -187,12 +187,22 @@ export const api = {
     return entries.sort((a, b) => b[1] - a[1]).map(([id]) => id);
   },
 
-  comments: async (id: string) => {
-    const snap = await get(query(ref(db, `comments/${id}`), orderByChild('createdAt')));
-    return rows<Comment>(snap).reverse();
+  comments: async (id: string): Promise<CommentThread> => {
+    const [snap, likesSnap, pinned] = await Promise.all([
+      get(query(ref(db, `comments/${id}`), orderByChild('createdAt'))),
+      get(ref(db, `commentLikes/${id}`)),
+      get(ref(db, `videos/${id}/pinnedComment`)),
+    ]);
+    const likes: Record<string, string[]> = {};
+    likesSnap.forEach((c) => {
+      likes[c.key!] = Object.keys(c.val() ?? {});
+    });
+    return {comments: rows<Comment>(snap), likes, pinnedId: (pinned.val() as string | null) ?? undefined};
   },
 
-  comment: async (id: string, text: string) => {
+  commentCount: async (id: string) => (await get(ref(db, `comments/${id}`))).size,
+
+  comment: async (id: string, text: string, parentId?: string) => {
     const user = requireUser();
     const node = push(ref(db, `comments/${id}`));
     const comment = {
@@ -200,13 +210,38 @@ export const api = {
       author: displayName(user),
       ...(user.photoURL ? {photo: user.photoURL} : {}),
       text: text.trim().slice(0, 2000),
+      ...(parentId ? {parentId} : {}),
       createdAt: serverTimestamp(),
     };
     await set(node, comment);
     return {...comment, id: node.key!, createdAt: Date.now()} as Comment;
   },
 
-  deleteComment: (videoId: string, commentId: string) => set(ref(db, `comments/${videoId}/${commentId}`), null),
+  editComment: async (videoId: string, commentId: string, text: string) => {
+    const editedAt = Date.now();
+    await update(ref(db, `comments/${videoId}/${commentId}`), {text: text.trim().slice(0, 2000), editedAt: serverTimestamp()});
+    return editedAt;
+  },
+
+  /** Deletes a comment, its replies and their likes. */
+  deleteComment: (videoId: string, commentId: string, replyIds: string[] = []) =>
+    update(
+      ref(db),
+      Object.fromEntries(
+        [commentId, ...replyIds].flatMap((c) => [
+          [`comments/${videoId}/${c}`, null],
+          [`commentLikes/${videoId}/${c}`, null],
+        ]),
+      ),
+    ),
+
+  likeComment: (videoId: string, commentId: string, on: boolean) =>
+    set(ref(db, `commentLikes/${videoId}/${commentId}/${requireUser().uid}`), on ? true : null),
+
+  heartComment: (videoId: string, commentId: string, on: boolean) =>
+    set(ref(db, `comments/${videoId}/${commentId}/hearted`), on ? true : null),
+
+  pinComment: (videoId: string, commentId: string | null) => set(ref(db, `videos/${videoId}/pinnedComment`), commentId),
 
   upload: async (
     input: {file: File; thumbnail: Blob | null; title: string; description: string; duration: number; short: boolean},
@@ -271,6 +306,7 @@ export const api = {
     await update(ref(db), {
       [`videos/${video.id}`]: null,
       [`comments/${video.id}`]: null,
+      [`commentLikes/${video.id}`]: null,
       [`reactions/${video.id}`]: null,
       [`viewsDaily/${video.id}`]: null,
     });
