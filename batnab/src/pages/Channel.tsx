@@ -22,8 +22,10 @@ export default function Channel({uid}: {uid: string}) {
   const remove = async (video: Video) => {
     if (!confirm(`"${video.title}" бичлэгийг устгах уу?`)) return;
     try {
-      await api.remove(video);
+      const driveCleaned = await api.remove(video);
       setRemoved((r) => [...r, video.id]);
+      if (!driveCleaned)
+        alert('Бичлэг Batnab-аас устгагдлаа. Google Drive-ийн "Batnab" хавтаснаас файлыг гараар устгаж болно.');
     } catch (e) {
       alert(errorMessage(e));
     }

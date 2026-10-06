@@ -14,10 +14,10 @@ export interface Video {
   description: string;
   channel: string;
   channelPhoto?: string;
-  videoUrl: string;
-  videoPath: string;
-  thumbnailUrl?: string;
-  thumbPath?: string;
+  /** Google Drive file id of the video (in the uploader's Drive). */
+  driveId: string;
+  /** Google Drive file id of the custom/auto-captured thumbnail. */
+  thumbDriveId?: string;
   duration: number;
   views: number;
   createdAt: number;

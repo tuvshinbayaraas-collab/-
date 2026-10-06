@@ -6,7 +6,7 @@ import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
 import Avatar from '../components/Avatar';
 
-const MAX_MB = 500;
+const MAX_MB = 10 * 1024;
 const VIDEO_EXT = /\.(mp4|m4v|webm|mov|mkv|ogv|avi|3gp)$/i;
 
 interface Picked {
@@ -70,7 +70,7 @@ export default function Upload() {
       return;
     }
     if (file.size > MAX_MB * 1024 * 1024) {
-      setError(`Файлын хэмжээ ${MAX_MB}MB-аас ихгүй байх ёстой`);
+      setError('Файлын хэмжээ 10GB-аас ихгүй байх ёстой');
       return;
     }
     const url = URL.createObjectURL(file);
@@ -161,7 +161,7 @@ export default function Upload() {
           </div>
           <p className="mt-6 text-lg">Бичлэгийн файлаа энд чирж оруулна уу</p>
           <p className="mt-1 text-sm text-neutral-400">
-            Таны бичлэг нийтлэгдэх хүртэл бусдад харагдахгүй. MP4, WebM, MOV — {MAX_MB}MB хүртэл.
+            Бичлэг таны Google Drive-ийн «Batnab» хавтсанд хадгалагдана. MP4, WebM, MOV — 10GB хүртэл.
           </p>
           <button
             type="button"
@@ -283,8 +283,13 @@ export default function Upload() {
                 <div className="h-full bg-red-500 transition-[width]" style={{width: `${progress * 100}%`}} />
               </div>
             </div>
+          ) : error ? (
+            <p className="text-sm text-red-400">{error}</p>
           ) : (
-            error && <p className="text-sm text-red-400">{error}</p>
+            <p className="text-xs text-neutral-400">
+              Нийтлэх үед Google Drive-д хандах зөвшөөрөл асууна. Бичлэг таны Drive-д «холбоостой хүн бүр үзэх»
+              тохиргоотой хадгалагдана.
+            </p>
           )}
         </div>
         <button

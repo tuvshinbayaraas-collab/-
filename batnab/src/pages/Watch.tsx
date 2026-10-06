@@ -6,6 +6,7 @@ import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
 import {formatCount, formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
+import {drivePlayerUrl} from '../lib/drive';
 import {history} from '../lib/storage';
 import type {Comment, Reaction, Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
@@ -35,15 +36,21 @@ export default function Watch({id}: {id: string}) {
   return (
     <div className="mx-auto flex max-w-[1700px] flex-col gap-6 xl:flex-row">
       <div className="min-w-0 flex-1">
-        <video
-          key={video.id}
-          src={video.videoUrl}
-          poster={video.thumbnailUrl ?? undefined}
-          controls
-          autoPlay
-          playsInline
-          className="aspect-video w-full rounded-xl bg-black"
-        />
+        <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+          <iframe
+            key={video.id}
+            src={drivePlayerUrl(video.driveId)}
+            title={video.title}
+            allow="autoplay; fullscreen; encrypted-media"
+            allowFullScreen
+            className="h-full w-full border-0"
+          />
+        </div>
+        {Date.now() - video.createdAt < 20 * 60 * 1000 && (
+          <p className="mt-2 text-xs text-neutral-400">
+            Шинэ бичлэг: Google Drive боловсруулж дуусаагүй бол хэдэн минутын дараа хуудсаа дахин ачаална уу.
+          </p>
+        )}
         <h1 className="mt-3 text-xl font-bold leading-snug">{video.title}</h1>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

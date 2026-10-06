@@ -11,9 +11,9 @@ import {
   update,
   equalTo,
 } from 'firebase/database';
-import {deleteObject, getDownloadURL, ref as storageRef, uploadBytesResumable} from 'firebase/storage';
 import {displayName} from './auth';
-import {auth, db, storage} from './firebase';
+import {deleteFile, ensureFolder, getDriveToken, makePublic, uploadFile} from './drive';
+import {auth, db} from './firebase';
 import type {Comment, Reaction, Video} from './types';
 
 const VIDEO_TYPES: Record<string, string> = {
@@ -135,66 +135,74 @@ export const api = {
     input: {file: File; thumbnail: Blob | null; title: string; description: string; duration: number},
     onProgress: (fraction: number) => void,
   ) => {
+    // First await: the Drive consent popup must open while the click is still "fresh".
+    const token = await getDriveToken();
     const user = requireUser();
     const id = push(ref(db, 'videos')).key!;
     const ext = (input.file.name.match(/\.([a-z0-9]+)$/i)?.[1] ?? 'mp4').toLowerCase();
-    const base = `videos/${user.uid}/${id}`;
-    const videoPath = `${base}/video.${ext}`;
-    const thumbPath = `${base}/thumb.jpg`;
-    const contentType = input.file.type.startsWith('video/') ? input.file.type : (VIDEO_TYPES[ext] ?? 'video/mp4');
-
-    const thumbSize = input.thumbnail?.size ?? 0;
-    const total = input.file.size + thumbSize;
-    let thumbDone = 0;
+    const mimeType = input.file.type.startsWith('video/') ? input.file.type : (VIDEO_TYPES[ext] ?? 'video/mp4');
+    const safeTitle = input.title.trim().slice(0, 120);
+    const total = input.file.size + (input.thumbnail?.size ?? 0);
 
     const uploaded: string[] = [];
     try {
-      let thumbnailUrl: string | undefined;
+      const folderId = await ensureFolder(token);
+      let thumbDriveId: string | undefined;
       if (input.thumbnail) {
-        const task = uploadBytesResumable(storageRef(storage, thumbPath), input.thumbnail, {
-          contentType: input.thumbnail.type || 'image/jpeg',
-        });
-        task.on('state_changed', (s) => onProgress(s.bytesTransferred / total));
-        await task;
-        uploaded.push(thumbPath);
-        thumbDone = thumbSize;
-        thumbnailUrl = await getDownloadURL(storageRef(storage, thumbPath));
+        thumbDriveId = await uploadFile(
+          token,
+          input.thumbnail,
+          {name: `${safeTitle} (нүүр зураг).jpg`, mimeType: input.thumbnail.type || 'image/jpeg', folderId},
+          (loaded) => onProgress(loaded / total),
+        );
+        uploaded.push(thumbDriveId);
+        await makePublic(token, thumbDriveId);
       }
 
-      const task = uploadBytesResumable(storageRef(storage, videoPath), input.file, {contentType});
-      task.on('state_changed', (s) => onProgress((thumbDone + s.bytesTransferred) / total));
-      await task;
-      uploaded.push(videoPath);
-      const videoUrl = await getDownloadURL(storageRef(storage, videoPath));
+      const offset = input.thumbnail?.size ?? 0;
+      const driveId = await uploadFile(
+        token,
+        input.file,
+        {name: `${safeTitle}.${ext}`, mimeType, folderId},
+        (loaded) => onProgress((offset + loaded) / total),
+      );
+      uploaded.push(driveId);
+      await makePublic(token, driveId);
 
       await set(ref(db, `videos/${id}`), {
         uid: user.uid,
-        title: input.title.trim().slice(0, 120),
+        title: safeTitle,
         description: input.description.trim().slice(0, 5000),
         channel: displayName(user),
         ...(user.photoURL ? {channelPhoto: user.photoURL} : {}),
-        videoUrl,
-        videoPath,
-        ...(thumbnailUrl ? {thumbnailUrl, thumbPath} : {}),
+        driveId,
+        ...(thumbDriveId ? {thumbDriveId} : {}),
         duration: Math.max(0, Math.round(input.duration || 0)),
         views: 0,
         createdAt: serverTimestamp(),
       });
       return id;
     } catch (e) {
-      await Promise.all(uploaded.map((p) => deleteObject(storageRef(storage, p)).catch(() => {})));
+      await Promise.all(uploaded.map((f) => deleteFile(token, f).catch(() => {})));
       throw e;
     }
   },
 
+  /** Removes the video from Batnab; returns false if the Drive files could not be deleted too. */
   remove: async (video: Video) => {
     await update(ref(db), {
       [`videos/${video.id}`]: null,
       [`comments/${video.id}`]: null,
       [`reactions/${video.id}`]: null,
     });
-    const paths = [video.videoPath, video.thumbPath].filter(Boolean) as string[];
-    await Promise.all(paths.map((p) => deleteObject(storageRef(storage, p)).catch(() => {})));
+    try {
+      const token = await getDriveToken();
+      const files = [video.driveId, video.thumbDriveId].filter(Boolean) as string[];
+      await Promise.all(files.map((f) => deleteFile(token, f)));
+      return true;
+    } catch {
+      return false;
+    }
   },
 };
 
@@ -202,8 +210,6 @@ export function errorMessage(e: unknown): string {
   const code = (e as {code?: string})?.code ?? '';
   if (code.includes('permission-denied') || code.includes('unauthorized') || /permission/i.test(String(e)))
     return 'Зөвшөөрөлгүй үйлдэл байна';
-  if (code === 'storage/quota-exceeded') return 'Хадгалах сангийн хэмжээ хэтэрсэн байна';
-  if (code === 'storage/canceled') return 'Цуцлагдлаа';
-  if (code.includes('network') || code === 'storage/retry-limit-exceeded') return 'Сүлжээний алдаа гарлаа';
+  if (code.includes('network')) return 'Сүлжээний алдаа гарлаа';
   return (e as Error)?.message || 'Алдаа гарлаа';
 }

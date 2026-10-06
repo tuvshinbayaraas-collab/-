@@ -2,7 +2,6 @@ import {getAnalytics, isSupported} from 'firebase/analytics';
 import {initializeApp} from 'firebase/app';
 import {connectAuthEmulator, getAuth} from 'firebase/auth';
 import {connectDatabaseEmulator, getDatabase} from 'firebase/database';
-import {connectStorageEmulator, getStorage} from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBlM6H70o8AwPDxZaIGMBBI-p40MCWAIGU',
@@ -18,13 +17,11 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-export const storage = getStorage(app);
 
-// `VITE_FIREBASE_EMULATORS=true npm run dev` talks to local emulators (`npx firebase-tools emulators:start`).
+// `VITE_FIREBASE_EMULATORS=true npm run dev` talks to local emulators (`npx firebase-tools emulators:start --only auth,database`).
 if (import.meta.env.VITE_FIREBASE_EMULATORS === 'true') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings: true});
   connectDatabaseEmulator(db, '127.0.0.1', 9000);
-  connectStorageEmulator(storage, '127.0.0.1', 9199);
 } else {
   isSupported().then((ok) => ok && getAnalytics(app), () => {});
 }
