@@ -58,7 +58,8 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
   // Inside a playlist, "next" is the following item (and stops at the end); otherwise the top suggestion.
   const listVideos = playlist.data?.videos;
   const listIndex = listVideos ? listVideos.findIndex((v) => v.id === id) : -1;
-  const next = listVideos && listIndex >= 0 ? listVideos[listIndex + 1] : others[0];
+  // Like YouTube, a regular video never autoplays into a Short.
+  const next = listVideos && listIndex >= 0 ? listVideos[listIndex + 1] : others.find((v) => !v.short);
   const playNext = useCallback(() => {
     if (!next) return;
     navigate(playlist.data && listIndex >= 0 ? playHref(next, playlist.data.list) : videoHref(next));
