@@ -1,4 +1,4 @@
-import {Check, ChevronDown, ChevronUp, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {Bookmark, Check, ChevronDown, ChevronUp, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Comments from '../components/Comments';
@@ -8,7 +8,10 @@ import {EmptyState, VideoCard, VideoRow, videoHref} from '../components/VideoCar
 import EditVideoModal from '../components/EditVideoModal';
 import VideoPlayer from '../components/VideoPlayer';
 import {VisibilityBadge} from '../components/Visibility';
-import {useUser} from '../lib/auth';
+import PlaylistPanel from '../components/PlaylistPanel';
+import SaveToPlaylist from '../components/SaveToPlaylist';
+import {signIn, useUser} from '../lib/auth';
+import {loadPlaylist, playHref} from '../lib/library';
 import {api} from '../lib/api';
 import {formatCount, formatViews, timeAgo} from '../lib/format';
 import {prefs, SPEEDS} from '../lib/playback';
@@ -18,9 +21,10 @@ import type {Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 import {useReactions} from '../lib/useReactions';
 
-export default function Watch({id, highlight, startAt}: {id: string; highlight?: string; startAt?: number}) {
+export default function Watch({id, highlight, startAt, list}: {id: string; highlight?: string; startAt?: number; list?: string}) {
   const {data, error, loading} = useAsync(() => api.get(id), [id]);
   const related = useAsync(() => api.list(), [id]);
+  const playlist = useAsync(() => (list ? loadPlaylist(list) : Promise.resolve(null)), [list]);
   const [video, setVideo] = useState<Video | null>(null);
   const [subs, setSubs] = useState<number | null>(null);
   const [commentCount, setCommentCount] = useState<number | null>(null);
@@ -29,6 +33,7 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
   const [speed, setSpeed] = useState(prefs.speed);
   const [autoplayNext, setAutoplayNext] = useState(prefs.autoplay);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const {user, ready} = useUser();
 
   useEffect(() => setVideo(data ?? null), [data]);
@@ -47,10 +52,14 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
   }, [data]);
 
   const others = (related.data ?? []).filter((v) => v.id !== video?.id);
-  const next = others[0];
+  // Inside a playlist, "next" is the following item (and stops at the end); otherwise the top suggestion.
+  const listVideos = playlist.data?.videos;
+  const listIndex = listVideos ? listVideos.findIndex((v) => v.id === id) : -1;
+  const next = listVideos && listIndex >= 0 ? listVideos[listIndex + 1] : others[0];
   const playNext = useCallback(() => {
-    if (next) navigate(videoHref(next));
-  }, [next]);
+    if (!next) return;
+    navigate(playlist.data && listIndex >= 0 ? playHref(next, playlist.data.list) : videoHref(next));
+  }, [next, playlist.data, listIndex]);
 
   if (loading)
     return <div className="-mx-4 -mt-4 aspect-video animate-pulse bg-neutral-800 sm:mx-0 sm:mt-0 sm:max-w-5xl sm:rounded-xl" />;
@@ -110,6 +119,12 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
             )}
             <Reactions key={video.id} videoId={video.id} />
             <ShareButton />
+            <button
+              onClick={() => (user ? setSaving(true) : signIn())}
+              className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
+            >
+              <Bookmark size={16} /> Хадгалах
+            </button>
             <label className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-800 pl-3 pr-1 text-sm font-medium hover:bg-neutral-700" title="Тоглуулах хурд">
               <Gauge size={18} />
               <select
@@ -166,6 +181,7 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
       </div>
 
       <aside className="w-full shrink-0 xl:w-[400px]">
+        {playlist.data && listIndex >= 0 && <PlaylistPanel data={playlist.data} currentId={video.id} />}
         <h2 className="mb-3 font-semibold xl:hidden">Дараагийн бичлэгүүд</h2>
         {/* Big cards on phones, compact rows from sm up. */}
         <div className="space-y-6 sm:hidden">
@@ -180,6 +196,7 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
         </div>
       </aside>
       {editing && <EditVideoModal video={video} onClose={() => setEditing(false)} onSaved={setVideo} />}
+      {saving && <SaveToPlaylist video={video} onClose={() => setSaving(false)} />}
     </div>
   );
 }

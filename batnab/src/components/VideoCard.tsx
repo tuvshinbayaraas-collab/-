@@ -1,4 +1,7 @@
-import type {ReactNode} from 'react';
+import {Check, Clock} from 'lucide-react';
+import {useState, type MouseEvent, type ReactNode} from 'react';
+import {useUser} from '../lib/auth';
+import {watchLater} from '../lib/library';
 import {formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
 import {prefetchHandlers} from '../lib/prefetch';
@@ -10,7 +13,8 @@ import Thumbnail from './Thumbnail';
 
 export function VideoCard({video}: {video: Video}) {
   return (
-    <div className="group" {...prefetchHandlers(video)}>
+    <div className="group relative" {...prefetchHandlers(video)}>
+      <WatchLaterButton videoId={video.id} />
       <Link href={videoHref(video)}>
         <Thumbnail video={video} className="transition-[border-radius] group-hover:rounded-none" />
       </Link>
@@ -90,5 +94,36 @@ export function EmptyState({title, children}: {title: string; children?: ReactNo
       <p className="text-lg font-semibold text-neutral-200">{title}</p>
       {children && <div className="mt-2 text-sm">{children}</div>}
     </div>
+  );
+}
+
+/** Hover shortcut on desktop cards: add to "Дараа үзэх" without opening the video. */
+function WatchLaterButton({videoId}: {videoId: string}) {
+  const {user} = useUser();
+  const [done, setDone] = useState(false);
+  if (!user) return null;
+  const add = async (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await watchLater.set(videoId, true);
+      setDone(true);
+      setTimeout(() => setDone(false), 2000);
+    } catch {
+      // ignore — the save menu on the watch page reports errors
+    }
+  };
+  return (
+    <button
+      onClick={add}
+      className={`absolute right-2 top-2 z-10 hidden items-center gap-1.5 rounded-md bg-black/80 px-2 py-1.5 text-xs font-medium sm:flex ${
+        done ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+      }`}
+      aria-label="Дараа үзэх-д нэмэх"
+      title="Дараа үзэх"
+    >
+      {done ? <Check size={14} /> : <Clock size={14} />}
+      {done ? 'Нэмэгдлээ' : 'Дараа үзэх'}
+    </button>
   );
 }

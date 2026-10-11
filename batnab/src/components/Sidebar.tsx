@@ -1,4 +1,4 @@
-import {BarChart3, Bell, History, Home, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
+import {BarChart3, Bell, Clock, History, Home, ListVideo, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {api} from '../lib/api';
 import {useUser} from '../lib/auth';
@@ -38,12 +38,27 @@ export default function Sidebar({path, open, onClose}: Props) {
     ...(user ? [{href: '/studio', label: 'Үзүүлэлт', icon: <BarChart3 size={22} />}] : []),
     {href: '/upload', label: 'Бичлэг оруулах', icon: <Upload size={22} />},
     {href: '/history', label: 'Үзсэн түүх', icon: <History size={22} />},
+    ...(user
+      ? [
+          {href: '/playlist?list=WL', label: 'Дараа үзэх', icon: <Clock size={22} />},
+          {href: '/playlists', label: 'Тоглуулах жагсаалт', icon: <ListVideo size={22} />},
+        ]
+      : []),
     {href: '/liked', label: 'Таалагдсан', icon: <ThumbsUp size={22} />},
   ];
 
   const close = () => window.innerWidth < 1024 && onClose();
   const item = (it: {href: string; label: string; icon: ReactNode; badge?: number}) => {
-    const active = it.href === '/' ? path === '/' : path.startsWith(it.href);
+    // /playlist?list=WL is "Дараа үзэх"; any other /playlist belongs under "Тоглуулах жагсаалт".
+    const onWatchLater = path === '/playlist' && new URLSearchParams(location.search).get('list') === 'WL';
+    const active =
+      it.href === '/'
+        ? path === '/'
+        : it.href === '/playlist?list=WL'
+          ? onWatchLater
+          : it.href === '/playlists'
+            ? path === '/playlists' || (path === '/playlist' && !onWatchLater)
+            : path.startsWith(it.href);
     return (
       <Link
         key={it.href}

@@ -8,6 +8,8 @@ import Home from './pages/Home';
 const Channel = lazy(() => import('./pages/Channel'));
 const Library = lazy(() => import('./pages/Library'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const Playlist = lazy(() => import('./pages/Playlist'));
+const Playlists = lazy(() => import('./pages/Playlists'));
 const Results = lazy(() => import('./pages/Results'));
 const Shorts = lazy(() => import('./pages/Shorts'));
 const Studio = lazy(() => import('./pages/Studio'));
@@ -39,13 +41,15 @@ export default function App() {
 
   let page;
   if (path === '/') page = <Home />;
-  else if (path === '/watch' && query.get('v')) page = <Watch id={query.get('v')!} highlight={query.get('lc') ?? undefined} startAt={startTime(query.get('t'))} />;
+  else if (path === '/watch' && query.get('v')) page = <Watch id={query.get('v')!} highlight={query.get('lc') ?? undefined} startAt={startTime(query.get('t'))} list={query.get('list') ?? undefined} />;
   else if (path === '/results') page = <Results query={search} />;
   else if (path === '/shorts' || path.startsWith('/shorts/'))
     page = <Shorts startId={path.split('/')[2] ? decodeURIComponent(path.split('/')[2]) : undefined} />;
   else if (path === '/subscriptions') page = <Subscriptions />;
   else if (path === '/studio') page = <Studio />;
   else if (path === '/notifications') page = <Notifications />;
+  else if (path === '/playlists') page = <Playlists />;
+  else if (path === '/playlist' && query.get('list')) page = <Playlist list={query.get('list')!} />;
   else if (path === '/upload') page = <Upload />;
   else if (path === '/history') page = <Library kind="history" />;
   else if (path === '/liked') page = <Library kind="liked" />;
