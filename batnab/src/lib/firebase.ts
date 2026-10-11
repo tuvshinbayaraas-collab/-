@@ -15,6 +15,7 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
+export const firebaseApiKey = firebaseConfig.apiKey;
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 

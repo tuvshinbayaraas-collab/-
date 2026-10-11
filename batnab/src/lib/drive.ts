@@ -1,7 +1,7 @@
 // Google Drive storage: each uploader's videos live in a "Batnab" folder in their own Drive,
 // shared as "anyone with the link can view" so the site can embed them.
 import {GoogleAuthProvider, reauthenticateWithPopup} from 'firebase/auth';
-import {auth} from './firebase';
+import {auth, firebaseApiKey} from './firebase';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3';
@@ -129,6 +129,14 @@ export function makePublic(token: string, fileId: string) {
 export function deleteFile(token: string, fileId: string) {
   return driveFetch<void>(token, `${API}/files/${fileId}`, {method: 'DELETE'});
 }
+
+/**
+ * Raw file bytes of a public ("anyone with the link") Drive file, playable in a <video> element with
+ * range requests — unlike the /preview iframe, it can autoplay. Needs the Drive API allowed on the
+ * project's browser API key; callers fall back to the iframe player if it fails.
+ */
+export const driveStreamUrl = (id: string) =>
+  `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(firebaseApiKey)}`;
 
 export const drivePlayerUrl = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const driveThumbUrl = (id: string) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1280`;
