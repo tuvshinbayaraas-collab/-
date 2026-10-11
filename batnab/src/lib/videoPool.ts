@@ -31,10 +31,15 @@ export function warmVideo(driveId: string) {
   }
 }
 
-/** The pre-buffered element for this video if there is one, otherwise a fresh one. */
+/** The pre-buffered element for this video if there is a healthy one, otherwise a fresh one. */
 export function takeVideo(driveId: string): HTMLVideoElement {
   const warm = pool.get(driveId);
   pool.delete(driveId);
+  // One that already failed (e.g. warmed while Drive was still publishing a new upload) is no use.
+  if (warm?.error) {
+    release(warm);
+    return create(driveId, 'auto');
+  }
   return warm ?? create(driveId, 'auto');
 }
 

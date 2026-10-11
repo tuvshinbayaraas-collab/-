@@ -194,6 +194,9 @@ function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soun
   // 'iframe' = Drive's own player (codec this browser can't play); 'missing' = file deleted/unshared.
   const [problem, setProblem] = useState<'iframe' | 'missing' | null>(null);
   const fallback = problem !== null;
+  const retried = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const [buffering, setBuffering] = useState(true);
   const [progress, setProgress] = useState(0);
   const [flash, setFlash] = useState<'play' | 'pause' | null>(null);
@@ -246,6 +249,21 @@ function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soun
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [active]);
+
+  const onStreamError = () => {
+    const v = ref.current;
+    // One more try after a moment (dropped connection, or a new upload Drive is still publishing).
+    if (v && !retried.current) {
+      retried.current = true;
+      setTimeout(() => {
+        if (ref.current !== v) return;
+        v.load();
+        if (activeRef.current) play(v);
+      }, 1500);
+      return;
+    }
+    diagnoseStream(video.driveId).then((p) => setProblem(p === 'missing' ? 'missing' : 'iframe'));
+  };
 
   const tap = () => {
     setFlash(paused ? 'play' : 'pause');
@@ -303,7 +321,7 @@ function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soun
         onWaiting={() => setBuffering(true)}
         onPlaying={() => setBuffering(false)}
         onCanPlay={() => setBuffering(false)}
-        onError={() => diagnoseStream(video.driveId).then((p) => setProblem(p === 'missing' ? 'missing' : 'iframe'))}
+        onError={onStreamError}
         className="h-full w-full cursor-pointer object-cover md:object-contain"
         aria-label={video.title}
       />

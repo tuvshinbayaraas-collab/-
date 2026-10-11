@@ -173,5 +173,13 @@ export async function diagnoseStream(id: string): Promise<StreamProblem | null> 
   }
 }
 
+/** Wait (a few seconds at most) until a just-shared file is readable with the public API key. */
+export async function waitUntilPublic(id: string, tries = 8) {
+  for (let i = 0; i < tries; i++) {
+    if ((await diagnoseStream(id)) !== 'missing') return;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
+
 export const drivePlayerUrl = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const driveThumbUrl = (id: string) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1280`;

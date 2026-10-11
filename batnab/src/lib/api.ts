@@ -12,7 +12,7 @@ import {
   equalTo,
 } from 'firebase/database';
 import {displayName} from './auth';
-import {cachedDriveToken, deleteFile, ensureFolder, getDriveToken, makeNonPublic, makePublic, uploadFile} from './drive';
+import {cachedDriveToken, deleteFile, ensureFolder, getDriveToken, makeNonPublic, makePublic, uploadFile, waitUntilPublic} from './drive';
 import {auth, db} from './firebase';
 import {notifyMany, subscriberUids} from './notifications';
 import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats, Visibility} from './types';
@@ -312,7 +312,11 @@ export const api = {
         (loaded) => onProgress((offset + loaded) / total),
       );
       uploaded.push(driveId);
-      if (input.visibility !== 'private') await makePublic(token, driveId);
+      if (input.visibility !== 'private') {
+        await makePublic(token, driveId);
+        // Sharing can take a moment to reach Drive's public side; wait so the first play streams.
+        await waitUntilPublic(driveId);
+      }
 
       await set(ref(db, `videos/${id}`), {
         uid: user.uid,

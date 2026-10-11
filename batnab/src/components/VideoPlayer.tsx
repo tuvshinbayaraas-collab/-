@@ -19,6 +19,7 @@ interface Props {
 }
 
 const AUTOPLAY_SECONDS = 8;
+const MEDIA_ERRORS: Record<number, string> = {1: 'ABORTED', 2: 'NETWORK', 3: 'DECODE', 4: 'SRC_NOT_SUPPORTED'};
 
 /**
  * Streams the file straight from Drive in a native <video> (fast start, autoplay, speed, resume).
@@ -31,7 +32,12 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
   // 'stream' = our <video>; 'iframe' = Drive's own player; 'missing' = the Drive file is gone or unshared.
   const [mode, setMode] = useState<'stream' | 'iframe' | 'missing'>('stream');
   const fallback = mode !== 'stream';
+  // Why the stream failed (the browser's own error), shown under Drive's player.
+  const [failure, setFailure] = useState('');
+  // Bumped to remount a brand-new <video> for one retry; retryAt keeps the position for it.
+  const [attempt, setAttempt] = useState(0);
   const retried = useRef(false);
+  const retryAt = useRef<number | null>(null);
   const {user} = useUser();
   const isOwner = user?.uid === video.uid;
   const [ended, setEnded] = useState(false);
@@ -41,7 +47,9 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
 
   useEffect(() => {
     setMode('stream');
+    setFailure('');
     retried.current = false;
+    retryAt.current = null;
     setEnded(false);
     setSoundBlocked(false);
     setResumedAt(null);
@@ -56,17 +64,12 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     // message (Drive's player would only say "not found" too); anything else (e.g. a codec this
     // browser lacks) goes to Drive's player, which transcodes.
     let alive = true;
-    const giveUp = async () => {
+    const giveUp = async (detail: string) => {
       const problem = await diagnoseStream(video.driveId);
-      if (alive) setMode(problem === 'missing' ? 'missing' : 'iframe');
+      if (!alive) return;
+      setFailure(detail);
+      setMode(problem === 'missing' ? 'missing' : 'iframe');
     };
-    if (v.error) {
-      void giveUp();
-      return () => {
-        alive = false;
-        releaseVideo(v);
-      };
-    }
     el.current = v;
     v.controls = true;
     v.playsInline = true;
@@ -77,10 +80,12 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
 
     let lastSave = 0;
     const positionStart = () => {
-      const saved = startAt ?? resume.get(video.id);
+      const again = retryAt.current;
+      retryAt.current = null;
+      const saved = again ?? startAt ?? resume.get(video.id);
       if (saved > 0 && (!v.duration || saved < v.duration - 1)) {
         v.currentTime = saved;
-        if (startAt === undefined) setResumedAt(saved);
+        if (again === null && startAt === undefined) setResumedAt(saved);
       }
     };
     const onMeta = () => positionStart();
@@ -98,16 +103,18 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     const onPlay = () => setEnded(false);
     const onPause = () => resume.save(video.id, v.currentTime, v.duration);
     const onError = () => {
-      // A dropped connection deserves one more try before switching players.
-      if (v.error?.code === MediaError.MEDIA_ERR_NETWORK && !retried.current) {
+      const err = v.error;
+      const detail = err ? `${MEDIA_ERRORS[err.code] ?? err.code}${err.message ? ` — ${err.message}` : ''}` : '';
+      console.warn('Batnab: stream failed', video.driveId, detail);
+      // One more try on a brand-new element after a moment: covers a dropped connection and a file
+      // Drive is still finishing publishing right after upload.
+      if (!retried.current) {
         retried.current = true;
-        const at = v.currentTime;
-        v.load();
-        v.currentTime = at;
-        v.play().catch(() => {});
+        retryAt.current = v.currentTime || null;
+        setTimeout(() => alive && setAttempt((a) => a + 1), 1500);
         return;
       }
-      void giveUp();
+      void giveUp(detail);
     };
     const onVolume = () => !v.muted && setSoundBlocked(false);
 
@@ -144,7 +151,7 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     };
     // speed/startAt are applied separately; remounting on them would restart the download
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video.id, video.driveId, fallback]);
+  }, [video.id, video.driveId, fallback, attempt]);
 
   useEffect(() => {
     if (el.current) el.current.playbackRate = speed;
@@ -258,16 +265,38 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
   }
 
   if (fallback) {
+    const tryStream = () => {
+      retried.current = false;
+      setFailure('');
+      setMode('stream');
+    };
     return (
-      <div className="relative aspect-video w-full overflow-hidden bg-black sm:rounded-xl">
-        <iframe
-          key={video.id}
-          src={drivePlayerUrl(video.driveId)}
-          title={video.title}
-          allow="autoplay; fullscreen; encrypted-media"
-          allowFullScreen
-          className="h-full w-full border-0"
-        />
+      <div>
+        <div className="relative aspect-video w-full overflow-hidden bg-black sm:rounded-xl">
+          <iframe
+            key={video.id}
+            src={drivePlayerUrl(video.driveId)}
+            title={video.title}
+            allow="autoplay; fullscreen; encrypted-media"
+            allowFullScreen
+            className="h-full w-full border-0"
+          />
+        </div>
+        {mode === 'iframe' && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-400">
+            <p className="min-w-0 flex-1 break-words">
+              Энэ хөтөч бичлэгийг шууд тоглуулж чадсангүй тул Google Drive-ийн тоглуулагчаар нээлээ (шинэ бичлэгийг
+              Drive хэдэн минут боловсруулдаг).
+              {failure && <span className="text-neutral-500"> Алдаа: {failure}</span>}
+            </p>
+            <button
+              onClick={tryStream}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700"
+            >
+              <RotateCcw size={14} /> Шууд тоглуулж үзэх
+            </button>
+          </div>
+        )}
       </div>
     );
   }
