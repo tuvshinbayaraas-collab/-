@@ -2,6 +2,8 @@ import {Film, ImagePlus, LogIn, Upload as UploadIcon, X} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
+import {compressionSupported, worthCompressing} from '../lib/compressCheck';
+import {getDriveToken} from '../lib/drive';
 import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
 import Avatar from '../components/Avatar';
@@ -15,20 +17,29 @@ interface Picked {
   url: string;
   duration: number;
   vertical: boolean;
+  width: number;
+  height: number;
 }
 
 const SHORT_MAX_SECONDS = 180;
 
 // Grab a frame ~1s in (or 10% for short clips) to use as the default thumbnail.
-function captureFrame(url: string): Promise<{blob: Blob | null; duration: number; vertical: boolean}> {
+type Frame = {blob: Blob | null; duration: number; vertical: boolean; width: number; height: number};
+
+function captureFrame(url: string): Promise<Frame> {
   return new Promise((resolve) => {
     const v = document.createElement('video');
     v.preload = 'auto';
     v.muted = true;
     v.playsInline = true;
     v.src = url;
-    const fail = () =>
-      resolve({blob: null, duration: Number.isFinite(v.duration) ? v.duration : 0, vertical: v.videoHeight > v.videoWidth});
+    const meta = () => ({
+      duration: Number.isFinite(v.duration) ? v.duration : 0,
+      vertical: v.videoHeight > v.videoWidth,
+      width: v.videoWidth,
+      height: v.videoHeight,
+    });
+    const fail = () => resolve({blob: null, ...meta()});
     v.onerror = fail;
     v.onloadedmetadata = () => {
       v.currentTime = Math.min(1, (v.duration || 0) * 0.1);
@@ -41,7 +52,7 @@ function captureFrame(url: string): Promise<{blob: Blob | null; duration: number
         canvas.width = w || 1280;
         canvas.height = h;
         canvas.getContext('2d')!.drawImage(v, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve({blob, duration: v.duration, vertical: v.videoHeight > v.videoWidth}), 'image/jpeg', 0.85);
+        canvas.toBlob((blob) => resolve({blob, ...meta()}), 'image/jpeg', 0.85);
       } catch {
         fail();
       }
@@ -60,6 +71,10 @@ export default function Upload() {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [short, setShort] = useState(false);
+  const [canCompress, setCanCompress] = useState(false);
+  const [compress, setCompress] = useState(false);
+  const [stage, setStage] = useState<'compressing' | 'uploading'>('uploading');
+  const [notice, setNotice] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
 
@@ -80,10 +95,16 @@ export default function Upload() {
       return;
     }
     const url = URL.createObjectURL(file);
-    setPicked({file, url, duration: 0, vertical: false});
+    setPicked({file, url, duration: 0, vertical: false, width: 0, height: 0});
     setTitle((t) => t || file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 120));
     const frame = await captureFrame(url);
-    setPicked((p) => (p?.url === url ? {...p, duration: frame.duration, vertical: frame.vertical} : p));
+    setPicked((p) =>
+      p?.url === url ? {...p, duration: frame.duration, vertical: frame.vertical, width: frame.width, height: frame.height} : p,
+    );
+    // Offer to shrink big/high-bitrate files (checked by default) when this browser can encode.
+    const worth = worthCompressing({...frame, size: file.size}) && (await compressionSupported());
+    setCanCompress(worth);
+    setCompress(worth);
     // Vertical clips up to 3 minutes default to Shorts, like YouTube.
     setShort(frame.vertical && frame.duration > 0 && frame.duration <= SHORT_MAX_SECONDS);
     if (frame.blob) {
@@ -116,10 +137,28 @@ export default function Upload() {
     if (!picked || progress !== null) return;
     if (!title.trim()) return setError('Гарчиг оруулна уу');
     setError('');
+    setNotice('');
     setProgress(0);
     try {
+      // Ask for Drive access first, while the click still counts as a user gesture (popup).
+      await getDriveToken();
+      let file = picked.file;
+      if (canCompress && compress) {
+        setStage('compressing');
+        try {
+          const {compressVideo} = await import('../lib/compress');
+          const smaller = await compressVideo(file, setProgress);
+          // Keep the original if re-encoding didn't actually save much.
+          if (smaller.size < file.size * 0.9) file = smaller;
+        } catch (err) {
+          console.warn('compression failed, uploading the original', err);
+          setNotice('Шахаж чадсангүй — эх файлыг байршуулж байна.');
+        }
+        setProgress(0);
+      }
+      setStage('uploading');
       const id = await api.upload(
-        {file: picked.file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short},
+        {file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short},
         setProgress,
       );
       navigate(canBeShort && short ? `/shorts/${id}` : `/watch?v=${id}`);
@@ -261,6 +300,25 @@ export default function Upload() {
             </span>
           </label>
 
+          {canCompress && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-800 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={compress}
+                disabled={uploading}
+                onChange={(e) => setCompress(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-red-500"
+              />
+              <span className="text-sm">
+                <span className="font-semibold">Хурдан тоглуулахын тулд 720p болгож шахах</span>
+                <span className="block text-neutral-400">
+                  {picked.width && picked.height ? `${Math.min(picked.width, picked.height)}p → 720p. ` : ''}
+                  Файл ихэвчлэн 2–4 дахин жижгэрч, үзэгчдэд гацалтгүй тоглоно. Байршуулахаас өмнө хэдэн минут шаардаж магадгүй.
+                </span>
+              </span>
+            </label>
+          )}
+
           <div>
             <p className="font-semibold">Нүүр зураг</p>
             <p className="mb-3 text-sm text-neutral-400">
@@ -310,11 +368,16 @@ export default function Upload() {
           {uploading ? (
             <div>
               <p className="mb-1 text-sm text-neutral-300">
-                {progress < 1 ? `Байршуулж байна… ${Math.round(progress * 100)}%` : 'Боловсруулж байна…'}
+                {stage === 'compressing'
+                  ? `720p болгож шахаж байна… ${Math.round(progress * 100)}%`
+                  : progress < 1
+                    ? `Байршуулж байна… ${Math.round(progress * 100)}%`
+                    : 'Боловсруулж байна…'}
               </p>
               <div className="h-1.5 w-full max-w-md overflow-hidden rounded-full bg-neutral-800">
                 <div className="h-full bg-red-500 transition-[width]" style={{width: `${progress * 100}%`}} />
               </div>
+              {notice && <p className="mt-1 text-xs text-amber-400">{notice}</p>}
             </div>
           ) : error ? (
             <p className="text-sm text-red-400">{error}</p>
