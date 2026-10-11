@@ -2,7 +2,7 @@ import {FileX, Play, RotateCcw, Trash2, Volume2, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {useUser} from '../lib/auth';
-import {diagnoseStream, drivePlayerUrl, driveThumbUrl} from '../lib/drive';
+import {diagnoseStream, drivePlayerUrl, driveThumbUrl, probeStream} from '../lib/drive';
 import {navigate} from '../lib/router';
 import {formatClock, onSeek, resume} from '../lib/playback';
 import type {Video} from '../lib/types';
@@ -65,9 +65,10 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     // browser lacks) goes to Drive's player, which transcodes.
     let alive = true;
     const giveUp = async (detail: string) => {
-      const problem = await diagnoseStream(video.driveId);
+      const [problem, probe] = await Promise.all([diagnoseStream(video.driveId), probeStream(video.driveId)]);
       if (!alive) return;
-      setFailure(detail);
+      const kind = (navigator as Navigator & {connection?: {type?: string; effectiveType?: string}}).connection;
+      setFailure([detail, probe, kind?.type ?? kind?.effectiveType].filter(Boolean).join(' · '));
       setMode(problem === 'missing' ? 'missing' : 'iframe');
     };
     el.current = v;
@@ -287,7 +288,7 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
             <p className="min-w-0 flex-1 break-words">
               Энэ хөтөч бичлэгийг шууд тоглуулж чадсангүй тул Google Drive-ийн тоглуулагчаар нээлээ (шинэ бичлэгийг
               Drive хэдэн минут боловсруулдаг).
-              {failure && <span className="text-neutral-500"> Алдаа: {failure}</span>}
+              {failure && <span className="select-all text-neutral-500"> Алдаа: {failure}</span>}
             </p>
             <button
               onClick={tryStream}

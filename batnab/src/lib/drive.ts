@@ -173,6 +173,28 @@ export async function diagnoseStream(id: string): Promise<StreamProblem | null> 
   }
 }
 
+/**
+ * What this browser actually gets when it asks Drive for the first bytes of the stream, e.g.
+ * "Drive 206" or "Drive 403 rateLimitExceeded" — shown with the error so a failure can be explained.
+ */
+export async function probeStream(id: string): Promise<string> {
+  try {
+    const res = await fetch(driveStreamUrl(id), {headers: {Range: 'bytes=0-1'}, cache: 'no-store'});
+    if (res.ok) return `Drive ${res.status}`;
+    const body = await res.text();
+    let reason = '';
+    try {
+      const json = JSON.parse(body);
+      reason = json.error?.errors?.[0]?.reason ?? json.error?.message ?? '';
+    } catch {
+      reason = /<html/i.test(body) ? 'HTML' : body.slice(0, 60);
+    }
+    return `Drive ${res.status}${reason ? ` ${reason}` : ''}`;
+  } catch (e) {
+    return `Drive: ${(e as Error).message || 'сүлжээ'}`;
+  }
+}
+
 /** Wait (a few seconds at most) until a just-shared file is readable with the public API key. */
 export async function waitUntilPublic(id: string, tries = 8) {
   for (let i = 0; i < tries; i++) {
