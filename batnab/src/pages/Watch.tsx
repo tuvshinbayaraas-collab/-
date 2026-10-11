@@ -1,4 +1,4 @@
-import {Bookmark, Check, ChevronDown, ChevronUp, Flag, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {Bookmark, ChevronDown, ChevronUp, Flag, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Comments from '../components/Comments';
@@ -10,6 +10,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import {VisibilityBadge} from '../components/Visibility';
 import PlaylistPanel from '../components/PlaylistPanel';
 import ReportDialog from '../components/ReportDialog';
+import ShareDialog from '../components/ShareDialog';
 import SaveToPlaylist from '../components/SaveToPlaylist';
 import {signIn, useUser} from '../lib/auth';
 import {loadPlaylist, playHref} from '../lib/library';
@@ -100,7 +101,7 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
         )}
 
         <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3 lg:shrink-0">
             <Link href={`/channel/${video.uid}`} className="flex min-w-0 flex-1 items-center gap-3 lg:flex-initial">
               <Avatar name={video.channel} photo={video.channelPhoto} size={40} />
               <div className="min-w-0">
@@ -110,7 +111,7 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
             </Link>
             <SubscribeButton channel={{uid: video.uid, name: video.channel, photo: video.channelPhoto}} onCount={setSubs} />
           </div>
-          <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&>*]:shrink-0">
+          <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&>*]:shrink-0">
             {isOwner && (
               <button
                 onClick={() => setEditing(true)}
@@ -120,7 +121,7 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
               </button>
             )}
             <Reactions key={video.id} videoId={video.id} />
-            <ShareButton />
+            <ShareButton video={video} />
             <button
               onClick={() => (user ? setSaving(true) : signIn())}
               className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
@@ -242,25 +243,29 @@ function Reactions({videoId}: {videoId: string}) {
   );
 }
 
-function ShareButton() {
-  const [copied, setCopied] = useState(false);
-  const share = async () => {
-    try {
-      await navigator.clipboard.writeText(location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      prompt('Холбоосыг хуулна уу:', location.href);
-    }
-  };
+function ShareButton({video}: {video: Video}) {
+  const [open, setOpen] = useState(false);
+  const [time, setTime] = useState(0);
   return (
-    <button
-      onClick={share}
-      className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
-    >
-      {copied ? <Check size={18} /> : <Share2 size={18} />}
-      {copied ? 'Хуулагдлаа' : 'Хуваалцах'}
-    </button>
+    <>
+      <button
+        onClick={() => {
+          setTime(document.querySelector<HTMLVideoElement>('main video')?.currentTime ?? 0);
+          setOpen(true);
+        }}
+        className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
+      >
+        <Share2 size={18} /> Хуваалцах
+      </button>
+      {open && (
+        <ShareDialog
+          url={`${location.origin}/watch?v=${video.id}`}
+          title={video.title}
+          currentTime={time}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
-import {Check, Lock, Pencil, Play, Share2, Shuffle, Trash2, X} from 'lucide-react';
+import {Lock, Pencil, Play, Share2, Shuffle, Trash2, X} from 'lucide-react';
 import {useState} from 'react';
 import Avatar from '../components/Avatar';
+import ShareDialog from '../components/ShareDialog';
 import Thumbnail from '../components/Thumbnail';
 import {EmptyState} from '../components/VideoCard';
 import {VisibilityBadge, VisibilityPicker} from '../components/Visibility';
@@ -18,7 +19,7 @@ export default function PlaylistPage({list}: {list: string}) {
   const {data, error, loading} = useAsync(() => (ready ? loadPlaylist(list) : new Promise<LoadedPlaylist>(() => {})), [list, ready, user?.uid, version]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   if (loading) return <p className="text-neutral-400">Ачаалж байна…</p>;
   if (error || !data) return <EmptyState title={error || 'Жагсаалт олдсонгүй'} />;
@@ -38,16 +39,7 @@ export default function PlaylistPage({list}: {list: string}) {
     }
   };
 
-  const share = async () => {
-    const url = `${location.origin}/playlist?list=${encodeURIComponent(list)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      prompt('Холбоосыг хуулна уу:', url);
-    }
-  };
+  const share = () => setSharing(true);
 
   const shuffle = () => {
     const pick = videos[Math.floor(Math.random() * videos.length)];
@@ -105,7 +97,7 @@ export default function PlaylistPage({list}: {list: string}) {
         <div className="mt-3 flex flex-wrap gap-2">
           {!data.isWatchLater && data.visibility !== 'private' && (
             <button onClick={share} className="flex items-center gap-2 rounded-full bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-              {copied ? <Check size={16} /> : <Share2 size={16} />} {copied ? 'Хуулагдлаа' : 'Хуваалцах'}
+              <Share2 size={16} /> Хуваалцах
             </button>
           )}
           {isOwner && data.playlist && (
@@ -149,6 +141,13 @@ export default function PlaylistPage({list}: {list: string}) {
         ))}
       </ol>
 
+      {sharing && (
+        <ShareDialog
+          url={`${location.origin}/playlist?list=${encodeURIComponent(list)}`}
+          title={data.title}
+          onClose={() => setSharing(false)}
+        />
+      )}
       {editing && data.playlist && (
         <EditPlaylist
           title={data.title}

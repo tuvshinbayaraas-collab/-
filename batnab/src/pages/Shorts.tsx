@@ -2,6 +2,7 @@ import {ChevronDown, ChevronUp, Flag, MessageSquare, Pause, Play, Share2, Thumbs
 import {useEffect, useMemo, useRef, useState, type PointerEvent} from 'react';
 import Avatar from '../components/Avatar';
 import ReportDialog from '../components/ReportDialog';
+import ShareDialog from '../components/ShareDialog';
 import {ShortsLogo} from '../components/ShortCard';
 import SubscribeButton from '../components/SubscribeButton';
 import {EmptyState} from '../components/VideoCard';
@@ -346,18 +347,8 @@ function ShortActions({video}: {video: Video}) {
   const comments = useAsync(() => api.commentCount(video.id), [video.id]);
   const {user} = useUser();
   const [reporting, setReporting] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const share = async () => {
-    const url = `${location.origin}/shorts/${video.id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      prompt('Холбоосыг хуулна уу:', url);
-    }
-  };
+  const [sharing, setSharing] = useState(false);
+  const share = () => setSharing(true);
 
   const btn = 'flex h-12 w-12 items-center justify-center rounded-full bg-neutral-800/80 hover:bg-neutral-700 md:bg-neutral-800';
   return (
@@ -390,12 +381,13 @@ function ShortActions({video}: {video: Video}) {
         <button onClick={share} className={btn} title="Хуваалцах">
           <Share2 size={22} />
         </button>
-        {copied ? 'Хуулагдлаа' : 'Хуваалцах'}
+        Хуваалцах
       </div>
       <ShortsLogo size={26} />
       {reporting && (
         <ReportDialog target={{type: 'video', videoId: video.id, videoTitle: video.title}} onClose={() => setReporting(false)} />
       )}
+      {sharing && <ShareDialog url={`${location.origin}/shorts/${video.id}`} title={video.title} onClose={() => setSharing(false)} />}
     </div>
   );
 }
