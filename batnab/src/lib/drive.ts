@@ -126,6 +126,16 @@ export function makePublic(token: string, fileId: string) {
   });
 }
 
+/** Undo makePublic: only the owner (and people they shared with in Drive) can open the file. */
+export async function makeNonPublic(token: string, fileId: string) {
+  try {
+    await driveFetch<void>(token, `${API}/files/${fileId}/permissions/anyoneWithLink`, {method: 'DELETE'});
+  } catch (e) {
+    // Already not public — nothing to undo.
+    if (!(e instanceof DriveError && /\(404/.test(e.message))) throw e;
+  }
+}
+
 export function deleteFile(token: string, fileId: string) {
   return driveFetch<void>(token, `${API}/files/${fileId}`, {method: 'DELETE'});
 }

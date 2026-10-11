@@ -1,11 +1,14 @@
-import {Check, ChevronDown, ChevronUp, Gauge, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {Check, ChevronDown, ChevronUp, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Comments from '../components/Comments';
 import RichText from '../components/RichText';
 import SubscribeButton, {subscriberLabel} from '../components/SubscribeButton';
 import {EmptyState, VideoCard, VideoRow, videoHref} from '../components/VideoCard';
+import EditVideoModal from '../components/EditVideoModal';
 import VideoPlayer from '../components/VideoPlayer';
+import {VisibilityBadge} from '../components/Visibility';
+import {useUser} from '../lib/auth';
 import {api} from '../lib/api';
 import {formatCount, formatViews, timeAgo} from '../lib/format';
 import {prefs, SPEEDS} from '../lib/playback';
@@ -25,6 +28,8 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
   const [commentsOpen, setCommentsOpen] = useState(!!highlight);
   const [speed, setSpeed] = useState(prefs.speed);
   const [autoplayNext, setAutoplayNext] = useState(prefs.autoplay);
+  const [editing, setEditing] = useState(false);
+  const {user, ready} = useUser();
 
   useEffect(() => setVideo(data ?? null), [data]);
   useEffect(() => {
@@ -50,6 +55,17 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
   if (loading)
     return <div className="-mx-4 -mt-4 aspect-video animate-pulse bg-neutral-800 sm:mx-0 sm:mt-0 sm:max-w-5xl sm:rounded-xl" />;
   if (error || !video) return <EmptyState title="Бичлэг олдсонгүй">{error}</EmptyState>;
+  const isOwner = user?.uid === video.uid;
+  if (video.visibility === 'private' && !isOwner) {
+    if (!ready) return null;
+    return (
+      <EmptyState title="Энэ бичлэг хувийн байна">
+        <span className="inline-flex items-center gap-2">
+          <Lock size={16} /> Зөвхөн бичлэгийн эзэн үзэх боломжтой.
+        </span>
+      </EmptyState>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-[1700px] flex-col gap-6 xl:flex-row">
@@ -66,6 +82,11 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
           />
         </div>
         <h1 className="mt-3 break-words text-lg font-bold leading-snug sm:text-xl">{video.title}</h1>
+        {video.visibility && video.visibility !== 'public' && (
+          <div className="mt-1">
+            <VisibilityBadge value={video.visibility} />
+          </div>
+        )}
 
         <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -79,6 +100,14 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
             <SubscribeButton channel={{uid: video.uid, name: video.channel, photo: video.channelPhoto}} onCount={setSubs} />
           </div>
           <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&>*]:shrink-0">
+            {isOwner && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
+              >
+                <Pencil size={16} /> Засах
+              </button>
+            )}
             <Reactions key={video.id} videoId={video.id} />
             <ShareButton />
             <label className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-800 pl-3 pr-1 text-sm font-medium hover:bg-neutral-700" title="Тоглуулах хурд">
@@ -150,6 +179,7 @@ export default function Watch({id, highlight, startAt}: {id: string; highlight?:
           ))}
         </div>
       </aside>
+      {editing && <EditVideoModal video={video} onClose={() => setEditing(false)} onSaved={setVideo} />}
     </div>
   );
 }

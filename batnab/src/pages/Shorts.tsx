@@ -5,6 +5,7 @@ import {ShortsLogo} from '../components/ShortCard';
 import SubscribeButton from '../components/SubscribeButton';
 import {EmptyState} from '../components/VideoCard';
 import {api} from '../lib/api';
+import {auth} from '../lib/firebase';
 import {drivePlayerUrl, driveStreamUrl, driveThumbUrl} from '../lib/drive';
 import {formatViews} from '../lib/format';
 import {Link} from '../lib/router';
@@ -14,7 +15,15 @@ import {useAsync} from '../lib/useAsync';
 import {useReactions} from '../lib/useReactions';
 
 export default function Shorts({startId}: {startId?: string}) {
-  const {data, loading, error} = useAsync(() => api.shorts(), []);
+  const {data, loading, error} = useAsync(async () => {
+    const list = await api.shorts();
+    // An unlisted short opened by its link isn't in the public feed; show it first anyway.
+    if (startId && !list.some((v) => v.id === startId)) {
+      const v = await api.get(startId).catch(() => null);
+      if (v?.short && (v.visibility !== 'private' || v.uid === auth.currentUser?.uid)) list.unshift(v);
+    }
+    return list;
+  }, [startId]);
   const [active, setActive] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   // Browsers only allow autoplay with sound after the visitor has interacted with the site;

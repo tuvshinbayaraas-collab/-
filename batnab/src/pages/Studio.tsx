@@ -1,13 +1,15 @@
-import {ArrowDown, ArrowUp, ChevronDown, ChevronUp, Minus} from 'lucide-react';
+import {ArrowDown, ArrowUp, ChevronDown, ChevronUp, Minus, Pencil} from 'lucide-react';
 import {useMemo, useState, type ReactNode} from 'react';
 import {ShortsLogo} from '../components/ShortCard';
+import EditVideoModal from '../components/EditVideoModal';
 import Thumbnail from '../components/Thumbnail';
+import {VisibilityBadge} from '../components/Visibility';
 import {EmptyState} from '../components/VideoCard';
 import {api, dayKey} from '../lib/api';
 import {signIn, useUser} from '../lib/auth';
 import {formatViews} from '../lib/format';
 import {Link} from '../lib/router';
-import type {VideoStats} from '../lib/types';
+import type {Video, VideoStats} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 
 const DAYS = 28;
@@ -237,7 +239,9 @@ function niceMax(n: number) {
 
 type SortKey = 'date' | 'views' | 'last28' | 'likes' | 'dislikes' | 'comments';
 
-function VideoTable({rows}: {rows: VideoStats[]}) {
+function VideoTable({rows: initial}: {rows: VideoStats[]}) {
+  const [rows, setRows] = useState(initial);
+  const [editing, setEditing] = useState<Video | null>(null);
   const [sort, setSort] = useState<{key: SortKey; desc: boolean}>({key: 'date', desc: true});
   const recentKeys = useMemo(() => Array.from({length: DAYS}, (_, i) => dayKey(dayDate(i))), []);
 
@@ -294,13 +298,22 @@ function VideoTable({rows}: {rows: VideoStats[]}) {
                     <Thumbnail video={r.video} className="w-24 shrink-0 rounded-md" />
                     <span className="min-w-0">
                       <span className="line-clamp-2 font-medium">{r.video.title}</span>
-                      {r.video.short && (
-                        <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-neutral-400">
-                          <ShortsLogo size={12} /> Shorts
-                        </span>
-                      )}
+                      <span className="mt-0.5 flex flex-wrap items-center gap-2">
+                        {r.video.short && (
+                          <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
+                            <ShortsLogo size={12} /> Shorts
+                          </span>
+                        )}
+                        <VisibilityBadge value={r.video.visibility} />
+                      </span>
                     </span>
                   </Link>
+                  <button
+                    onClick={() => setEditing(r.video)}
+                    className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+                  >
+                    <Pencil size={12} /> Засах
+                  </button>
                 </td>
                 <td className="px-3 py-2 text-right text-neutral-300">{new Date(r.video.createdAt).toLocaleDateString('mn-MN')}</td>
                 {(['views', 'last28', 'likes', 'dislikes', 'comments'] as const).map((k) => (
@@ -313,6 +326,13 @@ function VideoTable({rows}: {rows: VideoStats[]}) {
           </tbody>
         </table>
       </div>
+      {editing && (
+        <EditVideoModal
+          video={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(v) => setRows((list) => list.map((r) => (r.video.id === v.id ? {...r, video: v} : r)))}
+        />
+      )}
     </section>
   );
 }

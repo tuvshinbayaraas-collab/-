@@ -33,12 +33,16 @@ export interface Video {
   duration: number;
   /** Vertical clip shown in the Shorts feed. */
   short?: boolean;
+  /** Missing means public. Unlisted: only people with the link. Private: only the owner. */
+  visibility?: Visibility;
   pinnedComment?: string;
   views: number;
   createdAt: number;
 }
 
 export type Reaction = 'like' | 'dislike' | null;
+
+export type Visibility = 'public' | 'unlisted' | 'private';
 
 export interface Subscription {
   uid: string;

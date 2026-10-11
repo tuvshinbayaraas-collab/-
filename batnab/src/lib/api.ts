@@ -12,10 +12,10 @@ import {
   equalTo,
 } from 'firebase/database';
 import {displayName} from './auth';
-import {deleteFile, ensureFolder, getDriveToken, makePublic, uploadFile} from './drive';
+import {deleteFile, ensureFolder, getDriveToken, makeNonPublic, makePublic, uploadFile} from './drive';
 import {auth, db} from './firebase';
 import {notifyMany, subscriberUids} from './notifications';
-import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats} from './types';
+import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats, Visibility} from './types';
 
 const VIDEO_TYPES: Record<string, string> = {
   mp4: 'video/mp4',
@@ -50,9 +50,12 @@ function requireUser() {
   return user;
 }
 
+/** Shown in feeds, search and suggestions (unlisted/private videos are reachable only by link / owner). */
+export const isPublic = (v: Video) => !v.visibility || v.visibility === 'public';
+
 async function listAll(): Promise<Video[]> {
   const snap = await get(query(ref(db, 'videos'), orderByChild('createdAt'), limitToLast(500)));
-  return rows<Video>(snap).reverse();
+  return rows<Video>(snap).reverse().filter(isPublic);
 }
 
 export const api = {
@@ -66,14 +69,22 @@ export const api = {
     });
   },
 
+  /** A channel's videos: everything for its owner, only public ones for everybody else. */
   byChannel: async (uid: string) => {
     const snap = await get(query(ref(db, 'videos'), orderByChild('uid'), equalTo(uid)));
-    return rows<Video>(snap).sort((a, b) => b.createdAt - a.createdAt);
+    const mine = auth.currentUser?.uid === uid;
+    return rows<Video>(snap)
+      .filter((v) => mine || isPublic(v))
+      .sort((a, b) => b.createdAt - a.createdAt);
   },
 
   byIds: async (ids: string[]) => {
     const snaps = await Promise.all(ids.map((id) => get(ref(db, `videos/${id}`))));
-    return snaps.filter((s) => s.exists()).map((s) => ({...s.val(), id: s.key}) as Video);
+    const me = auth.currentUser?.uid;
+    return snaps
+      .filter((s) => s.exists())
+      .map((s) => ({...s.val(), id: s.key}) as Video)
+      .filter((v) => v.visibility !== 'private' || v.uid === me);
   },
 
   get: async (id: string) => {
@@ -258,7 +269,15 @@ export const api = {
   pinComment: (videoId: string, commentId: string | null) => set(ref(db, `videos/${videoId}/pinnedComment`), commentId),
 
   upload: async (
-    input: {file: File; thumbnail: Blob | null; title: string; description: string; duration: number; short: boolean},
+    input: {
+      file: File;
+      thumbnail: Blob | null;
+      title: string;
+      description: string;
+      duration: number;
+      short: boolean;
+      visibility: Visibility;
+    },
     onProgress: (fraction: number) => void,
   ) => {
     // First await: the Drive consent popup must open while the click is still "fresh".
@@ -282,7 +301,7 @@ export const api = {
           (loaded) => onProgress(loaded / total),
         );
         uploaded.push(thumbDriveId);
-        await makePublic(token, thumbDriveId);
+        if (input.visibility !== 'private') await makePublic(token, thumbDriveId);
       }
 
       const offset = input.thumbnail?.size ?? 0;
@@ -293,7 +312,7 @@ export const api = {
         (loaded) => onProgress((offset + loaded) / total),
       );
       uploaded.push(driveId);
-      await makePublic(token, driveId);
+      if (input.visibility !== 'private') await makePublic(token, driveId);
 
       await set(ref(db, `videos/${id}`), {
         uid: user.uid,
@@ -305,26 +324,74 @@ export const api = {
         ...(thumbDriveId ? {thumbDriveId} : {}),
         duration: Math.max(0, Math.round(input.duration || 0)),
         ...(input.short ? {short: true} : {}),
+        ...(input.visibility !== 'public' ? {visibility: input.visibility} : {}),
         views: 0,
         createdAt: serverTimestamp(),
       });
       // Tell subscribers in the background; publishing doesn't wait on it.
-      subscriberUids(user.uid)
-        .then((uids) =>
-          notifyMany(uids, {
-            type: 'newVideo',
-            videoId: id,
-            videoTitle: safeTitle,
-            thumbId: thumbDriveId ?? driveId,
-            ...(input.short ? {short: true} : {}),
-          }),
-        )
-        .catch(() => {});
+      if (input.visibility === 'public') {
+        subscriberUids(user.uid)
+          .then((uids) =>
+            notifyMany(uids, {
+              type: 'newVideo',
+              videoId: id,
+              videoTitle: safeTitle,
+              thumbId: thumbDriveId ?? driveId,
+              ...(input.short ? {short: true} : {}),
+            }),
+          )
+          .catch(() => {});
+      }
       return id;
     } catch (e) {
       await Promise.all(uploaded.map((f) => deleteFile(token, f).catch(() => {})));
       throw e;
     }
+  },
+
+  /**
+   * Owner edits. Visibility changes also flip the Drive files' "anyone with the link" sharing,
+   * and a new thumbnail replaces the old one in the owner's Drive.
+   */
+  updateVideo: async (
+    video: Video,
+    changes: {title: string; description: string; visibility: Visibility; thumbnail?: Blob | null},
+  ) => {
+    const was = video.visibility ?? 'public';
+    const needsDrive = (was === 'private') !== (changes.visibility === 'private') || !!changes.thumbnail;
+    // First await (when Drive is involved): consent popup must still be tied to the click.
+    const token = needsDrive ? await getDriveToken() : '';
+    const patch: Record<string, unknown> = {
+      title: changes.title.trim().slice(0, 120),
+      description: changes.description.trim().slice(0, 5000),
+      visibility: changes.visibility === 'public' ? null : changes.visibility,
+    };
+
+    let oldThumb: string | undefined;
+    if (changes.thumbnail) {
+      const folderId = await ensureFolder(token);
+      const thumbDriveId = await uploadFile(
+        token,
+        changes.thumbnail,
+        {name: `${patch.title} (нүүр зураг).jpg`, mimeType: changes.thumbnail.type || 'image/jpeg', folderId},
+        () => {},
+      );
+      if (changes.visibility !== 'private') await makePublic(token, thumbDriveId);
+      patch.thumbDriveId = thumbDriveId;
+      oldThumb = video.thumbDriveId;
+    }
+
+    if (was === 'private' && changes.visibility !== 'private') {
+      await Promise.all([video.driveId, video.thumbDriveId].filter(Boolean).map((f) => makePublic(token, f!)));
+    } else if (was !== 'private' && changes.visibility === 'private') {
+      await Promise.all([video.driveId, video.thumbDriveId].filter(Boolean).map((f) => makeNonPublic(token, f!)));
+    }
+
+    await update(ref(db, `videos/${video.id}`), patch);
+    if (oldThumb) deleteFile(token, oldThumb).catch(() => {});
+    const next: Video = {...video, ...(patch as Partial<Video>)};
+    if (changes.visibility === 'public') delete next.visibility;
+    return next;
   },
 
   /** Removes the video from Batnab; returns false if the Drive files could not be deleted too. */

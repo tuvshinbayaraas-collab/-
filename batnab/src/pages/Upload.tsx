@@ -8,6 +8,8 @@ import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
 import Avatar from '../components/Avatar';
 import {ShortsLogo} from '../components/ShortCard';
+import {VisibilityPicker} from '../components/Visibility';
+import type {Visibility} from '../lib/types';
 
 const MAX_MB = 10 * 1024;
 const VIDEO_EXT = /\.(mp4|m4v|webm|mov|mkv|ogv|avi|3gp)$/i;
@@ -71,6 +73,7 @@ export default function Upload() {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [short, setShort] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>('public');
   const [canCompress, setCanCompress] = useState(false);
   const [compress, setCompress] = useState(false);
   const [stage, setStage] = useState<'compressing' | 'uploading'>('uploading');
@@ -158,7 +161,7 @@ export default function Upload() {
       }
       setStage('uploading');
       const id = await api.upload(
-        {file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short},
+        {file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short, visibility},
         setProgress,
       );
       navigate(canBeShort && short ? `/shorts/${id}` : `/watch?v=${id}`);
@@ -299,6 +302,8 @@ export default function Upload() {
               </span>
             </span>
           </label>
+
+          <VisibilityPicker value={visibility} onChange={setVisibility} disabled={uploading} />
 
           {canCompress && (
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-800 px-3 py-3">

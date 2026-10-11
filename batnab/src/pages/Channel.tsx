@@ -1,6 +1,8 @@
-import {Trash2} from 'lucide-react';
+import {Pencil, Trash2} from 'lucide-react';
 import {useState} from 'react';
+import EditVideoModal from '../components/EditVideoModal';
 import ShortCard from '../components/ShortCard';
+import {VisibilityBadge} from '../components/Visibility';
 import SubscribeButton, {subscriberLabel} from '../components/SubscribeButton';
 import Avatar from '../components/Avatar';
 import {EmptyState, VideoCard} from '../components/VideoCard';
@@ -14,10 +16,12 @@ import {useAsync} from '../lib/useAsync';
 export default function Channel({uid}: {uid: string}) {
   const {user} = useUser();
   const [removed, setRemoved] = useState<string[]>([]);
+  const [edited, setEdited] = useState<Record<string, Video>>({});
+  const [editing, setEditing] = useState<Video | null>(null);
   const [tab, setTab] = useState<'videos' | 'shorts'>('videos');
   const [subs, setSubs] = useState<number | null>(null);
   const {data, error, loading} = useAsync(() => api.byChannel(uid), [uid]);
-  const videos = (data ?? []).filter((v) => !removed.includes(v.id));
+  const videos = (data ?? []).filter((v) => !removed.includes(v.id)).map((v) => edited[v.id] ?? v);
   const isMine = user?.uid === uid;
   const name = isMine ? displayName(user) : (data?.[0]?.channel ?? 'Суваг');
   const photo = isMine ? user.photoURL : data?.[0]?.channelPhoto;
@@ -92,18 +96,36 @@ export default function Channel({uid}: {uid: string}) {
             <div key={v.id} className="relative">
               {tab === 'shorts' ? <ShortCard video={v} /> : <VideoCard video={v} />}
               {isMine && (
-                <button
-                  onClick={() => remove(v)}
-                  className="absolute right-2 top-2 rounded-full bg-black/75 p-2 text-neutral-200 hover:bg-red-600"
-                  aria-label="Устгах"
-                  title="Устгах"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <>
+                  <div className="absolute left-2 top-2">
+                    <VisibilityBadge value={v.visibility} />
+                  </div>
+                  <div className="absolute right-2 top-2 flex gap-1.5">
+                    <button
+                      onClick={() => setEditing(v)}
+                      className="rounded-full bg-black/75 p-2 text-neutral-200 hover:bg-neutral-700"
+                      aria-label="Засах"
+                      title="Засах"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => remove(v)}
+                      className="rounded-full bg-black/75 p-2 text-neutral-200 hover:bg-red-600"
+                      aria-label="Устгах"
+                      title="Устгах"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ))}
         </div>
+      )}
+      {editing && (
+        <EditVideoModal video={editing} onClose={() => setEditing(null)} onSaved={(v) => setEdited((e) => ({...e, [v.id]: v}))} />
       )}
     </div>
   );
