@@ -1,6 +1,9 @@
-import {Play, RotateCcw, Volume2, X} from 'lucide-react';
+import {FileX, Play, RotateCcw, Trash2, Volume2, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
-import {drivePlayerUrl, driveThumbUrl} from '../lib/drive';
+import {api, errorMessage} from '../lib/api';
+import {useUser} from '../lib/auth';
+import {diagnoseStream, drivePlayerUrl, driveThumbUrl} from '../lib/drive';
+import {navigate} from '../lib/router';
 import {formatClock, onSeek, resume} from '../lib/playback';
 import type {Video} from '../lib/types';
 import {releaseVideo, takeVideo} from '../lib/videoPool';
@@ -25,14 +28,20 @@ const AUTOPLAY_SECONDS = 8;
 export default function VideoPlayer({video, startAt, speed, next, autoplayNext, onPlayNext}: Props) {
   const box = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLVideoElement | null>(null);
-  const [fallback, setFallback] = useState(false);
+  // 'stream' = our <video>; 'iframe' = Drive's own player; 'missing' = the Drive file is gone or unshared.
+  const [mode, setMode] = useState<'stream' | 'iframe' | 'missing'>('stream');
+  const fallback = mode !== 'stream';
+  const retried = useRef(false);
+  const {user} = useUser();
+  const isOwner = user?.uid === video.uid;
   const [ended, setEnded] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
-    setFallback(false);
+    setMode('stream');
+    retried.current = false;
     setEnded(false);
     setSoundBlocked(false);
     setResumedAt(null);
@@ -43,9 +52,20 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     const container = box.current;
     if (!container || fallback) return;
     const v = takeVideo(video.driveId);
+    // Decide what to show instead when the stream can't play: a deleted/unshared file gets a clear
+    // message (Drive's player would only say "not found" too); anything else (e.g. a codec this
+    // browser lacks) goes to Drive's player, which transcodes.
+    let alive = true;
+    const giveUp = async () => {
+      const problem = await diagnoseStream(video.driveId);
+      if (alive) setMode(problem === 'missing' ? 'missing' : 'iframe');
+    };
     if (v.error) {
-      setFallback(true);
-      return;
+      void giveUp();
+      return () => {
+        alive = false;
+        releaseVideo(v);
+      };
     }
     el.current = v;
     v.controls = true;
@@ -77,7 +97,18 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     };
     const onPlay = () => setEnded(false);
     const onPause = () => resume.save(video.id, v.currentTime, v.duration);
-    const onError = () => setFallback(true);
+    const onError = () => {
+      // A dropped connection deserves one more try before switching players.
+      if (v.error?.code === MediaError.MEDIA_ERR_NETWORK && !retried.current) {
+        retried.current = true;
+        const at = v.currentTime;
+        v.load();
+        v.currentTime = at;
+        v.play().catch(() => {});
+        return;
+      }
+      void giveUp();
+    };
     const onVolume = () => !v.muted && setSoundBlocked(false);
 
     v.addEventListener('loadedmetadata', onMeta);
@@ -98,6 +129,7 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     });
 
     return () => {
+      alive = false;
       resume.save(video.id, v.currentTime, v.duration);
       v.removeEventListener('loadedmetadata', onMeta);
       v.removeEventListener('timeupdate', onTime);
@@ -191,6 +223,39 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
   useEffect(() => {
     if (countdown === 0) onPlayNext();
   }, [countdown, onPlayNext]);
+
+  // A private video's file is deliberately not public, so it looks "missing" to the API key; its owner
+  // can still watch it in Drive's player, which uses their own Google sign-in.
+  if (mode === 'missing' && !(isOwner && video.visibility === 'private')) {
+    return (
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-neutral-900 p-6 text-center sm:rounded-xl">
+        <FileX size={44} className="text-neutral-500" />
+        <p className="font-semibold">Бичлэгийн файл олдсонгүй</p>
+        <p className="max-w-md text-sm text-neutral-400">
+          {isOwner
+            ? 'Энэ бичлэгийн файл таны Google Drive-аас устсан эсвэл нийтэд хаагдсан байна. Файлаа дахин оруулах эсвэл энэ бичлэгийг Batnab-аас устгана уу.'
+            : 'Бичлэгийн эзэн файлаа Google Drive-аасаа устгасан эсвэл хаасан байна.'}
+        </p>
+        {isOwner && (
+          <button
+            onClick={async () => {
+              if (!confirm(`«${video.title}» бичлэгийг Batnab-аас устгах уу?`)) return;
+              try {
+                // The video file is already gone, so don't pop up a Drive permission prompt just to tidy up.
+                await api.remove(video, {askForDrive: false});
+                navigate('/');
+              } catch (e) {
+                alert(errorMessage(e));
+              }
+            }}
+            className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500"
+          >
+            <Trash2 size={16} /> Batnab-аас устгах
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (fallback) {
     return (

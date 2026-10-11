@@ -1,4 +1,4 @@
-import {ChevronDown, ChevronUp, Flag, MessageSquare, Pause, Play, Share2, ThumbsDown, ThumbsUp, Volume2, VolumeX} from 'lucide-react';
+import {ChevronDown, ChevronUp, FileX, Flag, MessageSquare, Pause, Play, Share2, ThumbsDown, ThumbsUp, Volume2, VolumeX} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState, type PointerEvent} from 'react';
 import Avatar from '../components/Avatar';
 import ReportDialog from '../components/ReportDialog';
@@ -9,7 +9,7 @@ import {EmptyState} from '../components/VideoCard';
 import {api} from '../lib/api';
 import {signIn, useUser} from '../lib/auth';
 import {auth} from '../lib/firebase';
-import {drivePlayerUrl, driveStreamUrl, driveThumbUrl} from '../lib/drive';
+import {diagnoseStream, drivePlayerUrl, driveStreamUrl, driveThumbUrl} from '../lib/drive';
 import {formatViews} from '../lib/format';
 import {Link} from '../lib/router';
 import {history as watchHistory} from '../lib/storage';
@@ -191,7 +191,9 @@ function ShortItem(props: ItemProps) {
  */
 function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soundBlocked, onToggleMute, onSoundBlocked}: ItemProps) {
   const ref = useRef<HTMLVideoElement>(null);
-  const [fallback, setFallback] = useState(false);
+  // 'iframe' = Drive's own player (codec this browser can't play); 'missing' = file deleted/unshared.
+  const [problem, setProblem] = useState<'iframe' | 'missing' | null>(null);
+  const fallback = problem !== null;
   const [buffering, setBuffering] = useState(true);
   const [progress, setProgress] = useState(0);
   const [flash, setFlash] = useState<'play' | 'pause' | null>(null);
@@ -260,6 +262,17 @@ function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soun
     setProgress(f);
   };
 
+  // The owner of a private Short can still watch it in Drive's player (see VideoPlayer).
+  if (problem === 'missing' && !(video.visibility === 'private' && video.uid === auth.currentUser?.uid)) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-neutral-900 p-6 text-center">
+        <FileX size={40} className="text-neutral-500" />
+        <p className="font-semibold">Бичлэгийн файл олдсонгүй</p>
+        <p className="text-sm text-neutral-400">Эзэн нь файлаа Google Drive-аас устгасан эсвэл хаасан байна.</p>
+      </div>
+    );
+  }
+
   if (fallback) {
     return active ? (
       <iframe
@@ -290,7 +303,7 @@ function ShortPlayer({video, active, preload, paused, onTogglePause, muted, soun
         onWaiting={() => setBuffering(true)}
         onPlaying={() => setBuffering(false)}
         onCanPlay={() => setBuffering(false)}
-        onError={() => setFallback(true)}
+        onError={() => diagnoseStream(video.driveId).then((p) => setProblem(p === 'missing' ? 'missing' : 'iframe'))}
         className="h-full w-full cursor-pointer object-cover md:object-contain"
         aria-label={video.title}
       />

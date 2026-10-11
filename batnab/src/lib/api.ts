@@ -12,7 +12,7 @@ import {
   equalTo,
 } from 'firebase/database';
 import {displayName} from './auth';
-import {deleteFile, ensureFolder, getDriveToken, makeNonPublic, makePublic, uploadFile} from './drive';
+import {cachedDriveToken, deleteFile, ensureFolder, getDriveToken, makeNonPublic, makePublic, uploadFile} from './drive';
 import {auth, db} from './firebase';
 import {notifyMany, subscriberUids} from './notifications';
 import type {Comment, CommentThread, Reaction, Subscription, Video, VideoStats, Visibility} from './types';
@@ -394,8 +394,11 @@ export const api = {
     return next;
   },
 
-  /** Removes the video from Batnab; returns false if the Drive files could not be deleted too. */
-  remove: async (video: Video) => {
+  /**
+   * Removes the video from Batnab; returns false if the Drive files could not be deleted too.
+   * With `askForDrive: false` the Drive cleanup only happens if permission was already granted.
+   */
+  remove: async (video: Video, {askForDrive = true}: {askForDrive?: boolean} = {}) => {
     await update(ref(db), {
       [`videos/${video.id}`]: null,
       [`comments/${video.id}`]: null,
@@ -404,7 +407,8 @@ export const api = {
       [`viewsDaily/${video.id}`]: null,
     });
     try {
-      const token = await getDriveToken();
+      const token = askForDrive ? await getDriveToken() : cachedDriveToken();
+      if (!token) return false;
       const files = [video.driveId, video.thumbDriveId].filter(Boolean) as string[];
       await Promise.all(files.map((f) => deleteFile(token, f)));
       return true;

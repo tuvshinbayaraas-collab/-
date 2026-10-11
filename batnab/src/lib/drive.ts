@@ -38,6 +38,12 @@ export async function getDriveToken(): Promise<string> {
   }
 }
 
+/** The Drive token from an earlier permission prompt, if still valid — never opens a popup. */
+export function cachedDriveToken(): string | null {
+  const user = auth.currentUser;
+  return user && cached && cached.uid === user.uid && cached.expires > Date.now() ? cached.token : null;
+}
+
 async function driveFetch<T>(token: string, url: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {...init, headers: {...init.headers, Authorization: `Bearer ${token}`}});
   if (!res.ok) throw await driveError(res.status, await res.text());
@@ -147,6 +153,25 @@ export function deleteFile(token: string, fileId: string) {
  */
 export const driveStreamUrl = (id: string) =>
   `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(firebaseApiKey)}`;
+
+export type StreamProblem = 'missing' | 'keyBlocked' | 'unknown';
+
+/**
+ * Why streaming a file failed, asked of the Drive API with the same key the player uses.
+ * A 404 means the file was deleted or is no longer shared publicly (Drive answers 404 for both).
+ */
+export async function diagnoseStream(id: string): Promise<StreamProblem | null> {
+  try {
+    const res = await fetch(`${API}/files/${encodeURIComponent(id)}?fields=id&key=${encodeURIComponent(firebaseApiKey)}`);
+    if (res.ok) return null;
+    if (res.status === 404) return 'missing';
+    const body = await res.text();
+    if (/API_KEY_SERVICE_BLOCKED|API_KEY_HTTP_REFERRER_BLOCKED/.test(body)) return 'keyBlocked';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 export const drivePlayerUrl = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const driveThumbUrl = (id: string) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1280`;
