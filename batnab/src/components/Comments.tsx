@@ -6,6 +6,7 @@ import {formatViews, timeAgo} from '../lib/format';
 import {notify, type NotificationInput} from '../lib/notifications';
 import type {Comment, Video} from '../lib/types';
 import Avatar from './Avatar';
+import RichText from './RichText';
 
 type Sort = 'top' | 'new';
 
@@ -443,8 +444,6 @@ function MenuItem({icon, label, onClick}: {icon: ReactNode; label: string; onCli
   );
 }
 
-const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g;
-
 /** Text with clickable links, @mentions highlighted, and "Цааш унших" for long comments. */
 function CommentText({text}: {text: string}) {
   const [open, setOpen] = useState(false);
@@ -456,28 +455,10 @@ function CommentText({text}: {text: string}) {
     if (el) setClamped(el.scrollHeight > el.clientHeight + 1);
   }, [text]);
 
-  const parts = text.split(URL_RE).map((part, i) => {
-    if (i % 2 === 1)
-      return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer nofollow" className="text-blue-400 hover:underline">
-          {part}
-        </a>
-      );
-    return part.split(/(^|\s)(@[^\s@]+)/g).map((p, j) =>
-      p.startsWith('@') ? (
-        <span key={`${i}-${j}`} className="text-blue-400">
-          {p}
-        </span>
-      ) : (
-        p
-      ),
-    );
-  });
-
   return (
     <div className="mt-0.5">
       <p ref={ref} className={`whitespace-pre-wrap break-words text-sm ${open ? '' : 'line-clamp-4'}`}>
-        {parts}
+        <RichText text={text} timestamps />
       </p>
       {(clamped || open) && (
         <button onClick={() => setOpen(!open)} className="mt-1 text-sm font-semibold text-neutral-300 hover:text-white">

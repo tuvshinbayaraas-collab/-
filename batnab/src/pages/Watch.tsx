@@ -1,19 +1,21 @@
-import {Check, ChevronDown, ChevronUp, Share2, ThumbsDown, ThumbsUp} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {Check, ChevronDown, ChevronUp, Gauge, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {useCallback, useEffect, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Comments from '../components/Comments';
+import RichText from '../components/RichText';
 import SubscribeButton, {subscriberLabel} from '../components/SubscribeButton';
-import {EmptyState, VideoCard, VideoRow} from '../components/VideoCard';
+import {EmptyState, VideoCard, VideoRow, videoHref} from '../components/VideoCard';
+import VideoPlayer from '../components/VideoPlayer';
 import {api} from '../lib/api';
 import {formatCount, formatViews, timeAgo} from '../lib/format';
-import {Link} from '../lib/router';
-import {drivePlayerUrl} from '../lib/drive';
+import {prefs, SPEEDS} from '../lib/playback';
+import {Link, navigate} from '../lib/router';
 import {history} from '../lib/storage';
 import type {Video} from '../lib/types';
 import {useAsync} from '../lib/useAsync';
 import {useReactions} from '../lib/useReactions';
 
-export default function Watch({id, highlight}: {id: string; highlight?: string}) {
+export default function Watch({id, highlight, startAt}: {id: string; highlight?: string; startAt?: number}) {
   const {data, error, loading} = useAsync(() => api.get(id), [id]);
   const related = useAsync(() => api.list(), [id]);
   const [video, setVideo] = useState<Video | null>(null);
@@ -21,6 +23,8 @@ export default function Watch({id, highlight}: {id: string; highlight?: string})
   const [commentCount, setCommentCount] = useState<number | null>(null);
   // On phones comments start collapsed behind a summary card, like the YouTube app.
   const [commentsOpen, setCommentsOpen] = useState(!!highlight);
+  const [speed, setSpeed] = useState(prefs.speed);
+  const [autoplayNext, setAutoplayNext] = useState(prefs.autoplay);
 
   useEffect(() => setVideo(data ?? null), [data]);
   useEffect(() => {
@@ -37,33 +41,30 @@ export default function Watch({id, highlight}: {id: string; highlight?: string})
     };
   }, [data]);
 
+  const others = (related.data ?? []).filter((v) => v.id !== video?.id);
+  const next = others[0];
+  const playNext = useCallback(() => {
+    if (next) navigate(videoHref(next));
+  }, [next]);
+
   if (loading)
     return <div className="-mx-4 -mt-4 aspect-video animate-pulse bg-neutral-800 sm:mx-0 sm:mt-0 sm:max-w-5xl sm:rounded-xl" />;
   if (error || !video) return <EmptyState title="Бичлэг олдсонгүй">{error}</EmptyState>;
-
-  const others = (related.data ?? []).filter((v) => v.id !== video.id);
 
   return (
     <div className="mx-auto flex max-w-[1700px] flex-col gap-6 xl:flex-row">
       <div className="min-w-0 flex-1">
         {/* Edge-to-edge and pinned under the header on phones; rounded card from sm up. */}
         <div className="sticky top-14 z-20 -mx-4 -mt-4 bg-black sm:static sm:mx-0 sm:mt-0 sm:rounded-xl">
-          <div className="aspect-video w-full overflow-hidden sm:rounded-xl">
-            <iframe
-              key={video.id}
-              src={drivePlayerUrl(video.driveId)}
-              title={video.title}
-              allow="autoplay; fullscreen; encrypted-media"
-              allowFullScreen
-              className="h-full w-full border-0"
-            />
-          </div>
+          <VideoPlayer
+            video={video}
+            startAt={startAt}
+            speed={speed}
+            next={next}
+            autoplayNext={autoplayNext}
+            onPlayNext={playNext}
+          />
         </div>
-        {Date.now() - video.createdAt < 20 * 60 * 1000 && (
-          <p className="mt-2 text-xs text-neutral-400">
-            Шинэ бичлэг: Google Drive боловсруулж дуусаагүй бол хэдэн минутын дараа хуудсаа дахин ачаална уу.
-          </p>
-        )}
         <h1 className="mt-3 break-words text-lg font-bold leading-snug sm:text-xl">{video.title}</h1>
 
         <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -80,6 +81,41 @@ export default function Watch({id, highlight}: {id: string; highlight?: string})
           <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&>*]:shrink-0">
             <Reactions key={video.id} videoId={video.id} />
             <ShareButton />
+            <label className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-800 pl-3 pr-1 text-sm font-medium hover:bg-neutral-700" title="Тоглуулах хурд">
+              <Gauge size={18} />
+              <select
+                value={speed}
+                onChange={(e) => {
+                  const s = Number(e.target.value);
+                  setSpeed(s);
+                  prefs.setSpeed(s);
+                }}
+                className="h-full cursor-pointer appearance-none bg-transparent pr-2 outline-none"
+                aria-label="Тоглуулах хурд"
+              >
+                {SPEEDS.map((s) => (
+                  <option key={s} value={s} className="bg-neutral-800">
+                    {s === 1 ? 'Хэвийн' : `${s}×`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              role="switch"
+              aria-checked={autoplayNext}
+              onClick={() => {
+                setAutoplayNext(!autoplayNext);
+                prefs.setAutoplay(!autoplayNext);
+              }}
+              className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-3 text-sm font-medium hover:bg-neutral-700"
+              title="Бичлэг дуусахад дараагийнхыг автоматаар тоглуулах"
+            >
+              <SkipForward size={18} />
+              Автомат
+              <span className={`relative h-4 w-7 rounded-full transition-colors ${autoplayNext ? 'bg-blue-500' : 'bg-neutral-600'}`}>
+                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${autoplayNext ? 'left-3.5' : 'left-0.5'}`} />
+              </span>
+            </button>
           </div>
         </div>
 
@@ -181,7 +217,9 @@ function Description({video}: {video: Video}) {
         {formatCount(video.views)} үзэлт • {timeAgo(video.createdAt)}
       </p>
       {description && (
-        <p className={`mt-1 whitespace-pre-wrap break-words ${open ? '' : 'line-clamp-3'}`}>{description}</p>
+        <p className={`mt-1 whitespace-pre-wrap break-words ${open ? '' : 'line-clamp-3'}`}>
+          <RichText text={description} timestamps />
+        </p>
       )}
       {long && (
         <button

@@ -12,9 +12,17 @@ import Studio from './pages/Studio';
 import Subscriptions from './pages/Subscriptions';
 import Upload from './pages/Upload';
 import Watch from './pages/Watch';
+import {parseClock} from './lib/playback';
 import {Link, useLocation} from './lib/router';
 
 const isDesktop = () => window.innerWidth >= 1024;
+
+/** ?t=95, ?t=95s or ?t=1:35 -> seconds. */
+function startTime(t: string | null): number | undefined {
+  if (!t) return undefined;
+  const n = /^\d+s?$/.test(t) ? parseInt(t, 10) : parseClock(t);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
 export default function App() {
   const {path, query} = useLocation();
@@ -29,7 +37,7 @@ export default function App() {
 
   let page;
   if (path === '/') page = <Home />;
-  else if (path === '/watch' && query.get('v')) page = <Watch id={query.get('v')!} highlight={query.get('lc') ?? undefined} />;
+  else if (path === '/watch' && query.get('v')) page = <Watch id={query.get('v')!} highlight={query.get('lc') ?? undefined} startAt={startTime(query.get('t'))} />;
   else if (path === '/results') page = <Results query={search} />;
   else if (path === '/shorts' || path.startsWith('/shorts/'))
     page = <Shorts startId={path.split('/')[2] ? decodeURIComponent(path.split('/')[2]) : undefined} />;
