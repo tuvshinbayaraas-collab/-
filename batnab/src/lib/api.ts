@@ -41,6 +41,9 @@ export function dayKey(d = new Date()) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
 
+const primed = new Map<string, {video: Video; at: number}>();
+const PRIME_TTL = 60_000;
+
 function requireUser() {
   const user = auth.currentUser;
   if (!user) throw new Error('Эхлээд нэвтэрнэ үү');
@@ -74,9 +77,19 @@ export const api = {
   },
 
   get: async (id: string) => {
+    const hit = primed.get(id);
+    if (hit && Date.now() - hit.at < PRIME_TTL) {
+      primed.delete(id);
+      return hit.video;
+    }
     const snap = await get(ref(db, `videos/${id}`));
     if (!snap.exists()) throw new Error('Бичлэг олдсонгүй');
     return {...snap.val(), id} as Video;
+  },
+
+  /** Remember a video we already have (from a list) so opening it needs no database round trip. */
+  prime: (video: Video) => {
+    primed.set(video.id, {video, at: Date.now()});
   },
 
   view: async (id: string) => {

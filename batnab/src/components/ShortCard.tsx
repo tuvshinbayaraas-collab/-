@@ -1,5 +1,6 @@
 import {formatViews} from '../lib/format';
 import {Link} from '../lib/router';
+import {prefetchHandlers} from '../lib/prefetch';
 import type {Video} from '../lib/types';
 import {driveThumbUrl} from '../lib/drive';
 import {useState} from 'react';
@@ -8,7 +9,7 @@ import {Play} from 'lucide-react';
 export default function ShortCard({video}: {video: Video}) {
   const [broken, setBroken] = useState(false);
   return (
-    <Link href={`/shorts/${video.id}`} className="group block w-40 shrink-0 sm:w-48">
+    <Link href={`/shorts/${video.id}`} className="group block w-40 shrink-0 sm:w-48" {...prefetchHandlers(video)}>
       <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-neutral-800">
         {!broken ? (
           <img

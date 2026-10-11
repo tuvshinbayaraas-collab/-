@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import {formatViews, timeAgo} from '../lib/format';
 import {Link} from '../lib/router';
+import {prefetchHandlers} from '../lib/prefetch';
 import type {Video} from '../lib/types';
 
 export const videoHref = (v: Video) => (v.short ? `/shorts/${v.id}` : `/watch?v=${v.id}`);
@@ -9,7 +10,7 @@ import Thumbnail from './Thumbnail';
 
 export function VideoCard({video}: {video: Video}) {
   return (
-    <div className="group">
+    <div className="group" {...prefetchHandlers(video)}>
       <Link href={videoHref(video)}>
         <Thumbnail video={video} className="transition-[border-radius] group-hover:rounded-none" />
       </Link>
@@ -38,7 +39,7 @@ export function VideoCard({video}: {video: Video}) {
 
 export function VideoRow({video, compact = false}: {video: Video; compact?: boolean}) {
   return (
-    <Link href={videoHref(video)} className="flex gap-3 sm:gap-4">
+    <Link href={videoHref(video)} className="flex gap-3 sm:gap-4" {...prefetchHandlers(video)}>
       <Thumbnail video={video} className={`shrink-0 ${compact ? 'w-40 rounded-lg' : 'w-44 sm:w-80'}`} />
       <div className="min-w-0 py-0.5">
         <p className={`line-clamp-2 font-semibold leading-snug ${compact ? 'text-sm' : 'sm:text-lg'}`}>{video.title}</p>

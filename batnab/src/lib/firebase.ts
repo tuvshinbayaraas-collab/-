@@ -1,4 +1,3 @@
-import {getAnalytics, isSupported} from 'firebase/analytics';
 import {initializeApp} from 'firebase/app';
 import {connectAuthEmulator, getAuth} from 'firebase/auth';
 import {connectDatabaseEmulator, getDatabase} from 'firebase/database';
@@ -24,5 +23,11 @@ if (import.meta.env.VITE_FIREBASE_EMULATORS === 'true') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings: true});
   connectDatabaseEmulator(db, '127.0.0.1', 9000);
 } else {
-  isSupported().then((ok) => ok && getAnalytics(app), () => {});
+  // Analytics isn't needed to render anything, so load it after the page is up.
+  const loadAnalytics = () =>
+    import('firebase/analytics')
+      .then(({getAnalytics, isSupported}) => isSupported().then((ok) => ok && getAnalytics(app)))
+      .catch(() => {});
+  if (document.readyState === 'complete') setTimeout(loadAnalytics, 2000);
+  else window.addEventListener('load', () => setTimeout(loadAnalytics, 2000), {once: true});
 }

@@ -1,17 +1,19 @@
-import {useEffect, useState} from 'react';
+import {lazy, Suspense, useEffect, useState} from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import {EmptyState} from './components/VideoCard';
-import Channel from './pages/Channel';
 import Home from './pages/Home';
-import Library from './pages/Library';
-import Results from './pages/Results';
-import Notifications from './pages/Notifications';
-import Shorts from './pages/Shorts';
-import Studio from './pages/Studio';
-import Subscriptions from './pages/Subscriptions';
-import Upload from './pages/Upload';
-import Watch from './pages/Watch';
+
+// Home is the landing page; everything else loads on first visit.
+const Channel = lazy(() => import('./pages/Channel'));
+const Library = lazy(() => import('./pages/Library'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Results = lazy(() => import('./pages/Results'));
+const Shorts = lazy(() => import('./pages/Shorts'));
+const Studio = lazy(() => import('./pages/Studio'));
+const Subscriptions = lazy(() => import('./pages/Subscriptions'));
+const Upload = lazy(() => import('./pages/Upload'));
+const Watch = lazy(() => import('./pages/Watch'));
 import {parseClock} from './lib/playback';
 import {Link, useLocation} from './lib/router';
 
@@ -62,7 +64,17 @@ export default function App() {
       <Header query={search} onMenu={() => setSidebarOpen((o) => !o)} />
       <Sidebar path={path} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {isWatch && sidebarOpen && <div className="fixed inset-0 z-30 hidden bg-black/60 lg:block" onClick={() => setSidebarOpen(false)} />}
-      <main className={`px-4 pb-10 pt-4 sm:px-6 ${pushContent ? 'lg:pl-[264px]' : ''}`}>{page}</main>
+      <main className={`px-4 pb-10 pt-4 sm:px-6 ${pushContent ? 'lg:pl-[264px]' : ''}`}>
+        <Suspense fallback={<PageSpinner />}>{page}</Suspense>
+      </main>
+    </div>
+  );
+}
+
+function PageSpinner() {
+  return (
+    <div className="flex justify-center py-24" aria-label="Ачаалж байна">
+      <span className="h-10 w-10 animate-spin rounded-full border-4 border-neutral-700 border-t-white" />
     </div>
   );
 }
