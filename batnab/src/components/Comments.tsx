@@ -1,4 +1,4 @@
-import {ChevronDown, ChevronUp, Heart, MoreVertical, Pencil, Pin, PinOff, ThumbsUp, Trash2} from 'lucide-react';
+import {ChevronDown, ChevronUp, Flag, Heart, MoreVertical, Pencil, Pin, PinOff, ThumbsUp, Trash2} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
@@ -6,6 +6,7 @@ import {formatViews, timeAgo} from '../lib/format';
 import {notify, type NotificationInput} from '../lib/notifications';
 import type {Comment, Video} from '../lib/types';
 import Avatar from './Avatar';
+import ReportDialog from './ReportDialog';
 import RichText from './RichText';
 
 type Sort = 'top' | 'new';
@@ -297,6 +298,7 @@ function CommentRow({
   const {user} = useUser();
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const liked = !!user && (likes[c.id] ?? []).includes(user.uid);
   const likeCount = likes[c.id]?.length ?? 0;
   const byCreator = c.uid === video.uid;
@@ -383,7 +385,7 @@ function CommentRow({
         )}
       </div>
 
-      {(canDelete || (isCreator && !c.parentId)) && !editing && (
+      {(canDelete || (isCreator && !c.parentId) || (user && !mine)) && !editing && (
         <div className="relative self-start">
           <button
             onClick={() => setMenu(!menu)}
@@ -426,10 +428,26 @@ function CommentRow({
                     }}
                   />
                 )}
+                {user && !mine && (
+                  <MenuItem
+                    icon={<Flag size={18} />}
+                    label="Мэдээлэх"
+                    onClick={() => {
+                      setMenu(false);
+                      setReporting(true);
+                    }}
+                  />
+                )}
               </div>
             </>
           )}
         </div>
+      )}
+      {reporting && (
+        <ReportDialog
+          target={{type: 'comment', videoId: video.id, videoTitle: video.title, commentId: c.id}}
+          onClose={() => setReporting(false)}
+        />
       )}
     </div>
   );

@@ -4,7 +4,7 @@
       ".read": true,
       ".indexOn": ["uid", "createdAt"],
       "$videoId": {
-        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid))",
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || root.child('admins/' + auth.uid).exists())))",
         ".validate": "newData.hasChildren(['uid', 'title', 'channel', 'driveId', 'views', 'createdAt'])",
         "uid": {".validate": "newData.isString()"},
         "title": {
@@ -44,9 +44,9 @@
       ".read": true,
       "$videoId": {
         ".indexOn": ["createdAt"],
-        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        ".write": "auth != null && !newData.exists() && (root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
         "$commentId": {
-          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && root.child('videos/' + $videoId).exists()) || (!newData.exists() && (data.child('uid').val() === auth.uid || root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('comments/' + $videoId + '/' + data.child('parentId').val() + '/uid').val() === auth.uid)))",
+          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && root.child('videos/' + $videoId).exists()) || (!newData.exists() && (data.child('uid').val() === auth.uid || root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('admins/' + auth.uid).exists() || root.child('comments/' + $videoId + '/' + data.child('parentId').val() + '/uid').val() === auth.uid)))",
           ".validate": "newData.hasChildren(['uid', 'author', 'text', 'createdAt'])",
           "uid": {".validate": "newData.val() === auth.uid || data.val() === newData.val()"},
           "author": {".validate": "newData.isString() && newData.val().length <= 50"},
@@ -72,7 +72,7 @@
     "commentLikes": {
       "$videoId": {
         ".read": true,
-        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        ".write": "auth != null && !newData.exists() && (root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
         "$commentId": {
           ".write": "auth != null && !newData.exists() && !newData.parent().parent().parent().child('comments/' + $videoId + '/' + $commentId).exists()",
           "$uid": {
@@ -85,7 +85,7 @@
     "reactions": {
       ".read": true,
       "$videoId": {
-        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        ".write": "auth != null && !newData.exists() && (root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.val() === 'like' || newData.val() === 'dislike'"
@@ -95,7 +95,7 @@
     "viewsDaily": {
       "$videoId": {
         ".read": "auth != null && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
-        ".write": "auth != null && !newData.exists() && root.child('videos/' + $videoId + '/uid').val() === auth.uid",
+        ".write": "auth != null && !newData.exists() && (root.child('videos/' + $videoId + '/uid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
         "$day": {
           ".read": true,
           ".write": "root.child('videos/' + $videoId).exists() && $day.matches(/^[0-9]{8}$/)",
@@ -125,6 +125,27 @@
         }
       }
     },
+    "admins": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "reports": {
+      ".read": "auth != null && root.child('admins/' + auth.uid).exists()",
+      ".indexOn": ["createdAt"],
+      "$reportId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('reporterUid').val() === auth.uid) || (data.exists() && !newData.exists() && root.child('admins/' + auth.uid).exists()))",
+        ".validate": "newData.hasChildren(['type', 'videoId', 'reason', 'reporterUid', 'reporterName', 'createdAt'])",
+        "type": {".validate": "newData.isString() && newData.val().matches(/^(video|comment)$/)"},
+        "videoId": {".validate": "newData.isString() && root.child('videos/' + newData.val()).exists()"},
+        "commentId": {".validate": "newData.isString() && root.child('comments/' + newData.parent().child('videoId').val() + '/' + newData.val()).exists()"},
+        "reason": {".validate": "newData.isString() && newData.val().matches(/^(spam|sexual|violent|hateful|harassment|misleading|copyright|other)$/)"},
+        "details": {".validate": "newData.isString() && newData.val().length <= 500"},
+        "reporterUid": {".validate": "newData.val() === auth.uid"},
+        "reporterName": {".validate": "newData.isString() && newData.val().length <= 50"},
+        "createdAt": {".validate": "newData.isNumber() && newData.val() <= now"},
+        "$other": {".validate": false}
+      }
+    },
     "notifications": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
@@ -133,7 +154,7 @@
         "$nid": {
           ".write": "auth != null && ((!data.exists() && newData.exists() && newData.child('actorUid').val() === auth.uid && $uid !== auth.uid) || (auth.uid === $uid && !newData.exists()))",
           ".validate": "newData.hasChildren(['type', 'actorUid', 'actorName', 'createdAt'])",
-          "type": {".validate": "newData.isString() && newData.val().matches(/^(comment|reply|mention|commentLike|heart|pin|subscribe|newVideo)$/)"},
+          "type": {".validate": "newData.isString() && newData.val().matches(/^(comment|reply|mention|commentLike|heart|pin|subscribe|newVideo|report)$/)"},
           "actorUid": {".validate": "newData.val() === auth.uid || data.val() === newData.val()"},
           "actorName": {".validate": "newData.isString() && newData.val().length <= 50"},
           "actorPhoto": {".validate": "newData.isString() && newData.val().length <= 1000"},

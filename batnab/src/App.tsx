@@ -7,6 +7,7 @@ import Home from './pages/Home';
 // Home is the landing page; everything else loads on first visit.
 const Channel = lazy(() => import('./pages/Channel'));
 const Library = lazy(() => import('./pages/Library'));
+const Admin = lazy(() => import('./pages/Admin'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Playlist = lazy(() => import('./pages/Playlist'));
 const Playlists = lazy(() => import('./pages/Playlists'));
@@ -49,6 +50,7 @@ export default function App() {
   else if (path === '/studio') page = <Studio />;
   else if (path === '/notifications') page = <Notifications />;
   else if (path === '/playlists') page = <Playlists />;
+  else if (path === '/admin') page = <Admin />;
   else if (path === '/playlist' && query.get('list')) page = <Playlist list={query.get('list')!} />;
   else if (path === '/upload') page = <Upload />;
   else if (path === '/history') page = <Library kind="history" />;

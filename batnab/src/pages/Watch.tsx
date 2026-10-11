@@ -1,4 +1,4 @@
-import {Bookmark, Check, ChevronDown, ChevronUp, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
+import {Bookmark, Check, ChevronDown, ChevronUp, Flag, Gauge, Lock, Pencil, Share2, SkipForward, ThumbsDown, ThumbsUp} from 'lucide-react';
 import {useCallback, useEffect, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Comments from '../components/Comments';
@@ -9,6 +9,7 @@ import EditVideoModal from '../components/EditVideoModal';
 import VideoPlayer from '../components/VideoPlayer';
 import {VisibilityBadge} from '../components/Visibility';
 import PlaylistPanel from '../components/PlaylistPanel';
+import ReportDialog from '../components/ReportDialog';
 import SaveToPlaylist from '../components/SaveToPlaylist';
 import {signIn, useUser} from '../lib/auth';
 import {loadPlaylist, playHref} from '../lib/library';
@@ -34,6 +35,7 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
   const [autoplayNext, setAutoplayNext] = useState(prefs.autoplay);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const {user, ready} = useUser();
 
   useEffect(() => setVideo(data ?? null), [data]);
@@ -125,6 +127,14 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
             >
               <Bookmark size={16} /> Хадгалах
             </button>
+            {!isOwner && (
+              <button
+                onClick={() => (user ? setReporting(true) : signIn())}
+                className="flex h-9 items-center gap-2 rounded-full bg-neutral-800 px-4 text-sm font-medium hover:bg-neutral-700"
+              >
+                <Flag size={16} /> Мэдээлэх
+              </button>
+            )}
             <label className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-800 pl-3 pr-1 text-sm font-medium hover:bg-neutral-700" title="Тоглуулах хурд">
               <Gauge size={18} />
               <select
@@ -197,6 +207,9 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
       </aside>
       {editing && <EditVideoModal video={video} onClose={() => setEditing(false)} onSaved={setVideo} />}
       {saving && <SaveToPlaylist video={video} onClose={() => setSaving(false)} />}
+      {reporting && (
+        <ReportDialog target={{type: 'video', videoId: video.id, videoTitle: video.title}} onClose={() => setReporting(false)} />
+      )}
     </div>
   );
 }

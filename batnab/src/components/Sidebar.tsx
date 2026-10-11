@@ -1,7 +1,8 @@
-import {BarChart3, Bell, Clock, History, Home, ListVideo, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
+import {BarChart3, Bell, Clock, History, Home, ListVideo, ShieldCheck, ThumbsUp, Upload, UserSquare, Users} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {api} from '../lib/api';
 import {useUser} from '../lib/auth';
+import {useIsAdmin} from '../lib/moderation';
 import {useNotifications} from '../lib/notifications';
 import {Link} from '../lib/router';
 import type {Subscription} from '../lib/types';
@@ -19,6 +20,7 @@ export default function Sidebar({path, open, onClose}: Props) {
   const {user} = useUser();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const {unread} = useNotifications();
+  const isAdmin = useIsAdmin();
 
   useEffect(() => {
     const load = () => api.mySubscriptions().then(setSubs, () => setSubs([]));
@@ -38,6 +40,7 @@ export default function Sidebar({path, open, onClose}: Props) {
     ...(user ? [{href: '/studio', label: 'Үзүүлэлт', icon: <BarChart3 size={22} />}] : []),
     {href: '/upload', label: 'Бичлэг оруулах', icon: <Upload size={22} />},
     {href: '/history', label: 'Үзсэн түүх', icon: <History size={22} />},
+    ...(isAdmin ? [{href: '/admin', label: 'Хяналт', icon: <ShieldCheck size={22} />}] : []),
     ...(user
       ? [
           {href: '/playlist?list=WL', label: 'Дараа үзэх', icon: <Clock size={22} />},

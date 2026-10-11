@@ -1,10 +1,12 @@
-import {ChevronDown, ChevronUp, MessageSquare, Pause, Play, Share2, ThumbsDown, ThumbsUp, Volume2, VolumeX} from 'lucide-react';
+import {ChevronDown, ChevronUp, Flag, MessageSquare, Pause, Play, Share2, ThumbsDown, ThumbsUp, Volume2, VolumeX} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState, type PointerEvent} from 'react';
 import Avatar from '../components/Avatar';
+import ReportDialog from '../components/ReportDialog';
 import {ShortsLogo} from '../components/ShortCard';
 import SubscribeButton from '../components/SubscribeButton';
 import {EmptyState} from '../components/VideoCard';
 import {api} from '../lib/api';
+import {signIn, useUser} from '../lib/auth';
 import {auth} from '../lib/firebase';
 import {drivePlayerUrl, driveStreamUrl, driveThumbUrl} from '../lib/drive';
 import {formatViews} from '../lib/format';
@@ -342,6 +344,8 @@ function Poster({src}: {src: string}) {
 function ShortActions({video}: {video: Video}) {
   const {likes, mine, toggle} = useReactions(video.id);
   const comments = useAsync(() => api.commentCount(video.id), [video.id]);
+  const {user} = useUser();
+  const [reporting, setReporting] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
@@ -377,12 +381,21 @@ function ShortActions({video}: {video: Video}) {
         {comments.data ? formatViews(comments.data) : 'Сэтгэгдэл'}
       </div>
       <div className="flex flex-col items-center gap-1">
+        <button onClick={() => (user ? setReporting(true) : signIn())} className={btn} title="Мэдээлэх">
+          <Flag size={20} />
+        </button>
+        Мэдээлэх
+      </div>
+      <div className="flex flex-col items-center gap-1">
         <button onClick={share} className={btn} title="Хуваалцах">
           <Share2 size={22} />
         </button>
         {copied ? 'Хуулагдлаа' : 'Хуваалцах'}
       </div>
       <ShortsLogo size={26} />
+      {reporting && (
+        <ReportDialog target={{type: 'video', videoId: video.id, videoTitle: video.title}} onClose={() => setReporting(false)} />
+      )}
     </div>
   );
 }

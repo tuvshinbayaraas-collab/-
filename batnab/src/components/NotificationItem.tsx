@@ -1,4 +1,4 @@
-import {AtSign, Bell, Heart, MessageSquare, Pin, ThumbsUp, UserPlus, Video, X} from 'lucide-react';
+import {AtSign, Bell, Flag, Heart, MessageSquare, Pin, ThumbsUp, UserPlus, Video, X} from 'lucide-react';
 import type {ReactNode} from 'react';
 import {driveThumbUrl} from '../lib/drive';
 import {timeAgo} from '../lib/format';
@@ -15,6 +15,7 @@ const ICONS: Record<NotificationType, {icon: ReactNode; bg: string}> = {
   pin: {icon: <Pin size={11} />, bg: 'bg-amber-500'},
   subscribe: {icon: <UserPlus size={11} />, bg: 'bg-green-600'},
   newVideo: {icon: <Video size={11} />, bg: 'bg-red-600'},
+  report: {icon: <Flag size={11} />, bg: 'bg-orange-600'},
 };
 
 export default function NotificationItem({

@@ -47,6 +47,17 @@ Shorts нь Drive API-аар (`files/<id>?alt=media&key=...`) шууд тата�
 [Google Cloud → Credentials](https://console.cloud.google.com/apis/credentials?project=rgtbn-bb94f) →
 **Browser key (auto created by Firebase)** → **API restrictions** → **Google Drive API**-г нэмээд **Save**.
 
+### Хянагч (админ) болох
+
+Хэрэглэгчдийн мэдээлсэн бичлэг, сэтгэгдлийг **/admin** («Хяналт») хуудсанд шалгана. Хянагч болохын тулд:
+1. Сайтад Google-ээр нэвтэрнэ.
+2. [Firebase → Authentication → Users](https://console.firebase.google.com/project/rgtbn-bb94f/authentication/users)
+   хэсгээс өөрийн **User UID**-г хуулна.
+3. [Realtime Database → Data](https://console.firebase.google.com/project/rgtbn-bb94f/database/rgtbn-bb94f-default-rtdb/data)
+   дээр `admins` нэртэй мөр нэмж, түүний дотор `<таны UID>: true` гэж хадгална.
+
+Сайтаас хэн ч өөрийгөө админ болгож чадахгүй (дүрмээр хаалттай).
+
 ## Ажиллуулах
 
 ```bash

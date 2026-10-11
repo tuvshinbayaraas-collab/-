@@ -3,7 +3,16 @@ import {useEffect, useState} from 'react';
 import {displayName, useUser} from './auth';
 import {auth, db} from './firebase';
 
-export type NotificationType = 'comment' | 'reply' | 'mention' | 'commentLike' | 'heart' | 'pin' | 'subscribe' | 'newVideo';
+export type NotificationType =
+  | 'comment'
+  | 'reply'
+  | 'mention'
+  | 'commentLike'
+  | 'heart'
+  | 'pin'
+  | 'subscribe'
+  | 'newVideo'
+  | 'report';
 
 export interface AppNotification {
   id: string;
@@ -132,6 +141,8 @@ export function notificationText(n: AppNotification): string {
       return `${n.actorName} таны сэтгэгдлийг дээр тогтоолоо${quote}`;
     case 'subscribe':
       return `${n.actorName} таны сувгийг захиаллаа`;
+    case 'report':
+      return `Шинэ мэдээлэл: «${n.videoTitle ?? 'бичлэг'}» ${n.commentId ? 'бичлэгийн сэтгэгдэл' : 'бичлэг'} — ${n.text ?? ''}`;
     case 'newVideo':
       return `${n.actorName} шинэ ${n.short ? 'Shorts' : 'бичлэг'} нийтэллээ: ${n.videoTitle ?? ''}`;
     default:
@@ -141,6 +152,7 @@ export function notificationText(n: AppNotification): string {
 
 export function notificationHref(n: AppNotification): string {
   if (n.type === 'subscribe') return `/channel/${n.actorUid}`;
+  if (n.type === 'report') return '/admin';
   if (!n.videoId) return '/notifications';
   if (n.type === 'newVideo') return n.short ? `/shorts/${n.videoId}` : `/watch?v=${n.videoId}`;
   return `/watch?v=${n.videoId}${n.commentId ? `&lc=${n.commentId}` : ''}`;
