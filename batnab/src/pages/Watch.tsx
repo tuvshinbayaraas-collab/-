@@ -9,6 +9,7 @@ import EditVideoModal from '../components/EditVideoModal';
 import VideoPlayer from '../components/VideoPlayer';
 import {VisibilityBadge} from '../components/Visibility';
 import PlaylistPanel from '../components/PlaylistPanel';
+import RepairBanner from '../components/RepairBanner';
 import ReportDialog from '../components/ReportDialog';
 import ShareDialog from '../components/ShareDialog';
 import SaveToPlaylist from '../components/SaveToPlaylist';
@@ -94,6 +95,7 @@ export default function Watch({id, highlight, startAt, list}: {id: string; highl
             onPlayNext={playNext}
           />
         </div>
+        {isOwner && video.visibility !== 'private' && <RepairBanner video={video} />}
         <h1 className="mt-3 break-words text-lg font-bold leading-snug sm:text-xl">{video.title}</h1>
         {video.visibility && video.visibility !== 'public' && (
           <div className="mt-1">

@@ -64,6 +64,8 @@ async function driveError(status: number, body: string): Promise<DriveError> {
   }
   if (reason === 'storageQuotaExceeded' || reason === 'quotaExceeded')
     return new DriveError('Таны Google Drive дүүрсэн байна');
+  if (reason === 'downloadQuotaExceeded')
+    return new DriveError('Google Drive энэ файлыг хэт олон удаа татсан тул түр хязгаарласан. 24 цагийн дараа дахин оролдоно уу');
   if (reason === 'accessNotConfigured' || reason === 'SERVICE_DISABLED')
     return new DriveError('Google Drive API идэвхжээгүй байна (сайтын эзэн тохируулах шаардлагатай)');
   return new DriveError(`Google Drive алдаа (${status}${reason ? `: ${reason}` : ''})`);
@@ -99,14 +101,40 @@ export async function uploadFile(
     },
     body: JSON.stringify({name: meta.name, mimeType: meta.mimeType, parents: [meta.folderId]}),
   });
+  return sendResumable(init, file, meta.mimeType, onProgress);
+}
+
+/** Replace a file's contents, keeping its id, name, sharing and everything Batnab stores about it. */
+export async function replaceFileContent(
+  token: string,
+  fileId: string,
+  file: Blob,
+  mimeType: string,
+  onProgress: (loaded: number) => void,
+): Promise<string> {
+  const init = await fetch(`${UPLOAD_API}/files/${encodeURIComponent(fileId)}?uploadType=resumable&fields=id`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': mimeType,
+      'X-Upload-Content-Length': String(file.size),
+    },
+    body: '{}',
+  });
+  return sendResumable(init, file, mimeType, onProgress);
+}
+
+/** Second step of a resumable upload: send the bytes to the session URL, with progress. */
+async function sendResumable(init: Response, file: Blob, mimeType: string, onProgress: (loaded: number) => void) {
   if (!init.ok) throw await driveError(init.status, await init.text());
   const session = init.headers.get('Location');
   if (!session) throw new DriveError('Google Drive руу байршуулж эхэлж чадсангүй');
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', session);
-    xhr.setRequestHeader('Content-Type', meta.mimeType);
+    xhr.setRequestHeader('Content-Type', mimeType);
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = async () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -122,6 +150,27 @@ export async function uploadFile(
     xhr.onerror = () => reject(new DriveError('Сүлжээний алдаа гарлаа'));
     xhr.send(file);
   });
+}
+
+/**
+ * Download one of the user's own files with their token (the owner isn't held to the public
+ * download quota). The bytes stream into a Blob the browser can keep on disk, with progress.
+ */
+export async function downloadFile(token: string, fileId: string, onProgress: (loaded: number, total: number) => void) {
+  const res = await fetch(driveMediaUrl(fileId), {headers: {Authorization: `Bearer ${token}`}});
+  if (!res.ok || !res.body) throw await driveError(res.status, await res.text());
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  let loaded = 0;
+  const counted = res.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        loaded += chunk.byteLength;
+        onProgress(loaded, total);
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return new Response(counted).blob();
 }
 
 export function makePublic(token: string, fileId: string) {
@@ -202,6 +251,9 @@ export async function waitUntilPublic(id: string, tries = 8) {
     await new Promise((r) => setTimeout(r, 1000));
   }
 }
+
+/** The file's bytes, for requests made with the owner's own token instead of the public key. */
+export const driveMediaUrl = (id: string) => `${API}/files/${encodeURIComponent(id)}?alt=media`;
 
 export const drivePlayerUrl = (id: string) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const driveThumbUrl = (id: string) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1280`;
