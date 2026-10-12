@@ -2,7 +2,8 @@ import {Film, ImagePlus, LogIn, Upload as UploadIcon, X} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
-import {compressionSupported, maxRemuxBytes, needsFastStart, worthCompressing} from '../lib/compressCheck';
+import {compressionSupported, worthCompressing} from '../lib/compressCheck';
+import {fastStart} from '../lib/faststart';
 import {getDriveToken} from '../lib/drive';
 import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
@@ -76,7 +77,7 @@ export default function Upload() {
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [canCompress, setCanCompress] = useState(false);
   const [compress, setCompress] = useState(false);
-  const [stage, setStage] = useState<'compressing' | 'preparing' | 'uploading'>('uploading');
+  const [stage, setStage] = useState<'compressing' | 'uploading'>('uploading');
   const [notice, setNotice] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
@@ -159,17 +160,8 @@ export default function Upload() {
         }
         setProgress(0);
       }
-      // Files with the index at the end start slowly over Drive; move it to the front (no re-encoding).
-      if (file === picked.file && file.size <= maxRemuxBytes() && (await needsFastStart(file).catch(() => false))) {
-        setStage('preparing');
-        try {
-          const {remuxFastStart} = await import('../lib/compress');
-          file = await remuxFastStart(file, setProgress);
-        } catch (err) {
-          console.warn('fast-start remux failed, uploading the original', err);
-        }
-        setProgress(0);
-      }
+      // Files with the index at the end start slowly over Drive; move it to the front (lossless, instant).
+      if (file === picked.file) file = (await fastStart(file).catch(() => null)) ?? file;
       setStage('uploading');
       const id = await api.upload(
         {file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short, visibility},
@@ -386,11 +378,9 @@ export default function Upload() {
               <p className="mb-1 text-sm text-neutral-300">
                 {stage === 'compressing'
                   ? `720p болгож шахаж байна… ${Math.round(progress * 100)}%`
-                  : stage === 'preparing'
-                    ? `Хурдан эхэлдэг болгож бэлдэж байна… ${Math.round(progress * 100)}%`
-                    : progress < 1
-                      ? `Байршуулж байна… ${Math.round(progress * 100)}%`
-                      : 'Боловсруулж байна…'}
+                  : progress < 1
+                    ? `Байршуулж байна… ${Math.round(progress * 100)}%`
+                    : 'Боловсруулж байна…'}
               </p>
               <div className="h-1.5 w-full max-w-md overflow-hidden rounded-full bg-neutral-800">
                 <div className="h-full bg-red-500 transition-[width]" style={{width: `${progress * 100}%`}} />
