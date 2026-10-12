@@ -1,8 +1,9 @@
-import {FileX, Play, RotateCcw, Trash2, Volume2, X} from 'lucide-react';
+import {Cast, FileX, Play, RotateCcw, Trash2, Volume2, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {api, errorMessage} from '../lib/api';
 import {useUser} from '../lib/auth';
-import {diagnoseStream, drivePlayerUrl, driveThumbUrl, probeStream} from '../lib/drive';
+import {castKind, castTo, loadCastSdk, NoTvFound, type CastSession} from '../lib/cast';
+import {diagnoseStream, drivePlayerUrl, driveStreamUrl, driveThumbUrl, probeStream} from '../lib/drive';
 import {navigate} from '../lib/router';
 import {formatClock, onSeek, resume} from '../lib/playback';
 import type {Video} from '../lib/types';
@@ -44,6 +45,21 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  // Playing on a TV (Chromecast from desktop Chrome); AirPlay / Android casting is run by the browser.
+  const [tv, setTv] = useState<CastSession | null>(null);
+  const [castNote, setCastNote] = useState('');
+  const canCast = castKind() !== null;
+
+  // Load the Cast library up front where it's needed, so a click can open the TV picker right away.
+  useEffect(() => {
+    if (castKind() === 'chromecast') void loadCastSdk();
+  }, []);
+
+  // Leaving the video stops it on the TV too.
+  useEffect(() => {
+    if (!tv) return;
+    return () => tv.stop();
+  }, [tv, video.id]);
 
   useEffect(() => {
     setMode('stream');
@@ -309,8 +325,61 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
     v.play().catch(() => {});
   };
 
+  const castNow = async () => {
+    const v = el.current;
+    if (!v) return;
+    setCastNote('');
+    try {
+      const session = await castTo(v, {
+        url: driveStreamUrl(video.driveId),
+        title: video.title,
+        poster: driveThumbUrl(video.thumbDriveId ?? video.driveId),
+        startAt: v.currentTime,
+      });
+      if (!session) return;
+      v.pause();
+      session.onEnd(() => setTv((current) => (current === session ? null : current)));
+      setTv(session);
+    } catch (e) {
+      setCastNote(
+        e instanceof NoTvFound
+          ? 'Ойролцоо TV олдсонгүй. TV (Chromecast / Google TV) болон энэ төхөөрөмж нэг Wi-Fi-д байгаа эсэхийг шалгана уу.'
+          : 'TV-д холбогдож чадсангүй.',
+      );
+      setTimeout(() => setCastNote(''), 6000);
+    }
+  };
+
   return (
     <div ref={box} className="relative aspect-video w-full overflow-hidden bg-black sm:rounded-xl">
+      {canCast && !tv && (
+        <button
+          onClick={castNow}
+          className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 hover:bg-black/90"
+          aria-label="TV-д үзэх"
+          title="TV-д үзэх"
+        >
+          <Cast size={20} />
+        </button>
+      )}
+      {castNote && (
+        <p className="absolute inset-x-3 top-14 z-10 rounded-lg bg-black/85 px-3 py-2 text-sm sm:left-auto sm:max-w-sm">{castNote}</p>
+      )}
+      {tv && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/85 p-4 text-center">
+          <Cast size={40} className="text-blue-400" />
+          <p className="font-semibold">{tv.device} дээр тоглож байна</p>
+          <button
+            onClick={() => {
+              tv.stop();
+              setTv(null);
+            }}
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-neutral-200"
+          >
+            Зогсоох
+          </button>
+        </div>
+      )}
       {soundBlocked && (
         <button
           onClick={() => {

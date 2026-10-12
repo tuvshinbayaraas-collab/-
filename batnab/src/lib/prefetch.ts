@@ -1,5 +1,5 @@
-// Get a video ready while the pointer is on its card, so opening it feels instant:
-// the page code, the video's details and the first seconds of the stream.
+// Get a video ready while the pointer is on its card, so opening it feels instant: the page code,
+// the video's details and (on hover only) the start of the stream.
 import {api} from './api';
 import type {Video} from './types';
 import {warmVideo} from './videoPool';
@@ -12,22 +12,25 @@ function onSlowOrMeteredNetwork() {
   return !!c && (c.saveData || /(^|-)2g$/.test(c.effectiveType ?? ''));
 }
 
-export function prefetchVideo(video: Video) {
+export function prefetchVideo(video: Video, {stream = false} = {}) {
   api.prime(video);
   if (video.short) {
     import('../pages/Shorts');
     return;
   }
   import('../pages/Watch');
-  if (!onSlowOrMeteredNetwork()) warmVideo(video.driveId);
+  if (stream && !onSlowOrMeteredNetwork()) warmVideo(video.driveId);
 }
 
-/** Props for a card link: hover (desktop, after a short pause) or touch (phones) starts the prefetch. */
+/**
+ * Props for a card link: hover (desktop, after a short pause) or touch (phones) starts the prefetch.
+ * A touch is often just the start of a scroll, so it never starts downloading the video itself.
+ */
 export function prefetchHandlers(video: Video) {
   return {
     onMouseEnter: () => {
       clearTimeout(timer);
-      timer = setTimeout(() => prefetchVideo(video), HOVER_DELAY);
+      timer = setTimeout(() => prefetchVideo(video, {stream: true}), HOVER_DELAY);
     },
     onMouseLeave: () => clearTimeout(timer),
     onTouchStart: () => prefetchVideo(video),

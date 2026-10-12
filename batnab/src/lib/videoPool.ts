@@ -20,10 +20,13 @@ function release(el: HTMLVideoElement) {
   el.load(); // aborts the pending download
 }
 
-/** Start buffering a video the visitor is likely to open next (e.g. on hover). */
+/**
+ * Start loading a video the visitor is likely to open next (on hover): only its index and first
+ * frames, so a long or large file isn't downloaded for a video that never gets opened.
+ */
 export function warmVideo(driveId: string) {
   if (pool.has(driveId)) return;
-  pool.set(driveId, create(driveId, 'auto'));
+  pool.set(driveId, create(driveId, 'metadata'));
   while (pool.size > MAX) {
     const [oldId, oldEl] = pool.entries().next().value as [string, HTMLVideoElement];
     pool.delete(oldId);
@@ -40,6 +43,7 @@ export function takeVideo(driveId: string): HTMLVideoElement {
     release(warm);
     return create(driveId, 'auto');
   }
+  if (warm) warm.preload = 'auto';
   return warm ?? create(driveId, 'auto');
 }
 

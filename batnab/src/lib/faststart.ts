@@ -4,32 +4,8 @@
 // boxes plus a fix-up of the chunk offsets inside the index: nothing is decoded or re-encoded, every
 // other byte stays exactly as it was, and the media data is never copied (the result is a Blob made of
 // slices of the original file), so it is instant even for multi-gigabyte files.
-
-interface Box {
-  type: string;
-  start: number;
-  size: number;
-}
-
-const fourcc = (v: DataView, at: number) =>
-  String.fromCharCode(v.getUint8(at), v.getUint8(at + 1), v.getUint8(at + 2), v.getUint8(at + 3));
-
-/** The file's top-level boxes, or null if it isn't a well-formed ISO-BMFF/QuickTime file. */
-async function topLevelBoxes(file: Blob): Promise<Box[] | null> {
-  const boxes: Box[] = [];
-  let offset = 0;
-  while (offset + 8 <= file.size) {
-    if (boxes.length >= 1000) return null;
-    const head = new DataView(await file.slice(offset, offset + 16).arrayBuffer());
-    let size = head.getUint32(0);
-    if (size === 1) size = Number(head.getBigUint64(8));
-    else if (size === 0) size = file.size - offset; // runs to the end of the file
-    if (size < 8 || offset + size > file.size) return null; // corrupt or truncated
-    boxes.push({type: fourcc(head, 4), start: offset, size});
-    offset += size;
-  }
-  return boxes;
-}
+import {defragment} from './defragment';
+import {fourcc, topLevelBoxes, type Box} from './mp4boxes';
 
 // Boxes on the way from moov down to the chunk offset tables.
 const PATH = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl']);
@@ -77,9 +53,7 @@ function shiftChunkOffsets(moov: DataView, shift: number, from: number, to: numb
  * The same file with its index moved right after `ftyp`, or null when that isn't needed or isn't safe
  * (not an MP4/MOV, index already first, unusual layout) — then upload the original.
  */
-export async function fastStart(file: File): Promise<File | null> {
-  const boxes = await topLevelBoxes(file);
-  if (!boxes || boxes[0]?.type !== 'ftyp') return null;
+async function fastStart(file: File, boxes: Box[]): Promise<File | null> {
   const moovs = boxes.filter((b) => b.type === 'moov');
   const firstMdat = boxes.findIndex((b) => b.type === 'mdat');
   if (moovs.length !== 1 || firstMdat < 0) return null;
@@ -94,4 +68,15 @@ export async function fastStart(file: File): Promise<File | null> {
   const parts: BlobPart[] = [file.slice(0, insertAt), moov];
   for (const b of boxes.slice(1)) if (b !== moovBox) parts.push(file.slice(b.start, b.start + b.size));
   return new File(parts, file.name, {type: file.type, lastModified: file.lastModified});
+}
+
+/**
+ * A version of an MP4/MOV upload that browsers can start and seek without reading the whole file:
+ * fragmented files are rebuilt with a regular index, and an index at the end is moved to the front.
+ * Null when the file is fine as it is (or isn't an MP4/MOV) — then upload the original.
+ */
+export async function streamable(file: File): Promise<File | null> {
+  const boxes = await topLevelBoxes(file);
+  if (!boxes || boxes[0]?.type !== 'ftyp') return null;
+  return boxes.some((b) => b.type === 'moof') ? defragment(file, boxes) : fastStart(file, boxes);
 }

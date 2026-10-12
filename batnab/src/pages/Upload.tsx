@@ -3,7 +3,7 @@ import {useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactN
 import {api, errorMessage} from '../lib/api';
 import {displayName, signIn, useUser} from '../lib/auth';
 import {compressionSupported, worthCompressing} from '../lib/compressCheck';
-import {fastStart} from '../lib/faststart';
+import {streamable} from '../lib/faststart';
 import {getDriveToken} from '../lib/drive';
 import {formatBytes, formatDuration} from '../lib/format';
 import {navigate} from '../lib/router';
@@ -160,8 +160,8 @@ export default function Upload() {
         }
         setProgress(0);
       }
-      // Files with the index at the end start slowly over Drive; move it to the front (lossless, instant).
-      if (file === picked.file) file = (await fastStart(file).catch(() => null)) ?? file;
+      // Make MP4/MOV files start and seek without reading the whole file (lossless, instant).
+      if (file === picked.file) file = (await streamable(file).catch(() => null)) ?? file;
       setStage('uploading');
       const id = await api.upload(
         {file, thumbnail: thumb?.blob ?? null, title, description, duration: picked.duration, short: canBeShort && short, visibility},
