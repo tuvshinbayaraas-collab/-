@@ -302,8 +302,17 @@ export default function VideoPlayer({video, startAt, speed, next, autoplayNext, 
         {mode === 'iframe' && (
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-400">
             <p className="min-w-0 flex-1 break-words">
-              Энэ хөтөч бичлэгийг шууд тоглуулж чадсангүй тул Google Drive-ийн тоглуулагчаар нээлээ (шинэ бичлэгийг
-              Drive хэдэн минут боловсруулдаг).
+              {/downloadQuotaExceeded/.test(failure) ? (
+                <span className="text-amber-300">
+                  Энэ бичлэгийг Google Drive-аас хэт олон удаа татсан тул Drive шууд тоглуулахыг түр хязгаарласан
+                  (ихэвчлэн 24 цагийн дотор нээгдэнэ). Түр зуур Drive-ийн тоглуулагчаар нээлээ.
+                </span>
+              ) : (
+                <>
+                  Энэ хөтөч бичлэгийг шууд тоглуулж чадсангүй тул Google Drive-ийн тоглуулагчаар нээлээ (шинэ бичлэгийг
+                  Drive хэдэн минут боловсруулдаг).
+                </>
+              )}
               {failure && <span className="select-all text-neutral-500"> Алдаа: {failure}</span>}
             </p>
             <button
