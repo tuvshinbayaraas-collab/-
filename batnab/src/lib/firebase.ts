@@ -2,7 +2,7 @@ import {initializeApp} from 'firebase/app';
 import {connectAuthEmulator, getAuth} from 'firebase/auth';
 import {connectDatabaseEmulator, getDatabase} from 'firebase/database';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyBlM6H70o8AwPDxZaIGMBBI-p40MCWAIGU',
   authDomain: 'rgtbn-bb94f.firebaseapp.com',
   databaseURL: 'https://rgtbn-bb94f-default-rtdb.firebaseio.com',
@@ -14,12 +14,12 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const firebaseApiKey = firebaseConfig.apiKey;
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 
 // `VITE_FIREBASE_EMULATORS=true npm run dev` talks to local emulators (`npx firebase-tools emulators:start --only auth,database`).
-if (import.meta.env.VITE_FIREBASE_EMULATORS === 'true') {
+export const emulators = import.meta.env.VITE_FIREBASE_EMULATORS === 'true';
+if (emulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings: true});
   connectDatabaseEmulator(db, '127.0.0.1', 9000);
 } else {

@@ -1,7 +1,11 @@
 # Builds batnab/ and deploys it to Firebase (Hosting + Realtime Database rules)
-# on every push that touches the site. Needs one repository secret:
+# on every push that touches the site, then runs scripts/setup.mjs (sign-in
+# provider, teacher account, default settings). Repository secrets:
 #   FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F — the JSON key of a Google Cloud
 #   service account with the "Firebase Admin" and "Service Usage Consumer" roles.
+#   BATNAB_ADMIN_PASSWORD — the first password of the teacher account Teacher001
+#   (only used to create it, or when the workflow is run by hand with
+#   "reset_admin_password" ticked).
 name: Deploy Batnab
 
 on:
@@ -9,6 +13,11 @@ on:
     branches: [main, claude/youtube-site-batnab-jfgjry]
     paths: ['batnab/**', '.github/workflows/batnab-deploy.yml']
   workflow_dispatch:
+    inputs:
+      reset_admin_password:
+        description: Set Teacher001's password back to the BATNAB_ADMIN_PASSWORD secret
+        type: boolean
+        default: false
 
 concurrency:
   group: batnab-deploy
@@ -45,17 +54,6 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check admins.json
-        # Every key must look like a Firebase Auth UID and every value must be true; a typo here
-        # would otherwise replace the whole admins list in the database.
-        run: |
-          node -e '
-            const a = JSON.parse(require("fs").readFileSync("admins.json", "utf8"));
-            const bad = Object.entries(a).filter(([k, v]) => !/^[A-Za-z0-9]{20,128}$/.test(k) || v !== true);
-            if (!Object.keys(a).length || bad.length) { console.error("Invalid admins.json:", bad); process.exit(1); }
-            console.log("admins:", Object.keys(a).length);
-          '
-
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
@@ -64,11 +62,12 @@ jobs:
         if: steps.key.outputs.present == 'true'
         env:
           KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ADMIN_PASSWORD: ${{ secrets.BATNAB_ADMIN_PASSWORD }}
+          RESET_ADMIN_PASSWORD: ${{ inputs.reset_admin_password }}
         run: |
           trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
           printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@15 deploy --only hosting,database --project rgtbn-bb94f --non-interactive
-          # Site admins come from batnab/admins.json.
-          npx --yes firebase-tools@15 database:set /admins admins.json --force --project rgtbn-bb94f --non-interactive
+          node scripts/setup.mjs
           echo "### Deployed to https://batnab.web.app" >> "$GITHUB_STEP_SUMMARY"

@@ -7,11 +7,12 @@ export interface Attempt {
   answers: (number | null)[];
   started: number;
   finished?: number;
-  /** Set once the result is stored for a signed-in user. */
-  saved?: boolean;
+  /** Set once the result is stored for a student (results/{uid}/{test}/{resultId}). */
+  resultId?: string;
 }
 
-const key = (testId: string) => `batnab.attempt.${testId}`;
+// One attempt per test and per account (or guest) on this browser, so classmates sharing a computer don't mix answers.
+const key = (owner: string, testId: string) => `batnab.attempt.${owner}.${testId}`;
 
 function shuffled(count: number) {
   const order = Array.from({length: count}, (_, i) => i);
@@ -24,9 +25,9 @@ function shuffled(count: number) {
 
 export const newAttempt = (count: number): Attempt => ({order: shuffled(count), answers: Array(count).fill(null), started: Date.now()});
 
-export function loadAttempt(testId: string, count: number): Attempt | null {
+export function loadAttempt(owner: string, testId: string, count: number): Attempt | null {
   try {
-    const a = JSON.parse(localStorage.getItem(key(testId)) ?? 'null') as Attempt | null;
+    const a = JSON.parse(localStorage.getItem(key(owner, testId)) ?? 'null') as Attempt | null;
     if (!a || a.order?.length !== count || a.answers?.length !== count) return null;
     return a;
   } catch {
@@ -34,24 +35,24 @@ export function loadAttempt(testId: string, count: number): Attempt | null {
   }
 }
 
-export function saveAttempt(testId: string, a: Attempt) {
+export function saveAttempt(owner: string, testId: string, a: Attempt) {
   try {
-    localStorage.setItem(key(testId), JSON.stringify(a));
+    localStorage.setItem(key(owner, testId), JSON.stringify(a));
   } catch {
     // storage full or blocked: the attempt still works until the page is closed
   }
 }
 
-export function clearAttempt(testId: string) {
+export function clearAttempt(owner: string, testId: string) {
   try {
-    localStorage.removeItem(key(testId));
+    localStorage.removeItem(key(owner, testId));
   } catch {
     // ignore
   }
 }
 
-export const inProgress = (testId: string, count: number) => {
-  const a = loadAttempt(testId, count);
+export const inProgress = (owner: string, testId: string, count: number) => {
+  const a = loadAttempt(owner, testId, count);
   return !!a && !a.finished;
 };
 

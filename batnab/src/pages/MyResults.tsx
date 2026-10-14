@@ -1,30 +1,22 @@
-import {LogIn} from 'lucide-react';
+import {ChevronRight} from 'lucide-react';
+import {InactiveNote, LockedNote} from '../components/Notices';
 import {formatTime} from '../lib/attempt';
-import {signIn, useUser} from '../lib/auth';
-import {useMyResults} from '../lib/results';
+import {grade, percent, useKeys} from '../lib/keys';
+import {formatDate, useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
-import {testInfo} from '../tests';
-
-const date = (ts: number) => {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+import {useSession} from '../lib/session';
+import {TESTS, testInfo} from '../tests';
 
 export default function MyResults() {
-  const {user, ready} = useUser();
+  const session = useSession();
   const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
 
-  if (ready && !user) {
-    return (
-      <div className="flex flex-col items-center py-24 text-center">
-        <p className="text-neutral-400">Дүнгээ харахын тулд нэвтэрнэ үү.</p>
-        <button onClick={signIn} className="mt-4 flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
-          <LogIn size={18} /> Google-ээр нэвтрэх
-        </button>
-      </div>
-    );
-  }
+  if (session.ready && !session.user) return <LockedNote text="Дүнгээ харахын тулд нэвтэрнэ үү." />;
+  if (session.ready && !session.profile) return <InactiveNote />;
+
+  const graded = (results ?? []).map((r) => ({r, g: grade(r.answers, keys[r.test], testInfo(r.test)!.count)}));
+  const taken = TESTS.filter((t) => graded.some((x) => x.r.test === t.id));
 
   return (
     <div className="mx-auto max-w-3xl py-6">
@@ -39,26 +31,52 @@ export default function MyResults() {
           </Link>
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
-          {results.map((r) => (
-            <li key={r.id} className="flex items-center gap-4 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <Link href={`/test/${r.test}`} className="font-semibold hover:underline">
-                  {testInfo(r.test)?.title ?? r.test}
+        <>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {taken.map((t) => {
+              const mine = graded.filter((x) => x.r.test === t.id);
+              const best = mine.reduce<number | null>((b, x) => (x.g && (b === null || percent(x.g) > b) ? percent(x.g) : b), null);
+              return (
+                <div key={t.id} className="rounded-2xl bg-neutral-900 p-4">
+                  <p className="text-sm text-neutral-400">{t.title}</p>
+                  <p className="mt-1 text-2xl font-bold">{best === null ? '—' : `${best}%`}</p>
+                  <p className="text-xs text-neutral-500">
+                    шилдэг • {mine.length} удаа
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <h2 className="mb-2 mt-8 text-sm font-semibold uppercase tracking-wide text-neutral-400">Бүх оролдлого</h2>
+          <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
+            {graded.map(({r, g}) => (
+              <li key={r.id}>
+                <Link href={`/review/${r.test}/${r.id}`} className="flex items-center gap-4 px-4 py-3 hover:bg-neutral-800/60">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{testInfo(r.test)?.title ?? r.test}</p>
+                    <p className="text-sm text-neutral-400">
+                      {formatDate(r.at)} • {formatTime(r.seconds)}
+                    </p>
+                  </div>
+                  <p className="text-right">
+                    {g ? (
+                      <>
+                        <span className="text-lg font-bold">
+                          {g.score}/{g.total}
+                        </span>
+                        <span className="ml-2 text-sm text-neutral-400">{percent(g)}%</span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-neutral-400">{keys[r.test] === undefined ? '…' : 'Түлхүүр хүлээж байна'}</span>
+                    )}
+                  </p>
+                  <ChevronRight size={16} className="shrink-0 text-neutral-500" />
                 </Link>
-                <p className="text-sm text-neutral-400">
-                  {date(r.at)} • {formatTime(r.seconds)}
-                </p>
-              </div>
-              <p className="text-right">
-                <span className="text-lg font-bold">
-                  {r.score}/{r.total}
-                </span>
-                <span className="ml-2 text-sm text-neutral-400">{Math.round((r.score / r.total) * 100)}%</span>
-              </p>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
