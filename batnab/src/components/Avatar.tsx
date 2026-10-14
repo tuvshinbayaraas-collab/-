@@ -1,5 +1,12 @@
 import {useState} from 'react';
-import {avatarColor} from '../lib/format';
+
+const AVATAR_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+function avatarColor(name: string): string {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 export default function Avatar({name, photo, size = 36}: {name: string; photo?: string | null; size?: number}) {
   const [broken, setBroken] = useState(false);

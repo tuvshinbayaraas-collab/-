@@ -15,7 +15,6 @@
     "@vitejs/plugin-react": "^6.1.1",
     "firebase": "^12.19.0",
     "lucide-react": "^0.546.0",
-    "mediabunny": "^1.61.3",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "tailwindcss": "^4.3.3",

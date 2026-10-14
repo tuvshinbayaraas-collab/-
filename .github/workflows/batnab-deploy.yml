@@ -69,6 +69,6 @@ jobs:
           printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@15 deploy --only hosting,database --project rgtbn-bb94f --non-interactive
-          # Site admins (who can review reports at /admin) come from batnab/admins.json.
+          # Site admins come from batnab/admins.json.
           npx --yes firebase-tools@15 database:set /admins admins.json --force --project rgtbn-bb94f --non-interactive
           echo "### Deployed to https://batnab.web.app" >> "$GITHUB_STEP_SUMMARY"
