@@ -51,7 +51,7 @@
         "$testId": {
           ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/)",
           "$resultId": {
-            ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (root.child('settings/retakes').val() !== false || !root.child('results').child($uid).child($testId).exists())",
+            ".write": "auth != null && auth.uid === $uid && ((!data.exists() && newData.exists() && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (root.child('settings/retakes').val() !== false || !root.child('results').child($uid).child($testId).exists())) || (!newData.exists() && data.child('at').val() < now - ((now - 144000000) % 604800000)))",
             ".validate": "newData.hasChildren(['answers', 'seconds', 'at'])",
             "answers": {".validate": "newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"},
             "seconds": {".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 604800"},

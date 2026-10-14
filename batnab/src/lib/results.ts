@@ -1,10 +1,12 @@
 // Handed-in tests: results/{uid}/{testId}/{pushId} = {answers, seconds, at}. Scores are worked out from the
-// current answer key whenever they are shown, so fixing a key fixes every score.
+// current answer key whenever they are shown, so fixing a key fixes every score. Only this week's results count
+// (see week.ts); older ones are hidden and deleted.
 import {onValue, push, ref, serverTimestamp, set} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {testInfo} from '../tests';
 import {auth, db} from './firebase';
 import {useSession} from './session';
+import {inThisWeek} from './week';
 
 export interface Result {
   id: string;
@@ -39,7 +41,12 @@ export function flatten(uid: string, tree: Tree | null): Result[] {
   return out.sort((a, b) => b.at - a.at);
 }
 
-/** The signed-in user's results, newest first: null while loading. */
+/** Deletes results from before this week's reset (best effort: the rules allow it once the week has turned). */
+export function clearOld(results: Result[]) {
+  for (const r of results) if (!inThisWeek(r.at)) set(ref(db, `results/${r.uid}/${r.test}/${r.id}`), null).catch(() => {});
+}
+
+/** The signed-in user's results from this week, newest first: null while loading. */
 export function useMyResults() {
   const {user, ready} = useSession();
   const uid = user?.uid;
@@ -48,7 +55,11 @@ export function useMyResults() {
     if (!ready || !uid) return;
     return onValue(
       ref(db, `results/${uid}`),
-      (s) => setResults({uid, list: flatten(uid, s.val())}),
+      (s) => {
+        const all = flatten(uid, s.val());
+        clearOld(all);
+        setResults({uid, list: all.filter((r) => inThisWeek(r.at))});
+      },
       () => setResults({uid, list: []}),
     );
   }, [ready, uid]);

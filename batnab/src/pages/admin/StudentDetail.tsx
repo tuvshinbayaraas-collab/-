@@ -1,7 +1,7 @@
 import {ArrowLeft, Ban, Check, Pencil, Trash2, X} from 'lucide-react';
 import {useState} from 'react';
 import Avatar from '../../components/Avatar';
-import {formatTime} from '../../lib/attempt';
+import {formatDuration} from '../../lib/attempt';
 import {deleteResult, deleteStudent, renameStudent, setBlocked} from '../../lib/accounts';
 import {percent} from '../../lib/keys';
 import {formatDate} from '../../lib/results';
@@ -110,16 +110,16 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
       </section>
       {p.disabled && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-sm text-red-300">Энэ бүртгэл түр хаагдсан: сурагч нэвтэрсэн ч тест өгч чадахгүй.</p>}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-3">
         <Stat label="Өгсөн тест" value={`${new Set(results.map((r) => r.test)).size}/${TESTS.length}`} />
         <Stat label="Оролдлого" value={results.length} />
-        <Stat label="Дундаж оноо" value={avg === null ? '—' : `${Math.round(avg)}%`} />
+        <Stat label="Дундаж" value={avg === null ? '—' : `${Math.round(avg)}%`} sub="бүх оролдлогоор" />
       </div>
 
       <section>
-        <h3 className="mb-2 font-semibold">Бүх оролдлого</h3>
+        <h3 className="mb-2 font-semibold">Энэ долоо хоногийн оролдлогууд</h3>
         {!results.length ? (
-          <p className="text-sm text-neutral-400">Одоогоор тест өгөөгүй байна.</p>
+          <p className="text-sm text-neutral-400">Энэ долоо хоногт тест өгөөгүй байна.</p>
         ) : (
           <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
             {graded.map(({r, g}) => (
@@ -127,7 +127,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
                 <Link href={`/review/${r.test}/${r.id}?u=${uid}`} className="min-w-0 flex-1 hover:underline">
                   <span className="font-medium">{TESTS.find((t) => t.id === r.test)?.title}</span>
                   <span className="block text-sm text-neutral-400">
-                    {formatDate(r.at)} • {formatTime(r.seconds)}
+                    {formatDate(r.at)} • {formatDuration(r.seconds)}
                   </span>
                 </Link>
                 <span className="text-right tabular-nums">{g ? `${g.score}/${g.total} • ${percent(g)}%` : <span className="text-sm text-neutral-500">түлхүүргүй</span>}</span>

@@ -1,6 +1,6 @@
 // Run by the deploy workflow with the service account (GOOGLE_APPLICATION_CREDENTIALS):
 //  - turns on username/password sign-in (Firebase Auth's Email/Password provider);
-//  - creates the teacher account Teacher001 with the password from ADMIN_PASSWORD (only if it doesn't exist yet,
+//  - creates the teacher account "Admin" with the password from ADMIN_PASSWORD (only if it doesn't exist yet,
 //    or when RESET_ADMIN_PASSWORD=true), and makes it the site's only admin;
 //  - fills in default settings.
 // Against the emulators (FIREBASE_AUTH_EMULATOR_HOST / FIREBASE_DATABASE_EMULATOR_HOST) it needs no credentials.
@@ -9,8 +9,10 @@ import {getAuth} from 'firebase-admin/auth';
 import {getDatabase} from 'firebase-admin/database';
 
 const PROJECT = 'rgtbn-bb94f';
-const ADMIN = 'teacher001';
+const ADMIN = 'admin';
 const ADMIN_EMAIL = `${ADMIN}@batnab.web.app`;
+// The teacher's earlier login name; an account with it is renamed to ADMIN, keeping its password.
+const OLD_EMAIL = 'teacher001@batnab.web.app';
 const emulated = !!process.env.FIREBASE_AUTH_EMULATOR_HOST;
 const password = process.env.ADMIN_PASSWORD ?? '';
 const reset = process.env.RESET_ADMIN_PASSWORD === 'true';
@@ -41,30 +43,39 @@ async function enableEmailSignIn() {
   }
 }
 
-async function teacher() {
-  let user = await auth.getUserByEmail(ADMIN_EMAIL).catch((e) => {
+const byEmail = (email) =>
+  auth.getUserByEmail(email).catch((e) => {
     if (e.code === 'auth/user-not-found') return null;
     throw e;
   });
+
+async function teacher() {
+  let user = await byEmail(ADMIN_EMAIL);
+  const old = user ? null : await byEmail(OLD_EMAIL);
+  if (old) {
+    user = await auth.updateUser(old.uid, {email: ADMIN_EMAIL, displayName: 'Admin'});
+    console.log('Teacher001 renamed to Admin');
+  }
   if (!user) {
     if (password.length < 6) {
-      warn('The teacher account Teacher001 does not exist yet: add the repository secret BATNAB_ADMIN_PASSWORD (at least 6 characters) and run the workflow again.');
+      warn('The teacher account Admin does not exist yet: add the repository secret BATNAB_ADMIN_PASSWORD (at least 6 characters) and run the workflow again.');
       return null;
     }
-    user = await auth.createUser({email: ADMIN_EMAIL, password, displayName: 'Teacher001'});
-    console.log('Teacher001: created');
+    user = await auth.createUser({email: ADMIN_EMAIL, password, displayName: 'Admin'});
+    console.log('Admin: created');
   } else if (reset) {
     if (password.length < 6) warn('RESET_ADMIN_PASSWORD is set but BATNAB_ADMIN_PASSWORD is missing or shorter than 6 characters.');
     else {
       await auth.updateUser(user.uid, {password});
-      console.log('Teacher001: password reset');
+      console.log('Admin: password reset');
     }
-  } else console.log('Teacher001: exists');
+  } else console.log('Admin: exists');
   if (user.disabled) await auth.updateUser(user.uid, {disabled: false});
 
   await db.ref('admins').set({[user.uid]: true});
   const profile = db.ref(`users/${user.uid}`);
   if (!(await profile.child('username').get()).exists()) await profile.update({username: ADMIN, name: 'Багш', createdAt: Date.now()});
+  else await profile.update({username: ADMIN});
   return user.uid;
 }
 

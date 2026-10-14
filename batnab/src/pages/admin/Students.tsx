@@ -18,6 +18,7 @@ const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 p
 export default function Students({data}: {data: AdminData}) {
   const [created, setCreated] = useState<Created[]>([]);
   const [filter, setFilter] = useState('');
+  const [adding, setAdding] = useState(!data.students.length);
   const add = (c: Created) => setCreated((list) => [...list, c]);
 
   const q = filter.trim().toLowerCase();
@@ -25,18 +26,31 @@ export default function Students({data}: {data: AdminData}) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CreateOne onCreated={add} />
-        <CreateMany onCreated={add} />
-      </div>
+      {adding ? (
+        <div className="space-y-3">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <CreateOne onCreated={add} />
+            <CreateMany onCreated={add} />
+          </div>
+          {data.students.length > 0 && (
+            <button onClick={() => setAdding(false)} className="text-sm text-neutral-400 hover:text-neutral-200">
+              Хаах
+            </button>
+          )}
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400">
+          <UserPlus size={18} /> Сурагч нэмэх
+        </button>
+      )}
       {created.length > 0 && <CreatedList list={created} />}
 
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Бүх сурагч ({data.students.length})</h2>
-          <label className="relative">
+          <label className="relative w-full sm:w-56">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Хайх" className="w-56 rounded-full border border-neutral-700 bg-neutral-950 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
+            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Нэр, хоч, нэвтрэх нэрээр хайх" className="w-full rounded-full border border-neutral-700 bg-neutral-950 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
           </label>
         </div>
         {!data.students.length ? (
@@ -51,12 +65,14 @@ export default function Students({data}: {data: AdminData}) {
                 <li key={s.uid}>
                   <Link href={`/admin/student/${s.uid}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-800/50">
                     <span className="min-w-0 flex-1">
-                      <StudentName student={s} />
+                      <StudentName student={s} sub={`@${s.profile.username} • ${tests ? `${tests} тест өгсөн` : 'тест өгөөгүй'}`} />
                     </span>
                     {s.profile.disabled && <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-300">Хаалттай</span>}
-                    <span className="hidden w-24 text-right text-sm text-neutral-400 sm:block">{tests} тест</span>
-                    <span className="w-14 text-right text-sm tabular-nums">{avg === null ? '—' : `${Math.round(avg)}%`}</span>
-                    <ChevronRight size={16} className="text-neutral-500" />
+                    <span className="w-14 shrink-0 text-right">
+                      <span className="block text-sm font-semibold tabular-nums">{avg === null ? '—' : `${Math.round(avg)}%`}</span>
+                      <span className="block text-[11px] text-neutral-500">дундаж</span>
+                    </span>
+                    <ChevronRight size={16} className="shrink-0 text-neutral-500" />
                   </Link>
                 </li>
               );

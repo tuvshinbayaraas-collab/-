@@ -1,11 +1,12 @@
-import {ChevronRight} from 'lucide-react';
+import {ChevronRight, RefreshCw} from 'lucide-react';
 import {InactiveNote, LockedNote} from '../components/Notices';
-import {formatTime} from '../lib/attempt';
+import {formatDuration} from '../lib/attempt';
 import {grade, percent, useKeys} from '../lib/keys';
 import {formatDate, useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {TESTS, testInfo} from '../tests';
+import {untilReset} from '../lib/week';
 
 export default function MyResults() {
   const session = useSession();
@@ -21,6 +22,9 @@ export default function MyResults() {
   return (
     <div className="mx-auto max-w-3xl py-6">
       <h1 className="text-2xl font-bold">Миний дүнгүүд</h1>
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-400">
+        <RefreshCw size={14} /> Энэ долоо хоногийн дүн. Баасан гараг бүрийн 24:00-д шинээр эхэлнэ ({untilReset()} үлдлээ).
+      </p>
       {results === null ? (
         <p className="mt-6 text-neutral-400">Ачаалж байна…</p>
       ) : !results.length ? (
@@ -56,7 +60,7 @@ export default function MyResults() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{testInfo(r.test)?.title ?? r.test}</p>
                     <p className="text-sm text-neutral-400">
-                      {formatDate(r.at)} • {formatTime(r.seconds)}
+                      {formatDate(r.at)} • {formatDuration(r.seconds)}
                     </p>
                   </div>
                   <p className="text-right">

@@ -29,17 +29,18 @@ export default function Admin({student}: {student?: string}) {
   const tab = TABS.find((t) => t.id === query.get('tab'))?.id ?? 'overview';
   return (
     <div className="mx-auto max-w-5xl py-4">
-      <h1 className="text-2xl font-bold">Багшийн самбар</h1>
-      <nav className="mt-4 flex gap-1 overflow-x-auto border-b border-neutral-800">
+      <h1 className="text-xl font-bold sm:text-2xl">Багшийн самбар</h1>
+      <nav className="mt-3 grid grid-cols-4 border-b border-neutral-800 sm:flex sm:gap-1">
         {TABS.map((t) => {
-          const active = !student && t.id === tab;
+          const active = (student ? 'students' : tab) === t.id;
           return (
             <Link
               key={t.id}
               href={`/admin?tab=${t.id}`}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium ${active ? 'border-blue-500 text-white' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}
+              aria-current={active ? 'page' : undefined}
+              className={`-mb-px flex flex-col items-center gap-1 border-b-2 px-1 py-2 text-xs font-medium sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm ${active ? 'border-blue-500 text-white' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}
             >
-              <t.icon size={16} /> {t.label}
+              <t.icon size={18} className="sm:h-4 sm:w-4" /> {t.label}
             </Link>
           );
         })}

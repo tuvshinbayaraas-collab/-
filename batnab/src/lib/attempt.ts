@@ -63,3 +63,11 @@ export const formatTime = (seconds: number) => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
 };
+
+/** A length of time for lists and summaries: "45 сек", "21 мин", "1 цаг 5 мин" (formatTime reads like a clock). */
+export const formatDuration = (seconds: number) => {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} сек`;
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m} мин` : `${Math.floor(m / 60)} цаг${m % 60 ? ` ${m % 60} мин` : ''}`;
+};

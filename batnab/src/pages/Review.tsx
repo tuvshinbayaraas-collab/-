@@ -2,7 +2,7 @@ import {ArrowLeft} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, LockedNote} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
-import {formatTime} from '../lib/attempt';
+import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
 import {formatDate, useResult} from '../lib/results';
 import {Link} from '../lib/router';
@@ -40,7 +40,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
       <div className="mt-2 rounded-2xl bg-neutral-900 p-5">
         <h1 className="text-xl font-bold">{test.title}</h1>
         <p className="text-sm text-neutral-400">
-          {formatDate(result.at)} • {formatTime(result.seconds)}
+          {formatDate(result.at)} • {formatDuration(result.seconds)}
         </p>
         {key === undefined ? (
           <p className="mt-2 text-neutral-400">Ачаалж байна…</p>

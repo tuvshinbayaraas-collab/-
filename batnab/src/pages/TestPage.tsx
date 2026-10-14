@@ -2,11 +2,12 @@ import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
-import {clearAttempt, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
+import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {saveResult, useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
+import {inThisWeek} from '../lib/week';
 import {useSettings} from '../lib/settings';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
@@ -46,6 +47,11 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   useEffect(() => {
     loadTest(id)?.then((t) => {
       let a = loadAttempt(owner, id, t.questions.length);
+      // A test finished before the weekly reset is gone from the results, so start afresh.
+      if (a?.finished && !inThisWeek(a.finished)) {
+        clearAttempt(owner, id);
+        a = null;
+      }
       if (!a) {
         if (!canRetake && taken) {
           setTest(t);
@@ -162,7 +168,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
             )}
           </div>
         </div>
-        <div className="mt-2 flex gap-1 overflow-x-auto pb-1 [scrollbar-width:thin]">
+        <div className="mt-2 flex gap-1 overflow-x-auto pb-1 [scrollbar-width:thin] sm:flex-wrap sm:overflow-visible">
           {attempt.order.map((qi, pos) => {
             const chosen = attempt.answers[qi];
             const correct = correctOf(qi);
@@ -218,7 +224,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
                 {g.score} <span className="text-2xl text-neutral-400">/ {g.total}</span>
                 <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
               </p>
-              <p className="mt-1 text-sm text-neutral-400">Зарцуулсан хугацаа: {formatTime(elapsed)}</p>
+              <p className="mt-1 text-sm text-neutral-400">Зарцуулсан хугацаа: {formatDuration(elapsed)}</p>
               {g.total < g.count && <p className="mt-1 text-sm text-amber-300">{g.count - g.total} бодлогын зөв хариултыг багш оруулаагүй тул тооцоогүй.</p>}
               {mode === 'student' && (
                 <p className="mt-3 text-sm text-neutral-400">

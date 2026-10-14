@@ -3,7 +3,7 @@
 # provider, teacher account, default settings). Repository secrets:
 #   FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F — the JSON key of a Google Cloud
 #   service account with the "Firebase Admin" and "Service Usage Consumer" roles.
-#   BATNAB_ADMIN_PASSWORD — the first password of the teacher account Teacher001
+#   BATNAB_ADMIN_PASSWORD — the first password of the teacher account Admin
 #   (only used to create it, or when the workflow is run by hand with
 #   "reset_admin_password" ticked).
 name: Deploy Batnab
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       reset_admin_password:
-        description: Set Teacher001's password back to the BATNAB_ADMIN_PASSWORD secret
+        description: Set the Admin password back to the BATNAB_ADMIN_PASSWORD secret
         type: boolean
         default: false
 

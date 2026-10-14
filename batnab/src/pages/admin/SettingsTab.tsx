@@ -2,6 +2,7 @@ import {Download} from 'lucide-react';
 import {useState} from 'react';
 import {useSettings, saveSetting, type Settings} from '../../lib/settings';
 import {TESTS} from '../../tests';
+import {untilReset} from '../../lib/week';
 import {download, resultsCsv, type AdminData} from './data';
 
 export default function SettingsTab({data}: {data: AdminData}) {
@@ -39,7 +40,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
           <span>
             <span className="font-semibold">Тестийг дахин өгөхийг зөвшөөрөх</span>
             <span className="mt-1 block text-sm text-neutral-400">
-              Унтраавал сурагч тест бүрийг нэг л удаа өгнө. Асаалттай үед ч анализ эхний оролдлогыг тусад нь харуулдаг.
+              Унтраавал сурагч тест бүрийг долоо хоногт нэг л удаа өгнө. Асаалттай үед ч анализ эхний оролдлогыг тусад нь харуулдаг.
             </span>
           </span>
           <input type="checkbox" checked={settings.retakes} onChange={(e) => change('retakes', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
@@ -49,8 +50,13 @@ export default function SettingsTab({data}: {data: AdminData}) {
       {error && <p className="text-sm text-red-400">Хадгалж чадсангүй: {error}</p>}
 
       <section className="rounded-2xl bg-neutral-900 p-5">
-        <h2 className="font-semibold">Дүн татах</h2>
-        <p className="mt-1 text-sm text-neutral-400">Бүх сурагчийн бүх оролдлого Excel-д нээгдэх CSV файлаар.</p>
+        <h2 className="font-semibold">Долоо хоног бүр шинээр эхлэх</h2>
+        <p className="mt-1 text-sm text-neutral-400">
+          Баасан гараг бүрийн 24:00-д (Улаанбаатарын цагаар) бүх сурагчийн дүн цэвэрлэгдэж, тестүүдийг шинээр өгнө. Бүртгэл, түлхүүр,
+          тохиргоо хэвээр үлдэнэ. Дараагийн цэвэрлэгээ: {untilReset()} дараа.
+        </p>
+        <h3 className="mt-4 text-sm font-semibold">Энэ долоо хоногийн дүнг хадгалж авах</h3>
+        <p className="mt-1 text-sm text-neutral-400">Бүх оролдлого Excel-д нээгдэх CSV файлаар. Цэвэрлэгдэхээс өмнө татаж аваарай.</p>
         <button
           onClick={() => download(`batnab-dun-${today}.csv`, resultsCsv(data))}
           disabled={!data.results.length}

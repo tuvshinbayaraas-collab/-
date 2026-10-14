@@ -1,10 +1,11 @@
 // Everything the teacher's dashboard shows, read live from the database (admins may read users, results and keys).
-import {onValue, ref} from 'firebase/database';
+import {onValue, ref, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
-import {flatten, type Result} from '../../lib/results';
+import {clearOld, flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
+import {inThisWeek} from '../../lib/week';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
 
 export interface Student {
@@ -20,7 +21,19 @@ export interface AdminData {
 }
 
 export function useAdminData() {
-  const [raw, setRaw] = useState<{users?: Record<string, Profile>; admins?: Record<string, boolean>; results?: Record<string, never>; keys?: Record<string, string>; error?: string}>({});
+  const [raw, setRaw] = useState<{users?: Record<string, Profile>; admins?: Record<string, boolean>; results?: Record<string, Record<string, unknown>>; keys?: Record<string, string>; error?: string}>({});
+  // Last week's results are cleared by whoever opens the site first after the reset; the teacher clears everyone's,
+  // along with results of deleted accounts and leftovers in an older format.
+  useEffect(() => {
+    if (!raw.results || !raw.users || raw.error) return;
+    const gone: Record<string, null> = {};
+    for (const [uid, tree] of Object.entries(raw.results)) {
+      if (!raw.users[uid]) gone[`results/${uid}`] = null;
+      else for (const key of Object.keys(tree ?? {})) if (!/^[0-9]{1,2}[AB]$/.test(key)) gone[`results/${uid}/${key}`] = null;
+    }
+    if (Object.keys(gone).length) update(ref(db), gone).catch(() => {});
+    clearOld(Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree) : [])));
+  }, [raw.results, raw.users, raw.error]);
   useEffect(() => {
     const stops = (['users', 'admins', 'results', 'keys'] as const).map((path) =>
       onValue(
@@ -40,7 +53,7 @@ export function useAdminData() {
   const known = new Set(students.map((s) => s.uid));
   const results = Object.entries(raw.results)
     .filter(([uid]) => known.has(uid))
-    .flatMap(([uid, tree]) => flatten(uid, tree))
+    .flatMap(([uid, tree]) => flatten(uid, tree).filter((r) => inThisWeek(r.at)))
     .sort((a, b) => b.at - a.at);
   const keys = Object.fromEntries(Object.entries(raw.keys).filter(([, k]) => typeof k === 'string'));
   return {data: {students, results, keys} as AdminData, error: raw.error};
