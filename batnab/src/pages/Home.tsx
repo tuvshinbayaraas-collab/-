@@ -39,12 +39,7 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-3xl py-6">
       {student ? (
-        <>
-          <h1 className="text-2xl font-bold sm:text-3xl">Сайн уу, {shownName(session.profile)}!</h1>
-          <p className="mt-2 text-neutral-400">
-            Тест бүр 30 бодлоготой. Тест өгөх бүрт бодлогуудын байр холилдоно. Дүн Баасан гараг бүрийн 24:00-д шинээр эхэлнэ.
-          </p>
-        </>
+        <h1 className="text-2xl font-bold sm:text-3xl">Сайн уу, {shownName(session.profile)}!</h1>
       ) : (
         <>
           <h1 className="text-2xl font-bold sm:text-3xl">Математикийн тест</h1>
