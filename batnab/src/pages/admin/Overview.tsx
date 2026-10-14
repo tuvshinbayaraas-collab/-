@@ -1,4 +1,4 @@
-import {AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, KeyRound, UserX} from 'lucide-react';
+import {AlertTriangle, ArrowLeft, CalendarClock, Check, ChevronDown, ChevronRight, KeyRound, UserX} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import Avatar from '../../components/Avatar';
 import MathText from '../../components/MathText';
@@ -6,6 +6,7 @@ import {formatDuration} from '../../lib/attempt';
 import {percent} from '../../lib/keys';
 import {Link} from '../../lib/router';
 import {shownName} from '../../lib/session';
+import {clock} from '../../lib/time';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
 import {LETTERS, type Question} from '../../tests/types';
 import {gradeOf, mean, reports, testReport, timeAgo, type AdminData, type QuestionStat, type Student, type TestReport} from './data';
@@ -59,7 +60,7 @@ export function StudentName({student, sub}: {student: Student; sub?: ReactNode})
   );
 }
 
-function Meter({value, label}: {value: number | null; label?: string}) {
+export function Meter({value, label}: {value: number | null; label?: string}) {
   return (
     <span className="block h-2 overflow-hidden rounded-full" style={{background: TRACK}} role="img" aria-label={label}>
       {value !== null && <span className="block h-full rounded-full" style={{width: `${Math.max(0, Math.min(100, value))}%`, background: SERIES}} />}
@@ -67,7 +68,7 @@ function Meter({value, label}: {value: number | null; label?: string}) {
   );
 }
 
-const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x)}%`);
+export const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x)}%`);
 
 export default function Overview({data, test}: {data: AdminData; test?: string}) {
   const info = test ? testInfo(test) : undefined;
@@ -96,8 +97,23 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
       </div>
     );
 
+  const running = Object.entries(data.exams).filter(([, e]) => Date.now() >= e.start && Date.now() <= e.end);
+
   return (
     <div className="space-y-6">
+      {running.map(([t, e]) => {
+        const answers = Object.values(data.examAnswers[t] ?? {});
+        return (
+          <Link key={t} href={`/admin?tab=exams&test=${t}`} className="flex items-center gap-3 rounded-xl bg-green-500/10 px-4 py-3 text-sm text-green-200 hover:bg-green-500/15">
+            <CalendarClock size={18} className="shrink-0" />
+            <span className="flex-1">
+              Шалгалт явагдаж байна: <span className="font-semibold">{testInfo(t)!.title}</span> ({clock(e.start)}–{clock(e.end)}) • {answers.filter((a) => a.done).length}/{active.length}{' '}
+              дуусгасан, {answers.filter((a) => a.leaves > 0).length} нь хуудаснаас гарсан
+            </span>
+            <ChevronRight size={16} />
+          </Link>
+        );
+      })}
       <WeekBanner data={data} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -414,7 +430,12 @@ function TestDetail({report}: {report: TestReport}) {
                   <Link href={`/admin/student/${r.student.uid}`} className="min-w-0 flex-1 hover:opacity-80">
                     <StudentName
                       student={r.student}
-                      sub={[r.attempts.length > 1 && r.best ? `шилдэг ${r.best.score}` : '', `${r.attempts.length} удаа`, formatDuration(r.attempts[0].seconds)]
+                      sub={[
+                        r.attempts.length > 1 && r.best ? `шилдэг ${r.best.score}` : '',
+                        `${r.attempts.length} удаа`,
+                        formatDuration(r.attempts[0].seconds),
+                        r.attempts[0].leaves ? `⚠ хуудаснаас ${r.attempts[0].leaves} удаа гарсан` : '',
+                      ]
                         .filter(Boolean)
                         .join(' • ')}
                     />
@@ -435,7 +456,7 @@ function TestDetail({report}: {report: TestReport}) {
 const BANDS = ['0–19%', '20–39%', '40–59%', '60–79%', '80–100%'];
 
 /** Students per 20% band of their first-attempt score; tap (or hover) a column to list who is in it. */
-function Distribution({report}: {report: TestReport}) {
+export function Distribution({report}: {report: TestReport}) {
   const [sel, setSel] = useState<number | null>(null);
   const bins = BANDS.map((_, b) => report.rows.filter((r) => r.first && Math.min(4, Math.floor(percent(r.first) / 20)) === b));
   const max = Math.max(1, ...bins.map((b) => b.length));
@@ -481,7 +502,7 @@ function Distribution({report}: {report: TestReport}) {
   );
 }
 
-function QuestionRow({q, rate, takers, question}: {q: QuestionStat; rate: number | null; takers: number; question?: Question}) {
+export function QuestionRow({q, rate, takers, question}: {q: QuestionStat; rate: number | null; takers: number; question?: Question}) {
   const [open, setOpen] = useState(false);
   const blank = takers - q.answered;
   const hard = rate !== null && rate < 50;

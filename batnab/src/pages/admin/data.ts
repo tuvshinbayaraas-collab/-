@@ -1,11 +1,12 @@
 // Everything the teacher's dashboard shows, read live from the database (admins may read users, results and keys).
 import {onValue, ref, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
+import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
 import {clearOld, flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
-import {inThisWeek} from '../../lib/week';
+import {inThisWeek, weekStart} from '../../lib/week';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
 
 export interface Student {
@@ -18,10 +19,22 @@ export interface AdminData {
   /** Every student's results, newest first. */
   results: Result[];
   keys: Record<string, string>;
+  /** Scheduled exams by test id. */
+  exams: Record<string, Exam>;
+  /** Exam answers by test id, then student uid. */
+  examAnswers: Record<string, Record<string, ExamAnswer>>;
 }
 
 export function useAdminData() {
-  const [raw, setRaw] = useState<{users?: Record<string, Profile>; admins?: Record<string, boolean>; results?: Record<string, Record<string, unknown>>; keys?: Record<string, string>; error?: string}>({});
+  const [raw, setRaw] = useState<{
+    users?: Record<string, Profile>;
+    admins?: Record<string, boolean>;
+    results?: Record<string, Record<string, unknown>>;
+    keys?: Record<string, string>;
+    exams?: Record<string, Partial<Exam>>;
+    examAnswers?: Record<string, Record<string, Partial<ExamAnswer>>>;
+    error?: string;
+  }>({});
   // Last week's results are cleared by whoever opens the site first after the reset; the teacher clears everyone's,
   // along with results of deleted accounts and leftovers in an older format.
   useEffect(() => {
@@ -31,11 +44,18 @@ export function useAdminData() {
       if (!raw.users[uid]) gone[`results/${uid}`] = null;
       else for (const key of Object.keys(tree ?? {})) if (!/^[0-9]{1,2}[AB]$/.test(key)) gone[`results/${uid}/${key}`] = null;
     }
+    // Exams that ended before this week's reset go too, with their answers.
+    for (const [test, e] of Object.entries(raw.exams ?? {})) {
+      if (typeof e?.end === 'number' && e.end < weekStart()) {
+        gone[`exams/${test}`] = null;
+        gone[`examAnswers/${test}`] = null;
+      }
+    }
     if (Object.keys(gone).length) update(ref(db), gone).catch(() => {});
     clearOld(Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree) : [])));
-  }, [raw.results, raw.users, raw.error]);
+  }, [raw.results, raw.users, raw.exams, raw.error]);
   useEffect(() => {
-    const stops = (['users', 'admins', 'results', 'keys'] as const).map((path) =>
+    const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers'] as const).map((path) =>
       onValue(
         ref(db, path),
         (s) => setRaw((r) => ({...r, [path]: s.val() ?? {}})),
@@ -45,7 +65,7 @@ export function useAdminData() {
     return () => stops.forEach((f) => f());
   }, []);
 
-  if (!raw.users || !raw.admins || !raw.results || !raw.keys) return {data: null, error: raw.error};
+  if (!raw.users || !raw.admins || !raw.results || !raw.keys || !raw.exams || !raw.examAnswers) return {data: null, error: raw.error};
   const students = Object.entries(raw.users)
     .filter(([uid, p]) => !raw.admins![uid] && p && typeof p.username === 'string')
     .map(([uid, profile]) => ({uid, profile}))
@@ -56,7 +76,16 @@ export function useAdminData() {
     .flatMap(([uid, tree]) => flatten(uid, tree).filter((r) => inThisWeek(r.at)))
     .sort((a, b) => b.at - a.at);
   const keys = Object.fromEntries(Object.entries(raw.keys).filter(([, k]) => typeof k === 'string'));
-  return {data: {students, results, keys} as AdminData, error: raw.error};
+  const exams = Object.fromEntries(
+    Object.entries(raw.exams).flatMap(([test, e]) => (testInfo(test) && typeof e?.start === 'number' && typeof e?.end === 'number' ? [[test, {start: e.start, end: e.end}]] : [])),
+  );
+  const examAnswers = Object.fromEntries(
+    Object.entries(raw.examAnswers).map(([test, byUid]) => [
+      test,
+      Object.fromEntries(Object.entries(byUid ?? {}).flatMap(([uid, a]) => (known.has(uid) && parseExamAnswer(a as ExamAnswer) ? [[uid, parseExamAnswer(a as ExamAnswer)!]] : []))),
+    ]),
+  );
+  return {data: {students, results, keys, exams, examAnswers} as AdminData, error: raw.error};
 }
 
 export const gradeOf = (r: Result, keys: Record<string, string>) => grade(r.answers, keys[r.test], testInfo(r.test)!.count);
@@ -143,7 +172,7 @@ export function resultsCsv(data: AdminData) {
     const s = String(v);
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const rows = [['Нэр', 'Хоч', 'Нэвтрэх нэр', 'Тест', 'Огноо', 'Хугацаа (мин)', 'Оноо', 'Тооцсон бодлого', 'Хувь', 'Хариултууд']];
+  const rows = [['Нэр', 'Хоч', 'Нэвтрэх нэр', 'Тест', 'Огноо', 'Хугацаа (мин)', 'Оноо', 'Тооцсон бодлого', 'Хувь', 'Хуудаснаас гарсан', 'Хариултууд']];
   for (const r of [...data.results].sort((a, b) => a.at - b.at)) {
     const p = byUid.get(r.uid)!;
     const g = gradeOf(r, data.keys);
@@ -159,6 +188,7 @@ export function resultsCsv(data: AdminData) {
       g ? String(g.score) : '',
       g ? String(g.total) : '',
       g ? String(percent(g)) : '',
+      String(r.leaves ?? 0),
       r.answers.replace(/[A-E]/g, (c) => 'АБВГД'['ABCDE'.indexOf(c)]),
     ]);
   }

@@ -9,6 +9,9 @@ export interface Attempt {
   finished?: number;
   /** Set once the result is stored for a student (results/{uid}/{test}/{resultId}). */
   resultId?: string;
+  /** How often the page was left during the attempt, and for how long (ms). */
+  leaves?: number;
+  away?: number;
 }
 
 // One attempt per test and per account (or guest) on this browser, so classmates sharing a computer don't mix answers.

@@ -16,13 +16,16 @@ export interface Result {
   answers: string;
   seconds: number;
   at: number;
+  /** How often the student left the page while taking it, and for how long (ms). */
+  leaves?: number;
+  away?: number;
 }
 
-export async function saveResult(test: string, answers: string, seconds: number) {
+export async function saveResult(test: string, answers: string, seconds: number, leaves = 0, away = 0) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Эхлээд нэвтэрнэ үү');
   const r = push(ref(db, `results/${uid}/${test}`));
-  await set(r, {answers, seconds, at: serverTimestamp()});
+  await set(r, {answers, seconds, at: serverTimestamp(), ...(leaves ? {leaves, away: Math.round(away)} : {})});
   return r.key!;
 }
 
@@ -35,7 +38,7 @@ export function flatten(uid: string, tree: Tree | null): Result[] {
     if (!testInfo(test) || !attempts || typeof attempts !== 'object') continue;
     for (const [id, r] of Object.entries(attempts as Record<string, Partial<Result>>)) {
       if (typeof r?.answers !== 'string') continue;
-      out.push({id, uid, test, answers: r.answers, seconds: Number(r.seconds) || 0, at: Number(r.at) || 0});
+      out.push({id, uid, test, answers: r.answers, seconds: Number(r.seconds) || 0, at: Number(r.at) || 0, leaves: Number(r.leaves) || 0, away: Number(r.away) || 0});
     }
   }
   return out.sort((a, b) => b.at - a.at);
@@ -78,7 +81,7 @@ export function useResult(uid: string | undefined, test: string, id: string) {
       ref(db, `results/${uid}/${test}/${id}`),
       (s) => {
         const v = s.val() as Partial<Result> | null;
-        setR({key, result: v && typeof v.answers === 'string' ? {id, uid, test, answers: v.answers, seconds: Number(v.seconds) || 0, at: Number(v.at) || 0} : null});
+        setR({key, result: v && typeof v.answers === 'string' ? {id, uid, test, answers: v.answers, seconds: Number(v.seconds) || 0, at: Number(v.at) || 0, leaves: Number(v.leaves) || 0, away: Number(v.away) || 0} : null});
       },
       () => setR({key, result: null}),
     );

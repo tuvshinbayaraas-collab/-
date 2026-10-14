@@ -4,17 +4,27 @@ import {CenterNote, LockedNote} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
 import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
+import {asResult, useExamAnswer, useExams} from '../lib/exams';
 import {formatDate, useResult} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
+import {useNow} from '../lib/time';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
 
-/** A handed-in test in book order: /review/{test}/{resultId}, or ?u={uid} for the teacher looking at a student's. */
+/**
+ * A handed-in test in book order: /review/{test}/{resultId}, /review/{test}/exam for the scheduled exam, or ?u={uid}
+ * for the teacher looking at a student's.
+ */
 export default function Review({test: testId, id, uid: other}: {test: string; id: string; uid?: string}) {
   const session = useSession();
   const uid = other ?? session.user?.uid;
-  const result = useResult(session.ready ? uid : undefined, testId, id);
+  const isExam = id === 'exam';
+  const practice = useResult(session.ready && !isExam ? uid : undefined, testId, id);
+  const examAnswer = useExamAnswer(testId, session.ready && isExam ? uid : undefined);
+  const exam = useExams()?.[testId];
+  const now = useNow(isExam ? 5000 : 0);
+  const result = isExam ? (examAnswer === undefined ? undefined : examAnswer && uid ? asResult(testId, uid, examAnswer) : null) : practice;
   const keys = useKeys(result ? [testId] : []);
   const [test, setTest] = useState<Test | null>(null);
   const [onlyWrong, setOnlyWrong] = useState(false);
@@ -28,6 +38,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   if (session.ready && !session.user) return <LockedNote />;
   if (!session.ready || result === undefined || !test) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
   if (!result) return <CenterNote title="Энэ дүн олдсонгүй" />;
+  if (isExam && !session.admin && exam && now <= exam.end) return <CenterNote title="Шалгалтын дүн шалгалт дууссаны дараа гарна" />;
 
   const key = keys[testId];
   const g = grade(result.answers, key, test.questions.length);
@@ -43,9 +54,14 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         <ArrowLeft size={16} /> Буцах
       </Link>
       <div className="mt-2 rounded-2xl bg-neutral-900 p-5">
-        <h1 className="text-xl font-bold">{test.title}</h1>
+        <h1 className="text-xl font-bold">
+          {isExam && 'Шалгалт: '}
+          {test.title}
+        </h1>
         <p className="text-sm text-neutral-400">
           {formatDate(result.at)} • {formatDuration(result.seconds)}
+          {!!examAnswer?.leaves && ` • хуудаснаас ${examAnswer.leaves} удаа гарсан`}
+          {!isExam && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан`}
         </p>
         {key === undefined ? (
           <p className="mt-2 text-neutral-400">Ачаалж байна…</p>

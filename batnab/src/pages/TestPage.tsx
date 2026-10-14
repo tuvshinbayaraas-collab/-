@@ -1,14 +1,18 @@
-import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
+import {AlertTriangle, Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
 import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
+import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
+import {ask, useLeaveCounter} from '../lib/leaves';
 import {saveResult, useMyResults} from '../lib/results';
-import {Link} from '../lib/router';
+import {Link, useLocation} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {inThisWeek} from '../lib/week';
 import {useSettings} from '../lib/settings';
+import {useNow} from '../lib/time';
+import ExamRunner, {ExamWait} from './ExamRunner';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
 
@@ -20,14 +24,29 @@ export default function TestPage({id}: {id: string}) {
   const session = useSession();
   const settings = useSettings();
   const mine = useMyResults();
+  const exams = useExams();
+  const exam = exams?.[id];
+  const now = useNow(exam ? 1000 : 0);
+  const examAnswer = useExamAnswer(id, exam && isStudent(session) ? session.user?.uid : undefined);
+  const {query} = useLocation();
 
   if (!info) return <CenterNote title="Ийм тест олдсонгүй" />;
-  if (!session.ready || !settings) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready || !settings || !exams) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
 
   const mode: Mode | null = session.admin ? 'preview' : isStudent(session) ? 'student' : !session.user && settings.trial === id ? 'trial' : null;
   if (!mode) {
     if (session.user) return <InactiveNote blocked={!!session.profile?.disabled} />;
     return <LockedNote title={`${info.title}-ийг өгөхийн тулд нэвтэрнэ үү`} trial={settings.trial || undefined} />;
+  }
+
+  // A test scheduled as an exam is closed until it starts, taken once while it runs, and shows its result afterwards.
+  const state = exam ? examState(exam, now) : null;
+  if (exam && state !== 'ended' && mode === 'trial') return <CenterNote title="Энэ тест одоогоор шалгалтаар товлогдсон байна" />;
+  if (exam && mode === 'student') {
+    if (examAnswer === undefined) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+    if (state === 'upcoming') return <ExamWait id={id} exam={exam} now={now} />;
+    if (state === 'active' || (examAnswer && query.get('practice') !== '1'))
+      return <ExamRunner key={`${session.user!.uid}/${id}/${exam.start}`} id={id} exam={exam} uid={session.user!.uid} saved={examAnswer} />;
   }
   if (mode === 'student' && mine === null) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
 
@@ -75,6 +94,20 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   };
 
   const finished = !!attempt?.finished;
+
+  // Leaving the page (another tab or app) while answering is counted and shown to the teacher.
+  const bump = (f: (a: Attempt) => Attempt) =>
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const next = f(prev);
+      saveAttempt(owner, id, next);
+      return next;
+    });
+  useLeaveCounter(
+    !!attempt && !finished && mode !== 'preview',
+    () => bump((a) => ({...a, leaves: (a.leaves ?? 0) + 1})),
+    (ms) => bump((a) => ({...a, away: (a.away ?? 0) + ms})),
+  );
   useEffect(() => {
     if (finished) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -86,7 +119,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
     if (mode !== 'student' || !attempt?.finished || attempt.resultId) return;
     setSaveError('');
     // Kept even if the page was left meanwhile, so the same answers aren't stored twice.
-    saveResult(id, encode(attempt.answers), Math.round((attempt.finished - attempt.started) / 1000))
+    saveResult(id, encode(attempt.answers), Math.round((attempt.finished - attempt.started) / 1000), attempt.leaves, attempt.away)
       .then((resultId) => update({...attempt, resultId}))
       .catch((e) => setSaveError((e as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,7 +158,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
 
   const finish = () => {
     const left = total - answered;
-    if (left && !confirm(`${left} бодлого хариулаагүй байна. Тестээ дуусгах уу?`)) return;
+    if (left && !ask(`${left} бодлого хариулаагүй байна. Тестээ дуусгах уу?`)) return;
     update({...attempt, finished: Date.now()});
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
@@ -162,6 +195,11 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
           <span className="flex items-center gap-1 text-sm tabular-nums text-neutral-400">
             <Clock size={14} /> {formatTime(elapsed)}
           </span>
+          {mode !== 'preview' && !!attempt.leaves && (
+            <span className="flex items-center gap-1 text-sm text-amber-300" title="Тест өгөх үеэр өөр таб эсвэл апп руу шилжсэн тоо. Багш харна.">
+              <AlertTriangle size={14} /> {attempt.leaves} удаа гарсан
+            </span>
+          )}
           <div className="ml-auto">
             {!finished ? (
               <button onClick={finish} className="rounded-full bg-blue-500 px-5 py-1.5 text-sm font-semibold text-black hover:bg-blue-400">

@@ -128,6 +128,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
                   <span className="font-medium">{TESTS.find((t) => t.id === r.test)?.title}</span>
                   <span className="block text-sm text-neutral-400">
                     {formatDate(r.at)} • {formatDuration(r.seconds)}
+                    {!!r.leaves && ` • хуудаснаас ${r.leaves} удаа гарсан`}
                   </span>
                 </Link>
                 <span className="text-right tabular-nums">{g ? `${g.score}/${g.total} • ${percent(g)}%` : <span className="text-sm text-neutral-500">түлхүүргүй</span>}</span>
