@@ -1,5 +1,6 @@
-import {Eye, EyeOff, LogIn} from 'lucide-react';
+import {Download, Eye, EyeOff, LogIn} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
+import {BetaBadge, useGetApp} from '../components/GetApp';
 import {Link, navigate, useLocation} from '../lib/router';
 import {authError, logIn, useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -15,6 +16,7 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const app = useGetApp();
 
   useEffect(() => {
     if (session.ready && session.user) navigate(next);
@@ -74,6 +76,15 @@ export default function Login() {
           <LogIn size={18} /> {busy ? 'Нэвтэрч байна…' : 'Нэвтрэх'}
         </button>
       </form>
+      {!app.installed && (
+        <div className="mt-8 rounded-2xl border border-neutral-800 p-4">
+          <button onClick={app.start} className="flex w-full items-center justify-center gap-2 rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700">
+            <Download size={18} /> Апп татах <BetaBadge />
+          </button>
+          <p className="mt-2 text-center text-xs text-neutral-500">Утасныхаа нүүр дэлгэцэд нэмээд апп шиг нээж ашиглана.</p>
+        </div>
+      )}
+      {app.dialog}
       {trial && (
         <p className="mt-8 text-center text-sm text-neutral-400">
           Бүртгэлгүй юу?{' '}
