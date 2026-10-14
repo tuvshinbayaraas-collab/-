@@ -1,15 +1,25 @@
-import {GraduationCap, ListChecks, LogIn, LogOut, UserRound} from 'lucide-react';
-import {useState, type ReactNode} from 'react';
+import {Download, GraduationCap, ListChecks, LogIn, LogOut, UserRound} from 'lucide-react';
+import {lazy, Suspense, useState, type ReactNode} from 'react';
+import {install, useInstall} from '../lib/install';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
 import Avatar from './Avatar';
 import Logo from './Logo';
 
+const InstallHelp = lazy(() => import('./InstallHelp'));
+
 export default function Header() {
   const {user, ready, profile, admin} = useSession();
   const {path} = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [help, setHelp] = useState(false);
+  const app = useInstall();
   const name = shownName(profile);
+
+  const getApp = async () => {
+    setMenuOpen(false);
+    if (!(await install())) setHelp(true); // no install dialog in this browser: show how to do it by hand
+  };
 
   const item = (href: string, icon: ReactNode, label: string) => (
     <Link href={href} onClick={() => setMenuOpen(false)} className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700">
@@ -49,6 +59,12 @@ export default function Header() {
                       {item('/profile', <UserRound size={20} />, 'Профайл')}
                     </>
                   )}
+                  {!app.installed && (
+                    <button onClick={getApp} className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700">
+                      <Download size={20} /> Апп татах
+                      <span className="ml-auto rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">туршилт</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setMenuOpen(false);
@@ -71,6 +87,11 @@ export default function Header() {
             Нэвтрэх
           </Link>
         )
+      )}
+      {help && (
+        <Suspense fallback={null}>
+          <InstallHelp onClose={() => setHelp(false)} />
+        </Suspense>
       )}
     </header>
   );

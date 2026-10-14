@@ -1,4 +1,5 @@
-import {lazy, Suspense} from 'react';
+import {WifiOff} from 'lucide-react';
+import {lazy, Suspense, useEffect, useState} from 'react';
 import Header from './components/Header';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
@@ -36,9 +37,31 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <Header />
+      <OfflineBar />
       <main className="px-4 pb-10 pt-4 sm:px-6">
         <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
       </main>
     </div>
+  );
+}
+
+/** Shown while the device has no connection (e.g. the installed app opened offline). */
+function OfflineBar() {
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  if (online) return null;
+  return (
+    <p className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-200">
+      <WifiOff size={16} /> Интернэт холболт алга. Холбогдоход автоматаар үргэлжилнэ.
+    </p>
   );
 }
