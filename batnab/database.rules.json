@@ -3,6 +3,23 @@
     "admins": {
       ".read": "auth != null",
       ".write": false
+    },
+    "results": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".indexOn": ["at"],
+        "$resultId": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists()",
+          ".validate": "newData.hasChildren(['test', 'score', 'total', 'seconds', 'answers', 'at'])",
+          "test": {".validate": "newData.isString() && newData.val().matches(/^[0-9]{1,2}[AB]$/)"},
+          "total": {".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 100"},
+          "score": {".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('total').val()"},
+          "seconds": {".validate": "newData.isNumber() && newData.val() >= 0"},
+          "answers": {".validate": "newData.isString() && newData.val().length === newData.parent().child('total').val()"},
+          "at": {".validate": "newData.isNumber() && newData.val() <= now"},
+          "$other": {".validate": false}
+        }
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
-import {LogIn, LogOut} from 'lucide-react';
+import {ListChecks, LogIn, LogOut} from 'lucide-react';
 import {useState} from 'react';
 import {displayName, logOut, signIn, useUser} from '../lib/auth';
+import {Link} from '../lib/router';
 import Avatar from './Avatar';
 import Logo from './Logo';
 
@@ -27,6 +28,13 @@ export default function Header() {
                     {user.email && <p className="truncate text-sm text-neutral-400">{user.email}</p>}
                   </div>
                 </div>
+                <Link
+                  href="/results"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                >
+                  <ListChecks size={20} /> Миний дүнгүүд
+                </Link>
                 <button
                   onClick={() => {
                     setMenuOpen(false);
