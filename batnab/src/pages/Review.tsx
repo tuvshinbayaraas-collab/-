@@ -17,6 +17,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const result = useResult(session.ready ? uid : undefined, testId, id);
   const keys = useKeys(result ? [testId] : []);
   const [test, setTest] = useState<Test | null>(null);
+  const [onlyWrong, setOnlyWrong] = useState(false);
   const info = testInfo(testId);
 
   useEffect(() => {
@@ -31,6 +32,10 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const key = keys[testId];
   const g = grade(result.answers, key, test.questions.length);
   const back = other ? `/admin/student/${other}` : '/results';
+  // Only the teacher sees the right answers; a student sees which questions they missed.
+  const reveal = session.admin;
+  const correctAt = (i: number) => (g ? choiceAt(key, i) : null);
+  const missed = test.questions.map((_, i) => i).filter((i) => correctAt(i) !== null && choiceAt(result.answers, i) !== correctAt(i));
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -52,12 +57,29 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         ) : (
           <p className="mt-2 text-neutral-400">Багш энэ тестийн зөв хариултыг оруулаагүй байна.</p>
         )}
-        <p className="mt-2 text-sm text-neutral-500">Бодлогууд номын дарааллаар харагдаж байна.</p>
+        {missed.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p className="text-sm">
+              <span className="font-medium text-red-300">
+                {missed.length} бодлого дээр алдсан{reveal ? '' : ':'}
+              </span>{' '}
+              {!reveal && <span className="text-neutral-400">{missed.map((i) => i + 1).join(', ')}</span>}
+            </p>
+            <button onClick={() => setOnlyWrong((o) => !o)} aria-pressed={onlyWrong} className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700">
+              {onlyWrong ? 'Бүх бодлогыг харах' : 'Зөвхөн алдсанаа харах'}
+            </button>
+          </div>
+        )}
+        <p className="mt-2 text-sm text-neutral-500">
+          Бодлогууд номын дарааллаар харагдаж байна.{!reveal && ' Зөв хариултыг харуулахгүй — алдсан бодлогуудаа дахин бодож үзээрэй.'}
+        </p>
       </div>
       <ol className="mt-4 space-y-4">
-        {test.questions.map((q, i) => (
-          <QuestionCard key={i} num={i + 1} q={q} chosen={choiceAt(result.answers, i)} checked correct={g ? choiceAt(key, i) : null} />
-        ))}
+        {test.questions.map((q, i) =>
+          onlyWrong && !missed.includes(i) ? null : (
+            <QuestionCard key={i} num={i + 1} q={q} chosen={choiceAt(result.answers, i)} checked correct={correctAt(i)} reveal={reveal} />
+          ),
+        )}
       </ol>
     </div>
   );

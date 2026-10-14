@@ -43,6 +43,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const [now, setNow] = useState(Date.now());
   const [saveError, setSaveError] = useState('');
   const [saveTry, setSaveTry] = useState(0);
+  const [onlyWrong, setOnlyWrong] = useState(false);
 
   useEffect(() => {
     loadTest(id)?.then((t) => {
@@ -113,6 +114,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const elapsed = ((attempt.finished ?? now) - attempt.started) / 1000;
   const g = key ? grade(encode(attempt.answers), key, total) : null;
   const correctOf = (qi: number) => (g ? choiceAt(key, qi) : null);
+  const missed = attempt.order.filter((qi) => correctOf(qi) !== null && attempt.answers[qi] !== correctOf(qi));
 
   const choose = (qi: number, ci: number) => {
     if (finished) return;
@@ -131,11 +133,17 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const restart = () => {
     clearAttempt(owner, id);
     setSaveError('');
+    setOnlyWrong(false);
     update(newAttempt(total));
     window.scrollTo({top: 0});
   };
 
-  const jump = (pos: number) => document.getElementById(`q${pos}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  const jump = (pos: number) => {
+    const to = () => document.getElementById(`q${pos}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    if (document.getElementById(`q${pos}`)) return to();
+    setOnlyWrong(false); // the question is hidden by the filter
+    setTimeout(to, 50);
+  };
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -226,6 +234,21 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
               </p>
               <p className="mt-1 text-sm text-neutral-400">Зарцуулсан хугацаа: {formatDuration(elapsed)}</p>
               {g.total < g.count && <p className="mt-1 text-sm text-amber-300">{g.count - g.total} бодлогын зөв хариултыг багш оруулаагүй тул тооцоогүй.</p>}
+              {missed.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium text-red-300">{missed.length} бодлого дээр алдсан</span>
+                    {mode !== 'preview' && <span className="text-neutral-400"> — зөв хариултыг харуулахгүй, дахин бодож үзээрэй.</span>}
+                  </p>
+                  <button
+                    onClick={() => setOnlyWrong((o) => !o)}
+                    className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700"
+                    aria-pressed={onlyWrong}
+                  >
+                    {onlyWrong ? 'Бүх бодлогыг харах' : 'Зөвхөн алдсанаа харах'}
+                  </button>
+                </div>
+              )}
               {mode === 'student' && (
                 <p className="mt-3 text-sm text-neutral-400">
                   Дүн хадгалагдлаа.{' '}
@@ -248,18 +271,21 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
       )}
 
       <ol className="mt-4 space-y-4">
-        {attempt.order.map((qi, pos) => (
-          <QuestionCard
-            key={qi}
-            id={`q${pos}`}
-            num={pos + 1}
-            q={test.questions[qi]}
-            chosen={attempt.answers[qi]}
-            checked={finished && !!g}
-            correct={correctOf(qi)}
-            onChoose={finished ? undefined : (ci) => choose(qi, ci)}
-          />
-        ))}
+        {attempt.order.map((qi, pos) =>
+          onlyWrong && finished && !missed.includes(qi) ? null : (
+            <QuestionCard
+              key={qi}
+              id={`q${pos}`}
+              num={pos + 1}
+              q={test.questions[qi]}
+              chosen={attempt.answers[qi]}
+              checked={finished && !!g}
+              correct={correctOf(qi)}
+              reveal={mode === 'preview'}
+              onChoose={finished ? undefined : (ci) => choose(qi, ci)}
+            />
+          ),
+        )}
       </ol>
 
       {!finished && (

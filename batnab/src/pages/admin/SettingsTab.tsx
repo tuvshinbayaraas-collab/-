@@ -20,7 +20,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
     <div className="max-w-2xl space-y-4">
       <section className="rounded-2xl bg-neutral-900 p-5">
         <h2 className="font-semibold">Туршилтын тест</h2>
-        <p className="mt-1 text-sm text-neutral-400">Бүртгэлгүй хүн нэвтрэхгүйгээр өгч үзэх тест. Дүн нь хадгалагдахгүй, дуусгахад зөв хариулт харагдана.</p>
+        <p className="mt-1 text-sm text-neutral-400">Бүртгэлгүй хүн нэвтрэхгүйгээр өгч үзэх тест. Дүн нь хадгалагдахгүй, дуусгахад аль бодлого дээр алдсан нь харагдана.</p>
         <select
           value={settings.trial}
           onChange={(e) => change('trial', e.target.value)}
@@ -71,7 +71,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Сурагч нууц үгээ мартвал багш солих боломжгүй. Шинэ нэвтрэх нэрээр дахин бүртгэж, хуучныг нь устгана.</li>
           <li>Сурагч нууц үгээ “Профайл” хэсэгт өөрөө сольж болно.</li>
-          <li>Сурагч тестээ дуусгасны дараа л тухайн тестийн түлхүүрийг харах эрхтэй болно.</li>
+          <li>Сурагч тестээ дуусгахад аль бодлого дээр алдсанаа л харна, зөв хариулт нь харагдахгүй. Зөв хариултыг зөвхөн багш харна.</li>
         </ul>
       </section>
     </div>

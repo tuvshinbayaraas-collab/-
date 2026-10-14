@@ -6,7 +6,8 @@ import MathText from './MathText';
 /**
  * One question with its five choices.
  * - taking a test: `onChoose` set, `checked` false;
- * - checking: `checked` true, `correct` is the key's choice (null when the teacher hasn't set it);
+ * - checking: `checked` true, `correct` is the key's choice (null when the teacher hasn't set it). Students only see
+ *   whether their own choice was right; the right choice itself is shown only with `reveal` (the teacher);
  * - entering the key: `keyMode`, `chosen` is the key's choice.
  */
 export default function QuestionCard(props: {
@@ -15,16 +16,19 @@ export default function QuestionCard(props: {
   chosen: number | null;
   checked?: boolean;
   correct?: number | null;
+  reveal?: boolean;
   keyMode?: boolean;
   onChoose?: (ci: number) => void;
   id?: string;
 }) {
-  const {num, q, chosen, checked, correct = null, keyMode, onChoose, id} = props;
+  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id} = props;
+  const graded = checked && correct !== null;
+  const right = graded && chosen === correct;
   const figures = q.c.some((c) => typeof c !== 'string');
   const render = (c: string | ReactNode) => (typeof c === 'string' ? <MathText text={c} display /> : c);
 
   return (
-    <li id={id} className="scroll-mt-36 rounded-2xl bg-neutral-900 p-4 sm:p-5">
+    <li id={id} className={`scroll-mt-36 rounded-2xl bg-neutral-900 p-4 sm:p-5 ${graded && !right ? 'ring-1 ring-red-500/40' : ''}`}>
       <div className="flex gap-2 leading-relaxed">
         <span className="shrink-0 font-bold">{num}.</span>
         <MathText text={q.q} className="min-w-0 [overflow-wrap:anywhere]" />
@@ -38,10 +42,13 @@ export default function QuestionCard(props: {
           if (keyMode && picked) {
             style = 'border-green-500 bg-green-500/15';
             badge = 'bg-green-500 text-black';
-          } else if (checked && correct !== null) {
+          } else if (graded && reveal) {
             if (ci === correct) style = 'border-green-500 bg-green-500/15';
             else if (picked) style = 'border-red-500 bg-red-500/15';
             else style = 'border-neutral-800 opacity-70';
+          } else if (graded && picked) {
+            style = right ? 'border-green-500 bg-green-500/15' : 'border-red-500 bg-red-500/15';
+            badge = right ? 'bg-green-500 text-black' : 'bg-red-500 text-black';
           } else if (checked && !picked) style = 'border-neutral-800 opacity-70';
           return (
             <button
@@ -57,19 +64,23 @@ export default function QuestionCard(props: {
           );
         })}
       </div>
-      {checked && correct !== null && chosen !== correct && (
+      {graded && !right && (
         <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           {chosen === null ? (
             <span className="text-neutral-400">Хариулаагүй.</span>
-          ) : (
+          ) : reveal ? (
             <>
               <XCircle size={16} className="text-red-400" /> Таны хариулт: {LETTERS[chosen]}.
             </>
+          ) : (
+            <>
+              <XCircle size={16} className="text-red-400" /> <span className="text-red-300">Буруу.</span>
+            </>
           )}
-          <span className="text-green-400">Зөв хариулт: {LETTERS[correct]}</span>
+          {reveal ? <span className="text-green-400">Зөв хариулт: {LETTERS[correct!]}</span> : <span className="text-neutral-400">Дахин бодож үзээрэй.</span>}
         </p>
       )}
-      {checked && correct !== null && chosen === correct && (
+      {right && (
         <p className="mt-3 flex items-center gap-2 text-sm text-green-400">
           <CheckCircle2 size={16} /> Зөв
         </p>
