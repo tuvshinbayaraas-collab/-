@@ -11,7 +11,7 @@ import {useTest} from './useTest';
 // Latin letters that look like the Cyrillic ones, in case the keyboard was on English.
 const LOOKALIKES: Record<string, string> = {A: 'А', B: 'В'};
 
-/** Letters typed or pasted by the teacher ("ВВВДВБ…" or "1.В 2.В …") as a stored key; '-' or '?' skips a question. */
+/** Letters typed or pasted by the teacher ("АБВГДБ…" or "1.В 2.В …") as a stored key; '-' or '?' skips a question. */
 export function parseKey(text: string, count: number) {
   const out: string[] = [];
   for (const raw of text.toUpperCase().replace(/\d+\s*[.)]/g, ' ')) {
@@ -108,7 +108,7 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
           <input
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder="Жишээ: ВВВДВБ… эсвэл 1.В 2.В 3.В …"
+            placeholder="Жишээ: АБВГДБ… эсвэл 1.В 2.В 3.В …"
             className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 font-mono outline-none focus:border-blue-500"
             spellCheck={false}
           />
