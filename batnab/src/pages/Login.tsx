@@ -84,7 +84,6 @@ export default function Login() {
           <p className="mt-2 text-center text-xs text-neutral-500">Утасныхаа нүүр дэлгэцэд нэмээд апп шиг нээж ашиглана.</p>
         </div>
       )}
-      {app.dialog}
       {trial && (
         <p className="mt-8 text-center text-sm text-neutral-400">
           Бүртгэлгүй юу?{' '}

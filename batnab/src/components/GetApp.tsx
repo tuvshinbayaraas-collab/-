@@ -1,7 +1,23 @@
-import {lazy, Suspense, useState} from 'react';
+import {lazy, Suspense, useSyncExternalStore} from 'react';
 import {install, useInstall} from '../lib/install';
 
 const InstallHelp = lazy(() => import('./InstallHelp'));
+
+// The step-by-step guide has one place on the page (InstallHelpHost in App), so any button can open it.
+let helpOpen = false;
+const listeners = new Set<() => void>();
+const setHelp = (v: boolean) => {
+  helpOpen = v;
+  listeners.forEach((l) => l());
+};
+const useHelpOpen = () =>
+  useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => helpOpen,
+  );
 
 /**
  * "Апп татах": opens the browser's install dialog where there is one, otherwise the step-by-step guide.
@@ -9,16 +25,20 @@ const InstallHelp = lazy(() => import('./InstallHelp'));
  */
 export function useGetApp() {
   const {installed} = useInstall();
-  const [help, setHelp] = useState(false);
   const start = async () => {
     if (!(await install())) setHelp(true);
   };
-  const dialog = help ? (
+  return {installed, start};
+}
+
+export function InstallHelpHost() {
+  const open = useHelpOpen();
+  if (!open) return null;
+  return (
     <Suspense fallback={null}>
       <InstallHelp onClose={() => setHelp(false)} />
     </Suspense>
-  ) : null;
-  return {installed, start, dialog};
+  );
 }
 
 export const BetaBadge = () => <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">туршилт</span>;

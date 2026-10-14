@@ -1,5 +1,7 @@
 import {WifiOff} from 'lucide-react';
 import {lazy, Suspense, useEffect, useState} from 'react';
+import {InstallHelpHost} from './components/GetApp';
+import GuideHost from './components/Guide';
 import Header from './components/Header';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
@@ -41,6 +43,8 @@ export default function App() {
       <main className="px-4 pb-10 pt-4 sm:px-6">
         <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
       </main>
+      <GuideHost />
+      <InstallHelpHost />
     </div>
   );
 }

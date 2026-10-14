@@ -1,9 +1,11 @@
-import {Download, GraduationCap, ListChecks, LogIn, LogOut, UserRound} from 'lucide-react';
+import {CircleHelp, Download, GraduationCap, ListChecks, LogIn, LogOut, UserRound} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
 import Avatar from './Avatar';
+import {openGuide} from '../lib/guide';
 import {BetaBadge, useGetApp} from './GetApp';
+import {useGuideRole} from './Guide';
 import Logo from './Logo';
 
 export default function Header() {
@@ -11,6 +13,7 @@ export default function Header() {
   const {path} = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const app = useGetApp();
+  const guideRole = useGuideRole();
   const name = shownName(profile);
 
   const item = (href: string, icon: ReactNode, label: string) => (
@@ -51,6 +54,17 @@ export default function Header() {
                       {item('/profile', <UserRound size={20} />, 'Профайл')}
                     </>
                   )}
+                  {guideRole && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openGuide();
+                      }}
+                      className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                    >
+                      <CircleHelp size={20} /> Заавар
+                    </button>
+                  )}
                   {!app.installed && (
                     <button
                       onClick={() => {
@@ -80,15 +94,20 @@ export default function Header() {
           </div>
         </div>
       ) : (
-        ready &&
-        path !== '/login' && (
-          <Link href="/login" className="flex items-center gap-2 rounded-full border border-neutral-700 px-3 py-1.5 text-sm font-medium text-blue-400 hover:bg-blue-500/10">
-            <LogIn size={18} />
-            Нэвтрэх
-          </Link>
+        ready && (
+          <div className="flex items-center gap-1">
+            <button onClick={openGuide} aria-label="Заавар" title="Заавар" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+              <CircleHelp size={20} />
+            </button>
+            {path !== '/login' && (
+              <Link href="/login" className="flex items-center gap-2 rounded-full border border-neutral-700 px-3 py-1.5 text-sm font-medium text-blue-400 hover:bg-blue-500/10">
+                <LogIn size={18} />
+                Нэвтрэх
+              </Link>
+            )}
+          </div>
         )
       )}
-      {app.dialog}
     </header>
   );
 }
