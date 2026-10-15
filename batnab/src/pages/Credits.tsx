@@ -4,7 +4,7 @@ import type {ReactNode} from 'react';
 /** Who made what. Add a line here to credit someone else. */
 const CREDITS: {role: string; en: string; name: string; icon: ReactNode}[] = [
   {role: 'Бүтээгч', en: 'Creator', name: 'Баттүшиг', icon: <Crown size={18} />},
-  {role: 'Санаа', en: 'Idea', name: 'Баттүшиг', icon: <Lightbulb size={18} />},
+  {role: 'Санаа', en: 'Idea', name: 'Багш', icon: <Lightbulb size={18} />},
   {role: 'Программист', en: 'Coder', name: 'Баттүшиг', icon: <CodeXml size={18} />},
   {role: 'Firebase, өгөгдлийн сан', en: 'Firebase', name: 'Баттүшиг', icon: <Flame size={18} />},
   {role: 'Дата анализ', en: 'Data analysis', name: 'Баттүшиг', icon: <BarChart3 size={18} />},
