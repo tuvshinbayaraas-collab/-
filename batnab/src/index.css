@@ -1,11 +1,13 @@
 @import "tailwindcss";
+/* Inter comes with the site (not from Google Fonts), so a slow or blocked font server never holds the page back. */
+@import "@fontsource-variable/inter";
 
 @layer base {
   html {
     color-scheme: dark;
   }
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: #0f0f0f;
     color: #f1f1f1;
     -webkit-font-smoothing: antialiased;

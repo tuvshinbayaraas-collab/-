@@ -6,6 +6,7 @@ import Header from './components/Header';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
+import {loadTest} from './tests';
 
 // The test pages carry the questions, figures and KaTeX, so they load on first visit.
 const TestPage = lazy(() => import('./pages/TestPage'));
@@ -18,6 +19,12 @@ const Admin = lazy(() => import('./pages/admin/Admin'));
 export default function App() {
   const {path, query} = useLocation();
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
+
+  // A test's questions start downloading right away, alongside the page code and the sign-in check, not after them.
+  const testId = (parts[0] === 'test' && parts.length === 2) || (parts[0] === 'review' && parts.length === 3) ? parts[1] : undefined;
+  useEffect(() => {
+    if (testId) loadTest(testId)?.catch(() => {});
+  }, [testId]);
 
   let page;
   if (path === '/') page = <Home />;

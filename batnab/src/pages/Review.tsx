@@ -2,6 +2,7 @@ import {ArrowLeft} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, LockedNote} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
+import {QuestionList} from '../components/QuestionList';
 import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
 import {asResult, useExamAnswer, useExams} from '../lib/exams';
@@ -20,12 +21,15 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const session = useSession();
   const uid = other ?? session.user?.uid;
   const isExam = id === 'exam';
-  const practice = useResult(session.ready && !isExam ? uid : undefined, testId, id);
-  const examAnswer = useExamAnswer(testId, session.ready && isExam ? uid : undefined);
+  // The answers and the key are read together as soon as the account is known (not one after the other).
+  const practice = useResult(!isExam ? uid : undefined, testId, id);
+  const examAnswer = useExamAnswer(testId, isExam ? uid : undefined);
   const exam = useExams()?.[testId];
   const now = useNow(isExam ? 5000 : 0);
   const result = isExam ? (examAnswer === undefined ? undefined : examAnswer && uid ? asResult(testId, uid, examAnswer) : null) : practice;
-  const keys = useKeys(result ? [testId] : []);
+  // A practice result's key is readable for whoever handed it in; an exam's only once the exam is over.
+  const keyReadable = !!uid && result !== null && (!isExam || (!!result && (session.admin || (!!exam && now > exam.end))));
+  const keys = useKeys(keyReadable ? [testId] : []);
   const [test, setTest] = useState<Test | null>(null);
   const [onlyWrong, setOnlyWrong] = useState(false);
   const info = testInfo(testId);
@@ -90,13 +94,13 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
           Бодлогууд номын дарааллаар харагдаж байна.{!reveal && ' Зөв хариултыг харуулахгүй — алдсан бодлогуудаа дахин бодож үзээрэй.'}
         </p>
       </div>
-      <ol className="mt-4 space-y-4">
+      <QuestionList>
         {test.questions.map((q, i) =>
           onlyWrong && !missed.includes(i) ? null : (
             <QuestionCard key={i} num={i + 1} q={q} chosen={choiceAt(result.answers, i)} checked correct={correctAt(i)} reveal={reveal} />
           ),
         )}
-      </ol>
+      </QuestionList>
     </div>
   );
 }

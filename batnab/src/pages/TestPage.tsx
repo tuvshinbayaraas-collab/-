@@ -2,6 +2,7 @@ import {AlertTriangle, Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
+import {QuestionList, useJump} from '../components/QuestionList';
 import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
@@ -48,7 +49,8 @@ export default function TestPage({id}: {id: string}) {
     if (state === 'active' || (examAnswer && query.get('practice') !== '1'))
       return <ExamRunner key={`${session.user!.uid}/${id}/${exam.start}`} id={id} exam={exam} uid={session.user!.uid} saved={examAnswer} />;
   }
-  if (mode === 'student' && mine === null) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  // Earlier results only matter when retakes are off (to close a test already taken), so only then wait for them.
+  if (mode === 'student' && !settings.retakes && mine === null) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
 
   const taken = mine?.find((r) => r.test === id);
   const owner = session.user?.uid ?? 'guest';
@@ -63,6 +65,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const [saveError, setSaveError] = useState('');
   const [saveTry, setSaveTry] = useState(0);
   const [onlyWrong, setOnlyWrong] = useState(false);
+  const {full, jump} = useJump(() => setOnlyWrong(false));
 
   useEffect(() => {
     loadTest(id)?.then((t) => {
@@ -169,13 +172,6 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
     setOnlyWrong(false);
     update(newAttempt(total));
     window.scrollTo({top: 0});
-  };
-
-  const jump = (pos: number) => {
-    const to = () => document.getElementById(`q${pos}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    if (document.getElementById(`q${pos}`)) return to();
-    setOnlyWrong(false); // the question is hidden by the filter
-    setTimeout(to, 50);
   };
 
   return (
@@ -308,7 +304,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
         </div>
       )}
 
-      <ol className="mt-4 space-y-4">
+      <QuestionList full={full}>
         {attempt.order.map((qi, pos) =>
           onlyWrong && finished && !missed.includes(qi) ? null : (
             <QuestionCard
@@ -324,7 +320,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
             />
           ),
         )}
-      </ol>
+      </QuestionList>
 
       {!finished && (
         <div className="mt-6 flex justify-center">

@@ -54,8 +54,9 @@ export function useMyResults() {
   const {user, ready} = useSession();
   const uid = user?.uid;
   const [results, setResults] = useState<{uid: string | undefined; list: Result[]} | null>(null);
+  // Starts as soon as the account is known, alongside the profile, instead of after it.
   useEffect(() => {
-    if (!ready || !uid) return;
+    if (!uid) return;
     return onValue(
       ref(db, `results/${uid}`),
       (s) => {
@@ -65,9 +66,8 @@ export function useMyResults() {
       },
       () => setResults({uid, list: []}),
     );
-  }, [ready, uid]);
-  if (!ready) return null;
-  if (!uid) return [];
+  }, [uid]);
+  if (!uid) return ready ? [] : null;
   return results?.uid === uid ? results.list : null;
 }
 

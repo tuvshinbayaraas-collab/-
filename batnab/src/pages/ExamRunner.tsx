@@ -1,6 +1,7 @@
 import {AlertTriangle, Check, CloudOff, Timer} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import QuestionCard from '../components/QuestionCard';
+import {QuestionList, useJump} from '../components/QuestionList';
 import {formatDuration, formatTime} from '../lib/attempt';
 import {examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
@@ -56,6 +57,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [onlyWrong, setOnlyWrong] = useState(false);
+  const {full, jump} = useJump(() => setOnlyWrong(false));
   const [submitted, setSubmitted] = useState(false);
   const now = useNow(1000);
   const state = examState(exam, now);
@@ -162,13 +164,6 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     setSubmitted(true);
     send(true);
     window.scrollTo({top: 0, behavior: 'smooth'});
-  };
-
-  const jump = (pos: number) => {
-    const to = () => document.getElementById(`q${pos}`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    if (document.getElementById(`q${pos}`)) return to();
-    setOnlyWrong(false);
-    setTimeout(to, 50);
   };
 
   const finished = done || ended || submitted;
@@ -304,7 +299,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
         </div>
       )}
 
-      <ol className="mt-4 space-y-4">
+      <QuestionList full={full}>
         {attempt.order.map((qi, pos) =>
           onlyWrong && finished && !missed.includes(qi) ? null : (
             <QuestionCard
@@ -319,7 +314,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
             />
           ),
         )}
-      </ol>
+      </QuestionList>
 
       {!finished && (
         <div className="mt-6 flex justify-center">
