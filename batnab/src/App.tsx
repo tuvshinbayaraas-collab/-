@@ -20,6 +20,7 @@ const Admin = lazy(() => import('./pages/admin/Admin'));
 const Credits = lazy(() => import('./pages/Credits'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -47,6 +48,7 @@ export default function App() {
   else if (path === '/credits') page = <Credits />;
   else if (path === '/leaderboard') page = <Leaderboard />;
   else if (path === '/settings') page = <SettingsPage />;
+  else if (parts[0] === 'u' && parts.length === 2) page = <PublicProfile uid={parts[1]} />;
   else if (parts[0] === 'admin' && (parts.length === 1 || (parts[1] === 'student' && parts.length === 3))) page = <Admin student={parts[2]} />;
   else
     page = (

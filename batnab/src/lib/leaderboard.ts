@@ -8,7 +8,7 @@ import {useEffect, useState} from 'react';
 import {TESTS} from '../tests';
 import {auth, db} from './firebase';
 import {percent, type Grade} from './keys';
-import {shownName, type Profile} from './session';
+import type {Profile} from './session';
 import {serverNow} from './time';
 import {weekStart} from './week';
 
@@ -37,8 +37,11 @@ export const weekKey = (now = serverNow()) => String(weekStart(now));
 
 const pct = (e: {score: number; total: number}) => e.score / e.total;
 
-/** Leaderboard order: higher percentage, then more right answers, then faster, then earlier. */
-export const compare = (a: Entry, b: Entry) => pct(b) - pct(a) || b.score - a.score || a.seconds - b.seconds || a.at - b.at;
+/** Leaderboard order: higher percentage, then more right answers; on a tie, whoever got the score first. */
+export const compare = (a: Entry, b: Entry) => pct(b) - pct(a) || b.score - a.score || a.at - b.at;
+
+/** The name classmates see: the nickname, or else the login name — never the real name. */
+export const publicName = (p: Pick<Profile, 'nickname' | 'username'>) => p.nickname?.trim() || `@${p.username}`;
 
 const parse = (test: string, tree: Record<string, Partial<Entry>> | null): Entry[] =>
   Object.entries(tree ?? {}).flatMap(([uid, e]) =>
@@ -108,7 +111,7 @@ export async function submitScore(test: string, g: Grade, seconds: number, rid: 
   if (!uid || !g.score) return;
   const path = `leaderboard/${weekKey()}/${test}/${uid}`;
   const old = parse(test, {[uid]: (await get(ref(db, path))).val()})[0];
-  const mine: Entry = {uid, test, score: g.score, total: g.total, seconds, name: shownName(profile), rid, at: serverNow()};
+  const mine: Entry = {uid, test, score: g.score, total: g.total, seconds, name: publicName(profile), rid, at: serverNow()};
   if (old && compare(old, mine) <= 0 && old.name === mine.name) return;
   const keep = old && compare(old, mine) <= 0 ? old : mine;
   await update(ref(db), {
@@ -134,7 +137,7 @@ export async function refreshMine(profile: Profile) {
   const tests = Object.entries(tree ?? {}).filter(([, t]) => t?.[uid]).map(([test]) => test);
   if (!tests.length) return;
   await update(ref(db), {
-    ...Object.fromEntries(tests.map((t) => [`leaderboard/${week}/${t}/${uid}/name`, shownName(profile)])),
+    ...Object.fromEntries(tests.map((t) => [`leaderboard/${week}/${t}/${uid}/name`, publicName(profile)])),
     [`pub/${uid}`]: profile.photo ? {photo: profile.photo} : null,
   });
 }

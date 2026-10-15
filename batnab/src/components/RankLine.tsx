@@ -27,7 +27,7 @@ export default function RankLine({test, uid, rid}: {test: string; uid: string; r
             <span className="font-semibold">
               Leaderboard: {place}-р байр <span className="font-normal text-neutral-400">({list.length} сурагчаас)</span>
             </span>
-            <span className="block text-neutral-400">{gap > 0 ? `Эхний 3-т орохын тулд ${gap} оноо дутуу.` : 'Оноо тэнцүү, хугацаагаараа хоцорсон.'}</span>
+            <span className="block text-neutral-400">{gap > 0 ? `Эхний 3-т орохын тулд ${gap} оноо дутуу.` : 'Оноо тэнцүү, гэхдээ тэр оноог өмнө нь авсан сурагч дээр байна.'}</span>
           </>
         )}
         {me.rid !== rid && <span className="block text-xs text-neutral-500">Энэ долоо хоногийн шилдэг оноо тань ({me.score}/{me.total}) тооцогдоно.</span>}

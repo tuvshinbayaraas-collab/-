@@ -4,9 +4,9 @@ import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
-import {compare, overall, parseWeek, weekKey, type Entry} from '../../lib/leaderboard';
+import {compare, overall, parseWeek, publicName, weekKey, type Entry} from '../../lib/leaderboard';
 import {clearOld, flatten, type Result} from '../../lib/results';
-import {shownName, type Profile} from '../../lib/session';
+import type {Profile} from '../../lib/session';
 import {useSettings} from '../../lib/settings';
 import {inThisWeek, weekStart} from '../../lib/week';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
@@ -120,7 +120,7 @@ export function leaderboardFixes(
     for (const r of flatten(uid, (results[uid] ?? null) as Parameters<typeof flatten>[1])) {
       const g = r.at >= start ? grade(r.answers, keys[r.test], testInfo(r.test)!.count) : null;
       if (!g?.score) continue;
-      const e: Entry = {uid, test: r.test, score: g.score, total: g.total, seconds: r.seconds, name: shownName(p), rid: r.id, at: r.at};
+      const e: Entry = {uid, test: r.test, score: g.score, total: g.total, seconds: r.seconds, name: publicName(p), rid: r.id, at: r.at};
       const b = want[r.test]?.[uid];
       if (!b || compare(e, b) < 0) (want[r.test] ??= {})[uid] = e;
     }

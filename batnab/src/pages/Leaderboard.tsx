@@ -1,5 +1,5 @@
 import {Crown, Medal as MedalIcon, Trophy} from 'lucide-react';
-import {useState} from 'react';
+import {useState, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePhotos, useWeekBoard, weekKey, weekLabel, type Entry} from '../lib/leaderboard';
@@ -127,10 +127,22 @@ function MyRow({e, place, gap, showTest}: {e: Entry; place: number; gap: number;
       <div className="min-w-0 flex-1">
         <p className="font-semibold">Таны байр: {place}</p>
         <p className="text-neutral-400">
-          {e.score}/{e.total} ({percentOf(e)}%){showTest && ` · ${testInfo(e.test)?.title}`} · {gap > 0 ? `эхний 3-т орохын тулд ${gap} оноо дутуу` : 'оноо тэнцүү, хугацаагаараа хоцорсон'}
+          {e.score}/{e.total} ({percentOf(e)}%){showTest && ` · ${testInfo(e.test)?.title}`} · {gap > 0 ? `эхний 3-т орохын тулд ${gap} оноо дутуу` : 'оноо тэнцүү, гэхдээ өмнө нь авсан нь дээр'}
         </p>
       </div>
     </div>
+  );
+}
+
+/** The leader's photo and name open their profile (the real name stays hidden); the others are plain. */
+function Who({uid, open, children}: {uid: string; open: boolean; children: ReactNode}) {
+  const cls = 'flex w-full min-w-0 flex-col items-center';
+  return open ? (
+    <Link href={`/u/${uid}`} className={`${cls} rounded-2xl hover:opacity-90`} aria-label="Профайл харах">
+      {children}
+    </Link>
+  ) : (
+    <div className={cls}>{children}</div>
   );
 }
 
@@ -151,15 +163,25 @@ function Podium({top, showTest, me}: {top: Entry[]; showTest: boolean; me: strin
           <div key={place} className="flex min-w-0 flex-col items-center text-center">
             {place === 1 && <Crown size={22} className={`mb-1 ${e ? look.text : 'text-neutral-700'}`} />}
             {e ? (
-              <span className={`rounded-full ring-4 ${look.ring}`}>
-                <Avatar name={e.name} photo={photos[e.uid]} size={size} />
-              </span>
+              <Who uid={e.uid} open={place === 1}>
+                <span className={`rounded-full ring-4 ${look.ring}`}>
+                  <Avatar name={e.name.replace(/^@/, '')} photo={photos[e.uid]} size={size} />
+                </span>
+                <p className={`mt-3 line-clamp-2 w-full break-words text-sm font-semibold leading-tight ${e.uid === me ? 'text-blue-300' : ''}`}>{e.name}</p>
+              </Who>
             ) : (
-              <span className="rounded-full border-2 border-dashed border-neutral-700" style={{width: size, height: size}} />
+              <>
+                <span className="rounded-full border-2 border-dashed border-neutral-700" style={{width: size, height: size}} />
+                <p className="mt-3 text-sm font-semibold">—</p>
+              </>
             )}
-            <p className={`mt-3 line-clamp-2 w-full break-words text-sm font-semibold leading-tight ${e?.uid === me ? 'text-blue-300' : ''}`}>{e ? e.name : '—'}</p>
             <p className="text-xs text-neutral-400">{e ? `${e.score}/${e.total} · ${percentOf(e)}%` : ' '}</p>
             {showTest && e && <p className="w-full truncate text-[11px] text-neutral-500">{testInfo(e.test)?.title}</p>}
+            {place === 1 && e && (
+              <Link href={`/u/${e.uid}`} className="mt-1 text-[11px] font-medium text-blue-400 hover:underline">
+                Профайл харах
+              </Link>
+            )}
             <div className={`mt-2 flex w-full items-start justify-center rounded-t-xl pt-2 ${h} ${look.block}`}>
               <span className={`text-xl font-extrabold ${look.text}`}>{place}</span>
             </div>
