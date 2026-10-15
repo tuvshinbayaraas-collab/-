@@ -180,7 +180,7 @@
             ".write": "auth != null && auth.uid === $uid && $week === (now - ((now - 144000000) % 604800000)) + '' && root.child('settings/leaderboard').val() !== false && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (!newData.exists() || (root.child('results').child($uid).child($testId).child(newData.child('rid').val()).child('at').val() >= (now - ((now - 144000000) % 604800000)) && root.child('results').child($uid).child($testId).child(newData.child('rid').val()).child('seconds').val() === newData.child('seconds').val()))",
             ".validate": "newData.hasChildren(['score', 'total', 'seconds', 'name', 'rid'])",
             "score": {
-              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('total').val()"
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= newData.parent().child('total').val()"
             },
             "total": {
               ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100"

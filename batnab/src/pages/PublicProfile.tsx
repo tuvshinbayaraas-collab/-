@@ -2,7 +2,9 @@ import {ArrowLeft, Crown, Medal as MedalIcon} from 'lucide-react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePhotos, useMedals, useWeekBoard, weekLabel} from '../lib/leaderboard';
+import {formatDuration} from '../lib/attempt';
 import {Link} from '../lib/router';
+import {dayLabel} from '../lib/time';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {TESTS, testInfo} from '../tests';
@@ -53,14 +55,23 @@ export default function PublicProfile({uid}: {uid: string}) {
       </section>
 
       <section className="rounded-2xl bg-neutral-900 p-5">
-        <h2 className="font-semibold">Энэ долоо хоног</h2>
+        <h2 className="font-semibold">Энэ долоо хоногийн дүн</h2>
         <ul className="mt-3 divide-y divide-neutral-800">
           {mine.map(({e, place}) => (
-            <li key={e.test} className="flex items-center gap-3 py-2.5">
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${place <= 3 ? PLACES[place as 1 | 2 | 3].badge : 'bg-neutral-800 text-neutral-300'}`}>{place}</span>
-              <span className="flex-1">{testInfo(e.test)?.title}</span>
-              <span className="text-sm tabular-nums text-neutral-300">
-                {e.score}/{e.total} · {percentOf(e)}%
+            <li key={e.test} className="flex items-center gap-3 py-3">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${place <= 3 ? PLACES[place as 1 | 2 | 3].badge : 'bg-neutral-800 text-neutral-300'}`}>{place}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{testInfo(e.test)?.title}</span>
+                <span className="block text-xs text-neutral-500">
+                  {place}-р байр · {formatDuration(e.seconds)}
+                  {e.at ? ` · ${dayLabel(e.at)}` : ''}
+                </span>
+              </span>
+              <span className="text-right tabular-nums">
+                <span className="block font-semibold">
+                  {e.score}/{e.total}
+                </span>
+                <span className="block text-xs text-neutral-400">{percentOf(e)}%</span>
               </span>
             </li>
           ))}

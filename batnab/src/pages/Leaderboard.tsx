@@ -3,7 +3,9 @@ import {useState, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePhotos, useWeekBoard, weekKey, weekLabel, type Entry} from '../lib/leaderboard';
+import {useKeys} from '../lib/keys';
 import {usePrefs} from '../lib/prefs';
+import {useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -22,6 +24,8 @@ export default function Leaderboard() {
   const [test, setTest] = useState(testInfo(query.get('test') ?? '')?.id ?? TESTS[0].id);
   const signedIn = session.ready && !!session.user && (session.admin || (!!session.profile && !session.profile.disabled));
   const board = useWeekBoard(signedIn && !!settings?.leaderboard);
+  const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
 
   const pick = (t: Tab, id = test) => {
     setTab(t);
@@ -37,7 +41,9 @@ export default function Leaderboard() {
   const list = tab === 'test' ? ranking(board[test] ?? []) : overall(board);
   const uid = session.user!.uid;
   const mine = list.findIndex((e) => e.uid === uid);
-  const counts = Object.fromEntries(TESTS.map((t) => [t.id, (board[t.id] ?? []).length]));
+  const counts = Object.fromEntries(TESTS.map((t) => [t.id, ranking(board[t.id] ?? []).length]));
+  // The student's own results behind this tab (to explain why they aren't on it).
+  const taken = (results ?? []).filter((r) => tab === 'overall' || r.test === test);
 
   return (
     <div className="mx-auto max-w-xl py-4 sm:py-6">
@@ -98,7 +104,11 @@ export default function Leaderboard() {
             </p>
           ) : mine < 0 ? (
             <p className="text-neutral-400">
-              Та {tab === 'test' ? `${testInfo(test)!.title}-ийг` : 'тест'} энэ долоо хоногт хараахан өгөөгүй байна.{' '}
+              {taken.length === 0
+                ? `Та ${tab === 'test' ? `${testInfo(test)!.title}-ийг` : 'тест'} энэ долоо хоногт хараахан өгөөгүй байна. `
+                : taken.every((r) => keys[r.test] === null)
+                  ? 'Багш түлхүүрийг оруулаагүй тул оноо тань хараахан тооцогдоогүй байна. '
+                  : 'Оноо тань 0 байгаа тул leaderboard-д ороогүй. Дахин өгөөд үзээрэй! '}
               <Link href={tab === 'test' ? `/test/${test}` : '/'} className="text-blue-400 hover:underline">
                 Тест өгөх
               </Link>
@@ -134,17 +144,12 @@ function MyRow({e, place, gap, showTest}: {e: Entry; place: number; gap: number;
   );
 }
 
-/** The leader's photo and name open their profile (the real name stays hidden); the others are plain. */
-function Who({uid, open, children}: {uid: string; open: boolean; children: ReactNode}) {
-  const cls = 'flex w-full min-w-0 flex-col items-center';
-  return open ? (
-    <Link href={`/u/${uid}`} className={`${cls} rounded-2xl hover:opacity-90`} aria-label="Профайл харах">
-      {children}
-    </Link>
-  ) : (
-    <div className={cls}>{children}</div>
-  );
-}
+/** A podium student's photo and name open their profile (the real name stays hidden). */
+const Who = ({uid, children}: {uid: string; children: ReactNode}) => (
+  <Link href={`/u/${uid}`} className="flex w-full min-w-0 flex-col items-center rounded-2xl hover:opacity-90" aria-label="Профайл харах">
+    {children}
+  </Link>
+);
 
 /** 2nd, 1st, 3rd side by side; the winner stands highest. */
 function Podium({top, showTest, me}: {top: Entry[]; showTest: boolean; me: string}) {
@@ -163,7 +168,7 @@ function Podium({top, showTest, me}: {top: Entry[]; showTest: boolean; me: strin
           <div key={place} className="flex min-w-0 flex-col items-center text-center">
             {place === 1 && <Crown size={22} className={`mb-1 ${e ? look.text : 'text-neutral-700'}`} />}
             {e ? (
-              <Who uid={e.uid} open={place === 1}>
+              <Who uid={e.uid}>
                 <span className={`rounded-full ring-4 ${look.ring}`}>
                   <Avatar name={e.name.replace(/^@/, '')} photo={photos[e.uid]} size={size} />
                 </span>
@@ -177,7 +182,7 @@ function Podium({top, showTest, me}: {top: Entry[]; showTest: boolean; me: strin
             )}
             <p className="text-xs text-neutral-400">{e ? `${e.score}/${e.total} · ${percentOf(e)}%` : ' '}</p>
             {showTest && e && <p className="w-full truncate text-[11px] text-neutral-500">{testInfo(e.test)?.title}</p>}
-            {place === 1 && e && (
+            {e && (
               <Link href={`/u/${e.uid}`} className="mt-1 text-[11px] font-medium text-blue-400 hover:underline">
                 Профайл харах
               </Link>
