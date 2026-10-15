@@ -91,7 +91,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
             </h2>
           )}
           <p className="text-neutral-400">
-            Хоч: {p.nickname || <span className="text-neutral-500">тавиагүй</span>} • @{p.username}
+            Nickname: {p.nickname || <span className="text-neutral-500">тавиагүй</span>} • @{p.username}
           </p>
           {p.createdAt && <p className="text-sm text-neutral-500">Бүртгэсэн: {formatDate(p.createdAt)}</p>}
         </div>

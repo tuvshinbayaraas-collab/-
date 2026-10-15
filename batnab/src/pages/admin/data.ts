@@ -172,7 +172,7 @@ export function resultsCsv(data: AdminData) {
     const s = String(v);
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const rows = [['Нэр', 'Хоч', 'Нэвтрэх нэр', 'Тест', 'Огноо', 'Хугацаа (мин)', 'Оноо', 'Тооцсон бодлого', 'Хувь', 'Хуудаснаас гарсан', 'Хариултууд']];
+  const rows = [['Нэр', 'Nickname', 'Нэвтрэх нэр', 'Тест', 'Огноо', 'Хугацаа (мин)', 'Оноо', 'Тооцсон бодлого', 'Хувь', 'Хуудаснаас гарсан', 'Хариултууд']];
   for (const r of [...data.results].sort((a, b) => a.at - b.at)) {
     const p = byUid.get(r.uid)!;
     const g = gradeOf(r, data.keys);

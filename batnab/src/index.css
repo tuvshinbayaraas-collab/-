@@ -2,6 +2,13 @@
 /* Inter comes with the site (not from Google Fonts), so a slow or blocked font server never holds the page back. */
 @import "@fontsource-variable/inter";
 
+/* Profile sheets slide up from the bottom on a phone. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
 @layer base {
   html {
     color-scheme: dark;

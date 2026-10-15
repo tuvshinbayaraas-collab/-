@@ -1,30 +1,64 @@
-import {Camera, Check, ChevronRight, CircleHelp, Download, Eye, EyeOff, GraduationCap, ListChecks, LogOut, Trash2} from 'lucide-react';
-import {useRef, useState, type FormEvent, type ReactNode} from 'react';
+import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Trash2, X} from 'lucide-react';
+import {useEffect, useId, useRef, useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
-import {BetaBadge, useGetApp} from '../components/GetApp';
-import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import {saveNickname, savePhoto, squarePhoto} from '../lib/accounts';
-import {openGuide} from '../lib/guide';
-import {Link, navigate} from '../lib/router';
-import {authError, changePassword, logOut, shownName, useSession, type Profile as ProfileData} from '../lib/session';
+import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const card = 'rounded-2xl bg-neutral-900';
+const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50';
+const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
+type Open = 'nickname' | 'password' | null;
 
-const StatusLine = ({status}: {status: Status}) =>
-  status && (
-    <p className={`mt-3 flex items-center justify-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
-      {status.ok && <Check size={16} />} {status.text}
-    </p>
+/**
+ * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
+ * on a phone), so the page fits on one screen instead of a long form.
+ */
+export default function Profile() {
+  const session = useSession();
+  const {profile} = session;
+  const [open, setOpen] = useState<Open>(null);
+  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.user) return <LockedNote />;
+  if (!profile || profile.disabled) return <InactiveNote blocked={!!profile?.disabled} />;
+
+  const nickname = profile.nickname?.trim();
+  return (
+    <div className="mx-auto max-w-xl space-y-4 py-4 sm:py-6">
+      <h1 className="sr-only">Миний профайл</h1>
+      <Identity profile={profile} />
+      <div className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
+        <Row icon={<AtSign size={18} />} label="Nickname" value={nickname || <span className="text-neutral-500">Тавиагүй</span>} onClick={() => setOpen('nickname')} />
+        <Row icon={<KeyRound size={18} />} label="Нууц үг" value={<span className="tracking-widest">••••••</span>} onClick={() => setOpen('password')} />
+      </div>
+      {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
+      {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
+    </div>
   );
+}
 
-/** Runs a save, keeping a busy flag and a short result line. */
-function useSave() {
+function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; value: ReactNode; onClick: () => void}) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-neutral-800/60">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-300">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium uppercase tracking-wider text-neutral-500">{label}</span>
+        <span className="block truncate">{value}</span>
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-neutral-500" />
+    </button>
+  );
+}
+
+/** Photo, the name the site shows, the login name; tap the photo to change it. */
+function Identity({profile}: {profile: ProfileData}) {
+  const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
+  const name = shownName(profile);
   const run = async (job: () => Promise<unknown>, done: string) => {
     setBusy(true);
     setStatus(null);
@@ -37,38 +71,6 @@ function useSave() {
       setBusy(false);
     }
   };
-  return {status, setStatus, busy, run};
-}
-
-export default function Profile() {
-  const session = useSession();
-  const {profile} = session;
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
-  if (!session.user) return <LockedNote />;
-  if (!profile || profile.disabled) return <InactiveNote blocked={!!profile?.disabled} />;
-
-  return (
-    <div className="mx-auto max-w-xl space-y-4 py-4 sm:py-6">
-      <h1 className="sr-only">Миний профайл</h1>
-      <Identity profile={profile} />
-      <Shortcuts admin={session.admin} />
-      <NicknameForm key={session.user.uid} profile={profile} />
-      <PasswordForm />
-      <button
-        onClick={() => logOut().then(() => navigate('/'))}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neutral-800 py-3 text-sm font-medium text-red-300 hover:bg-red-500/10"
-      >
-        <LogOut size={18} /> Гарах
-      </button>
-    </div>
-  );
-}
-
-/** Photo, the name the site shows, the login name; tap the photo to change it. */
-function Identity({profile}: {profile: ProfileData}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const {status, busy, run} = useSave();
-  const name = shownName(profile);
   const pick = (file: File | undefined) => file && run(async () => savePhoto(await squarePhoto(file)), 'Зураг солигдлоо.');
 
   return (
@@ -110,115 +112,194 @@ function Identity({profile}: {profile: ProfileData}) {
           </button>
         )}
       </div>
-      <StatusLine status={status} />
+      {status && (
+        <p className={`mt-3 flex items-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
+          {status.ok && <Check size={16} />} {status.text}
+        </p>
+      )}
     </section>
   );
 }
 
-/** The places students look for from here: their results, the guide, the app. */
-function Shortcuts({admin}: {admin: boolean}) {
-  const app = useGetApp();
-  const guide = useGuideRole();
-  const row = 'flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-neutral-800/60';
-  const icon = (i: ReactNode) => <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-300">{i}</span>;
-  const chevron = <ChevronRight size={18} className="ml-auto shrink-0 text-neutral-500" />;
+/** A panel over the page: slides up from the bottom on a phone, centered on a wider screen. Escape or the backdrop closes it. */
+function Sheet({title, sub, onClose, children}: {title: string; sub?: string; onClose: () => void; children: ReactNode}) {
+  const id = useId();
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [onClose]);
   return (
-    <nav className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
-      {admin ? (
-        <Link href="/admin" className={row}>
-          {icon(<GraduationCap size={18} />)} Багшийн самбар {chevron}
-        </Link>
-      ) : (
-        <Link href="/results" className={row}>
-          {icon(<ListChecks size={18} />)} Миний дүнгүүд {chevron}
-        </Link>
-      )}
-      {guide && (
-        <button onClick={openGuide} className={row}>
-          {icon(<CircleHelp size={18} />)} Заавар {chevron}
-        </button>
-      )}
-      {!app.installed && (
-        <button onClick={app.start} className={row}>
-          {icon(<Download size={18} />)} Апп татах <BetaBadge /> {chevron}
-        </button>
-      )}
-    </nav>
-  );
-}
-
-function NicknameForm({profile}: {profile: ProfileData}) {
-  const [nickname, setNickname] = useState(profile.nickname ?? '');
-  const {status, busy, run} = useSave();
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    run(() => saveNickname(nickname), 'Хоч нэр хадгалагдлаа.');
-  };
-
-  return (
-    <form onSubmit={submit} className={`${card} p-5`}>
-      <label className="font-semibold" htmlFor="nickname">
-        Хоч нэр
-      </label>
-      <p className="mt-0.5 text-sm text-neutral-400">Сайт дээр хоч нэр тань харагдана. Багш жинхэнэ нэр, хочийг тань хоёуланг нь харна.</p>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input id="nickname" className={field} value={nickname} maxLength={30} onChange={(e) => setNickname(e.target.value)} placeholder={profile.name} />
-        <button
-          disabled={busy || nickname.trim() === (profile.nickname ?? '')}
-          className="shrink-0 rounded-full bg-blue-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
-        >
-          {busy ? 'Хадгалж байна…' : 'Хадгалах'}
-        </button>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={id}>
+      <div
+        className="max-h-[90dvh] w-full max-w-md animate-[sheet-up_.22s_ease-out] motion-reduce:animate-none overflow-y-auto rounded-t-3xl bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:animate-none sm:rounded-3xl sm:pt-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-700 sm:hidden" />
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 id={id} className="text-lg font-semibold">
+              {title}
+            </h2>
+            {sub && <p className="mt-0.5 text-sm text-neutral-400">{sub}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mt-4">{children}</div>
       </div>
-      <StatusLine status={status} />
-    </form>
+    </div>
   );
 }
 
-function PasswordForm() {
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [again, setAgain] = useState('');
-  const [show, setShow] = useState(false);
-  const {status, setStatus, busy, run} = useSave();
-
+function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () => void}) {
+  const [nickname, setNickname] = useState(profile.nickname ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const save = async (value: string) => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveNickname(value);
+      onClose();
+    } catch (e) {
+      setError(authError(e));
+      setBusy(false);
+    }
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 6) return setStatus({ok: false, text: 'Шинэ нууц үг хамгийн багадаа 6 тэмдэгт байна.'});
-    if (next !== again) return setStatus({ok: false, text: 'Шинэ нууц үгүүд таарахгүй байна.'});
-    run(async () => {
-      await changePassword(current, next);
-      setCurrent('');
-      setNext('');
-      setAgain('');
-    }, 'Нууц үг солигдлоо.');
+    save(nickname);
   };
+  const preview = nickname.trim() || profile.name;
+  const unchanged = nickname.trim() === (profile.nickname ?? '').trim();
 
-  const type = show ? 'text' : 'password';
   return (
-    <form onSubmit={submit} className={`${card} p-5`}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-semibold">Нууц үг солих</h2>
+    <Sheet title="Nickname" sub="Сайт дээр бусдад nickname тань харагдана. Багш жинхэнэ нэрийг тань бас харна." onClose={onClose}>
+      <form onSubmit={submit}>
+        <div className="relative">
+          <input autoFocus className={`${field} pr-14`} value={nickname} maxLength={30} onChange={(e) => setNickname(e.target.value)} placeholder={profile.name} aria-label="Nickname" />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs tabular-nums text-neutral-500">{nickname.length}/30</span>
+        </div>
+        <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-800/50 px-3 py-2.5">
+          <Avatar name={preview} photo={profile.photo} size={32} />
+          <div className="min-w-0">
+            <p className="text-xs text-neutral-500">Ингэж харагдана</p>
+            <p className="truncate font-medium">{preview}</p>
+          </div>
+        </div>
+        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          {profile.nickname ? (
+            <button type="button" disabled={busy} onClick={() => save('')} className={secondary}>
+              Арилгах
+            </button>
+          ) : (
+            <button type="button" onClick={onClose} className={secondary}>
+              Болих
+            </button>
+          )}
+          <button disabled={busy || unchanged} className={primary}>
+            {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+          </button>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+/** A password field with its own show/hide eye. */
+function Secret({label, value, onChange, autoComplete, autoFocus}: {label: string; value: string; onChange: (v: string) => void; autoComplete: string; autoFocus?: boolean}) {
+  const [show, setShow] = useState(false);
+  return (
+    <label className="block">
+      <span className="text-sm text-neutral-300">{label}</span>
+      <span className="relative mt-1 block">
+        <input autoFocus={autoFocus} className={`${field} pr-11`} type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} />
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+          aria-label={show ? 'Нууц үгийг нуух' : 'Нууц үгийг харах'}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-neutral-400 hover:text-neutral-200"
         >
-          {show ? <EyeOff size={16} /> : <Eye size={16} />} {show ? 'Нуух' : 'Харуулах'}
+          {show ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
-      </div>
-      <div className="mt-3 grid gap-3">
-        <input className={field} type={type} placeholder="Одоогийн нууц үг" aria-label="Одоогийн нууц үг" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
-        <input className={field} type={type} placeholder="Шинэ нууц үг (6+ тэмдэгт)" aria-label="Шинэ нууц үг" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
-        <input className={field} type={type} placeholder="Шинэ нууц үг дахин" aria-label="Шинэ нууц үг дахин" value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" />
-      </div>
-      <StatusLine status={status} />
-      <button
-        disabled={busy || !current || !next}
-        className="mt-4 w-full rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50 sm:w-auto sm:px-6"
-      >
-        {busy ? 'Сольж байна…' : 'Солих'}
-      </button>
-    </form>
+      </span>
+    </label>
+  );
+}
+
+function PasswordSheet({onClose}: {onClose: () => void}) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const rules = [
+    {ok: next.length >= 6, text: 'Хамгийн багадаа 6 тэмдэгт'},
+    {ok: !!next && next === again, text: 'Хоёр шинэ нууц үг таарч байна'},
+    {ok: !!next && next !== current, text: 'Одоогийнхоосоо өөр'},
+  ];
+  const ready = !!current && rules.every((r) => r.ok);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    setError('');
+    try {
+      await changePassword(current, next);
+      setDone(true);
+    } catch (err) {
+      const code = (err as {code?: string}).code ?? '';
+      setError(['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code) ? 'Одоогийн нууц үг буруу байна.' : authError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done)
+    return (
+      <Sheet title="Нууц үг солих" onClose={onClose}>
+        <div className="flex flex-col items-center py-4 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15 text-green-400">
+            <Check size={32} />
+          </span>
+          <p className="mt-4 text-lg font-semibold">Нууц үг солигдлоо</p>
+          <p className="mt-1 text-sm text-neutral-400">Дараагийн удаа шинэ нууц үгээрээ нэвтэрнэ.</p>
+          <button onClick={onClose} className={`${primary} mt-6 w-full`}>
+            Болсон
+          </button>
+        </div>
+      </Sheet>
+    );
+
+  return (
+    <Sheet title="Нууц үг солих" sub="Шинэ нууц үгээ хэнд ч бүү хэлээрэй." onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Secret label="Одоогийн нууц үг" value={current} onChange={setCurrent} autoComplete="current-password" autoFocus />
+        <Secret label="Шинэ нууц үг" value={next} onChange={setNext} autoComplete="new-password" />
+        <Secret label="Шинэ нууц үг дахин" value={again} onChange={setAgain} autoComplete="new-password" />
+        <ul className="space-y-1 pt-1 text-sm">
+          {rules.map((r) => (
+            <li key={r.text} className={`flex items-center gap-2 ${r.ok ? 'text-green-400' : 'text-neutral-500'}`}>
+              {r.ok ? <Check size={16} /> : <Circle size={16} />} {r.text}
+            </li>
+          ))}
+        </ul>
+        {error && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <button type="button" onClick={onClose} className={secondary}>
+            Болих
+          </button>
+          <button disabled={busy || !ready} className={primary}>
+            {busy ? 'Сольж байна…' : 'Солих'}
+          </button>
+        </div>
+      </form>
+    </Sheet>
   );
 }

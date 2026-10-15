@@ -141,7 +141,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
               {
                 icon: <UserRound size={18} />,
                 title: 'Профайл',
-                text: 'Хоч нэр, зургаа сольж, нууц үгээ шинэчилж болно.',
+                text: 'Nickname, зургаа сольж, нууц үгээ шинэчилж болно.',
                 go: {label: 'Профайл', href: '/profile'},
               },
               getApp,

@@ -50,7 +50,7 @@ export default function Students({data}: {data: AdminData}) {
           <h2 className="font-semibold">Бүх сурагч ({data.students.length})</h2>
           <label className="relative w-full sm:w-56">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Нэр, хоч, нэвтрэх нэрээр хайх" className="w-full rounded-full border border-neutral-700 bg-neutral-950 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
+            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Нэр, nickname, нэвтрэх нэрээр хайх" className="w-full rounded-full border border-neutral-700 bg-neutral-950 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
           </label>
         </div>
         {!data.students.length ? (
