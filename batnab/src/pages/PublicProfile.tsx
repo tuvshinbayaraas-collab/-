@@ -25,13 +25,14 @@ export default function PublicProfile({uid}: {uid: string}) {
   if (settings && !settings.leaderboard) return <CenterNote title="Leaderboard одоогоор хаалттай байна" />;
   if (!allowed || !board || !medals) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
 
-  // Only students on this week's leaderboard have a profile here (the ones who chose not to show their score don't).
+  // Only the tests where the student is in the top 3 this week; someone who is in no top 3 has no profile here.
   const mine = TESTS.flatMap((t) => {
-    const list = ranking(board[t.id] ?? []);
-    const i = list.findIndex((e) => e.uid === uid);
-    return i < 0 ? [] : [{e: list[i], place: i + 1}];
+    const i = ranking(board[t.id] ?? [])
+      .slice(0, 3)
+      .findIndex((e) => e.uid === uid);
+    return i < 0 ? [] : [{e: ranking(board[t.id] ?? [])[i], place: i + 1}];
   });
-  if (!mine.length) return <CenterNote title="Энэ сурагчийн профайл харагдахгүй байна" />;
+  if (!mine.length) return <CenterNote title="Энэ сурагч энэ долоо хоногт эхний 3-т ороогүй байна" />;
   const name = mine[0].e.name;
   const top = overall(board).findIndex((e) => e.uid === uid) + 1;
   const leader = top === 1;
@@ -47,19 +48,19 @@ export default function PublicProfile({uid}: {uid: string}) {
           <Avatar name={name.replace(/^@/, '')} photo={photos[uid]} size={104} />
         </span>
         <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{name}</h1>
-        {top > 0 && (
-          <p className={`mt-2 rounded-full px-3 py-1 text-sm font-medium ${top <= 3 ? `${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}` : 'bg-neutral-800 text-neutral-300'}`}>
-            {leader ? 'Энэ долоо хоногийн тэргүүлэгч' : `Энэ долоо хоногт ${top}-р байр`}
+        {top > 0 && top <= 3 && (
+          <p className={`mt-2 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
+            {leader ? 'Энэ долоо хоногийн тэргүүлэгч' : `«Хамгийн өндөр оноо»-нд ${top}-р байр`}
           </p>
         )}
       </section>
 
       <section className="rounded-2xl bg-neutral-900 p-5">
-        <h2 className="font-semibold">Энэ долоо хоногийн дүн</h2>
+        <h2 className="font-semibold">Эхний 3-т орсон тестүүд</h2>
         <ul className="mt-3 divide-y divide-neutral-800">
           {mine.map(({e, place}) => (
             <li key={e.test} className="flex items-center gap-3 py-3">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${place <= 3 ? PLACES[place as 1 | 2 | 3].badge : 'bg-neutral-800 text-neutral-300'}`}>{place}</span>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${PLACES[place as 1 | 2 | 3].badge}`}>{place}</span>
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{testInfo(e.test)?.title}</span>
                 <span className="block text-xs text-neutral-500">

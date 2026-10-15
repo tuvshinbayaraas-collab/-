@@ -7,6 +7,7 @@ import Header from './components/Header';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
+import {useDbLost} from './lib/connection';
 import {usePrefs} from './lib/prefs';
 import {loadTest} from './tests';
 
@@ -81,8 +82,12 @@ export default function App() {
   );
 }
 
-/** Shown while the device has no connection (e.g. the installed app opened offline). */
+/**
+ * Shown while the device has no connection (e.g. the installed app opened offline), or is online but can't reach the
+ * database for a while, so a page waiting on it doesn't look stuck.
+ */
 function OfflineBar() {
+  const lost = useDbLost();
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true);
@@ -94,10 +99,16 @@ function OfflineBar() {
       window.removeEventListener('offline', off);
     };
   }, []);
-  if (online) return null;
+  if (online && !lost) return null;
   return (
-    <p className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-200">
-      <WifiOff size={16} /> Интернэт холболт алга. Холбогдоход автоматаар үргэлжилнэ.
+    <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-200">
+      <WifiOff size={16} className="shrink-0" />
+      {online ? 'Сервертэй холбогдож чадахгүй байна. Холбогдмогц автоматаар үргэлжилнэ.' : 'Интернэт холболт алга. Холбогдоход автоматаар үргэлжилнэ.'}
+      {online && (
+        <button onClick={() => location.reload()} className="font-semibold text-amber-100 underline underline-offset-2">
+          Дахин ачаалах
+        </button>
+      )}
     </p>
   );
 }

@@ -7,6 +7,7 @@ import RankLine from '../components/RankLine';
 import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
+import {useDbConnected} from '../lib/connection';
 import {submitScore} from '../lib/leaderboard';
 import {ask, useLeaveCounter} from '../lib/leaves';
 import {usePrefs} from '../lib/prefs';
@@ -138,6 +139,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const session = useSession();
   const settings = useSettings();
   const prefs = usePrefs();
+  const connected = useDbConnected();
   // A saved, graded attempt goes on the weekly leaderboard (when it beats this week's best and the student takes part).
   const onBoard = mode === 'student' && !!settings?.leaderboard && !prefs.lbOff;
   const graded = key && attempt?.finished ? grade(encode(attempt.answers), key, testInfo(id)!.count) : null;
@@ -262,7 +264,10 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
                 </button>
               </div>
             ) : (
-              <p className="text-neutral-400">Хариултыг хадгалж байна…</p>
+              <div>
+                <p className="text-neutral-400">Хариултыг хадгалж байна…</p>
+                {!connected && <p className="mt-1 text-sm text-amber-300">Сервертэй холболт тасарсан байна. Хариулт тань энэ төхөөрөмжид хадгалагдсан, холбогдмогц автоматаар илгээгдэнэ.</p>}
+              </div>
             )
           ) : key === undefined ? (
             <p className="text-neutral-400">Дүнг тооцож байна…</p>
