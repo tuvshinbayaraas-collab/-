@@ -15,6 +15,7 @@ const MyResults = lazy(() => import('./pages/MyResults'));
 const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Admin = lazy(() => import('./pages/admin/Admin'));
+const Credits = lazy(() => import('./pages/Credits'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -33,6 +34,7 @@ export default function App() {
   else if (path === '/results') page = <MyResults />;
   else if (path === '/login') page = <Login />;
   else if (path === '/profile') page = <Profile />;
+  else if (path === '/credits') page = <Credits />;
   else if (parts[0] === 'admin' && (parts.length === 1 || (parts[1] === 'student' && parts.length === 3))) page = <Admin student={parts[2]} />;
   else
     page = (
@@ -50,6 +52,13 @@ export default function App() {
       <main className="px-4 pb-10 pt-4 sm:px-6">
         <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
       </main>
+      {path !== '/credits' && (
+        <footer className="px-4 pb-8 text-center text-xs text-neutral-500">
+          <Link href="/credits" className="hover:text-neutral-300">
+            © {new Date().getFullYear()} Batnab · Бүтээсэн: Баттүшиг
+          </Link>
+        </footer>
+      )}
       <GuideHost />
       <InstallHelpHost />
     </div>
