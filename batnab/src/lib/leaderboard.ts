@@ -51,8 +51,8 @@ const parse = (test: string, tree: Record<string, Partial<Entry>> | null): Entry
 export const parseWeek = (tree: Record<string, Record<string, Partial<Entry>>> | null) =>
   Object.fromEntries(Object.entries(tree ?? {}).map(([test, t]) => [test, parse(test, t)]));
 
-/** One test's ranking. */
-export const ranking = (entries: Entry[]) => [...entries].sort(compare);
+/** One test's ranking. A score of 0 doesn't place (it would "win" an empty board). */
+export const ranking = (entries: Entry[]) => entries.filter((e) => e.score > 0).sort(compare);
 
 /** "Хамгийн өндөр оноо": each student once, with their best score in any test. */
 export function overall(byTest: Record<string, Entry[]>) {
@@ -105,7 +105,7 @@ export function usePhotos(uids: string[]) {
  */
 export async function submitScore(test: string, g: Grade, seconds: number, rid: string, profile: Profile) {
   const uid = auth.currentUser?.uid;
-  if (!uid) return;
+  if (!uid || !g.score) return;
   const path = `leaderboard/${weekKey()}/${test}/${uid}`;
   const old = parse(test, {[uid]: (await get(ref(db, path))).val()})[0];
   const mine: Entry = {uid, test, score: g.score, total: g.total, seconds, name: shownName(profile), rid, at: serverNow()};

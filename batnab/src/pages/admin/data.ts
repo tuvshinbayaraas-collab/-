@@ -119,7 +119,7 @@ export function leaderboardFixes(
     if (admins[uid] || typeof p?.username !== 'string' || p.disabled || p.prefs?.lbOff) continue;
     for (const r of flatten(uid, (results[uid] ?? null) as Parameters<typeof flatten>[1])) {
       const g = r.at >= start ? grade(r.answers, keys[r.test], testInfo(r.test)!.count) : null;
-      if (!g) continue;
+      if (!g?.score) continue;
       const e: Entry = {uid, test: r.test, score: g.score, total: g.total, seconds: r.seconds, name: shownName(p), rid: r.id, at: r.at};
       const b = want[r.test]?.[uid];
       if (!b || compare(e, b) < 0) (want[r.test] ??= {})[uid] = e;

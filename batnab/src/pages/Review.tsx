@@ -91,7 +91,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
           </div>
         )}
         <p className="mt-2 text-sm text-neutral-500">
-          Бодлогууд номын дарааллаар харагдаж байна.{!reveal && ' Зөв хариултыг харуулахгүй — алдсан бодлогуудаа дахин бодож үзээрэй.'}
+          Бодлогууд номын дарааллаар харагдаж байна.
         </p>
       </div>
       <QuestionList>

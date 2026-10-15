@@ -292,7 +292,6 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                   <p className="text-sm">
                     <span className="font-medium text-red-300">{missed.length} бодлого дээр алдсан</span>
-                    {mode !== 'preview' && <span className="text-neutral-400"> — зөв хариултыг харуулахгүй, дахин бодож үзээрэй.</span>}
                   </p>
                   <button
                     onClick={() => setOnlyWrong((o) => !o)}

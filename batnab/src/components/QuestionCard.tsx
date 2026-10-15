@@ -74,10 +74,10 @@ export default function QuestionCard(props: {
             </>
           ) : (
             <>
-              <XCircle size={16} className="text-red-400" /> <span className="text-red-300">Буруу.</span>
+              <XCircle size={16} className="text-red-400" /> <span className="text-red-300">Энэ бодлого дээр алдсан.</span>
             </>
           )}
-          {reveal ? <span className="text-green-400">Зөв хариулт: {LETTERS[correct!]}</span> : <span className="text-neutral-400">Дахин бодож үзээрэй.</span>}
+          {reveal && <span className="text-green-400">Зөв хариулт: {LETTERS[correct!]}</span>}
         </p>
       )}
       {right && (

@@ -290,7 +290,6 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                   <p className="text-sm">
                     <span className="font-medium text-red-300">{missed.length} бодлого дээр алдсан</span>
-                    <span className="text-neutral-400"> — зөв хариултыг харуулахгүй.</span>
                   </p>
                   <button onClick={() => setOnlyWrong((o) => !o)} aria-pressed={onlyWrong} className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700">
                     {onlyWrong ? 'Бүх бодлогыг харах' : 'Зөвхөн алдсанаа харах'}
