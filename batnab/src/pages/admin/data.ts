@@ -4,8 +4,10 @@ import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
+import {compare, overall, parseWeek, weekKey, type Entry} from '../../lib/leaderboard';
 import {clearOld, flatten, type Result} from '../../lib/results';
-import type {Profile} from '../../lib/session';
+import {shownName, type Profile} from '../../lib/session';
+import {useSettings} from '../../lib/settings';
 import {inThisWeek, weekStart} from '../../lib/week';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
 
@@ -33,8 +35,11 @@ export function useAdminData() {
     keys?: Record<string, string>;
     exams?: Record<string, Partial<Exam>>;
     examAnswers?: Record<string, Record<string, Partial<ExamAnswer>>>;
+    leaderboard?: Record<string, Record<string, Record<string, Partial<Entry>>>>;
+    pub?: Record<string, {photo?: string}>;
     error?: string;
   }>({});
+  const settings = useSettings();
   // Last week's results are cleared by whoever opens the site first after the reset; the teacher clears everyone's,
   // along with results of deleted accounts and leftovers in an older format.
   useEffect(() => {
@@ -54,8 +59,16 @@ export function useAdminData() {
     if (Object.keys(gone).length) update(ref(db), gone).catch(() => {});
     clearOld(Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree) : [])));
   }, [raw.results, raw.users, raw.exams, raw.error]);
+  // The leaderboard stays right: this week's entries are worked out again from the results and keys (what a student
+  // sent is trusted only until then), and a finished week's top 3 become medals.
   useEffect(() => {
-    const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers'] as const).map((path) =>
+    const {users, admins, results, keys, leaderboard, pub, error} = raw;
+    if (!users || !admins || !results || !keys || !leaderboard || !pub || error || !settings?.leaderboard) return;
+    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub);
+    if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
+  }, [raw, settings?.leaderboard]);
+  useEffect(() => {
+    const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>
       onValue(
         ref(db, path),
         (s) => setRaw((r) => ({...r, [path]: s.val() ?? {}})),
@@ -86,6 +99,59 @@ export function useAdminData() {
     ]),
   );
   return {data: {students, results, keys, exams, examAnswers} as AdminData, error: raw.error};
+}
+
+/** The writes that bring the leaderboard in line with the results (see the effect in useAdminData). */
+export function leaderboardFixes(
+  users: Record<string, Profile>,
+  admins: Record<string, boolean>,
+  results: Record<string, Record<string, unknown>>,
+  keys: Record<string, string>,
+  leaderboard: Record<string, Record<string, Record<string, Partial<Entry>>>>,
+  pub: Record<string, {photo?: string}>,
+) {
+  const ops: Record<string, unknown> = {};
+  const week = weekKey();
+  const start = Number(week);
+  // Each taking part student's best attempt at each test this week.
+  const want: Record<string, Record<string, Entry>> = {};
+  for (const [uid, p] of Object.entries(users)) {
+    if (admins[uid] || typeof p?.username !== 'string' || p.disabled || p.prefs?.lbOff) continue;
+    for (const r of flatten(uid, (results[uid] ?? null) as Parameters<typeof flatten>[1])) {
+      const g = r.at >= start ? grade(r.answers, keys[r.test], testInfo(r.test)!.count) : null;
+      if (!g) continue;
+      const e: Entry = {uid, test: r.test, score: g.score, total: g.total, seconds: r.seconds, name: shownName(p), rid: r.id, at: r.at};
+      const b = want[r.test]?.[uid];
+      if (!b || compare(e, b) < 0) (want[r.test] ??= {})[uid] = e;
+    }
+  }
+  const current = parseWeek(leaderboard[week] ?? null);
+  for (const test of new Set([...Object.keys(current), ...Object.keys(want)])) {
+    const have = new Map((current[test] ?? []).map((e) => [e.uid, e]));
+    for (const [uid, e] of Object.entries(want[test] ?? {})) {
+      const h = have.get(uid);
+      have.delete(uid);
+      if (h && h.score === e.score && h.total === e.total && h.seconds === e.seconds && h.rid === e.rid && h.name === e.name) continue;
+      ops[`leaderboard/${week}/${test}/${uid}`] = {score: e.score, total: e.total, seconds: e.seconds, name: e.name, rid: e.rid, at: h?.rid === e.rid && h.at ? h.at : e.at};
+    }
+    for (const uid of have.keys()) ops[`leaderboard/${week}/${test}/${uid}`] = null;
+  }
+  // Photos for the podium: only of students on the leaderboard.
+  const shown = new Set(Object.values(want).flatMap((t) => Object.keys(t)));
+  for (const uid of new Set([...shown, ...Object.keys(pub)])) {
+    const photo = shown.has(uid) ? (users[uid]?.photo ?? null) : null;
+    if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
+  }
+  // Finished weeks: medals for the top 3 of "Хамгийн өндөр оноо", then the week's entries go.
+  for (const [w, tree] of Object.entries(leaderboard)) {
+    if (w >= week) continue;
+    overall(parseWeek(tree))
+      .filter((e) => users[e.uid])
+      .slice(0, 3)
+      .forEach((e, i) => (ops[`medals/${e.uid}/${w}`] = {place: i + 1, test: e.test, score: e.score, total: e.total}));
+    ops[`leaderboard/${w}`] = null;
+  }
+  return ops;
 }
 
 export const gradeOf = (r: Result, keys: Record<string, string>) => grade(r.answers, keys[r.test], testInfo(r.test)!.count);

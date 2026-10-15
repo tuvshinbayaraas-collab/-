@@ -3,10 +3,13 @@ import {useEffect, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
+import RankLine from '../components/RankLine';
 import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
+import {submitScore} from '../lib/leaderboard';
 import {ask, useLeaveCounter} from '../lib/leaves';
+import {usePrefs} from '../lib/prefs';
 import {saveResult, useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
@@ -132,6 +135,18 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
   const keys = useKeys(keyReadable ? [id] : []);
   const key = keyReadable ? keys[id] : undefined;
 
+  const session = useSession();
+  const settings = useSettings();
+  const prefs = usePrefs();
+  // A saved, graded attempt goes on the weekly leaderboard (when it beats this week's best and the student takes part).
+  const onBoard = mode === 'student' && !!settings?.leaderboard && !prefs.lbOff;
+  const graded = key && attempt?.finished ? grade(encode(attempt.answers), key, testInfo(id)!.count) : null;
+  useEffect(() => {
+    if (!onBoard || !attempt?.resultId || !attempt.finished || !graded || !session.profile) return;
+    submitScore(id, graded, Math.round((attempt.finished - attempt.started) / 1000), attempt.resultId, session.profile).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onBoard, attempt?.resultId, graded?.score, graded?.total]);
+
   if (blocked)
     return (
       <CenterNote title="Та энэ тестийг өгсөн байна">
@@ -157,6 +172,9 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
     const answers = [...attempt.answers];
     answers[qi] = answers[qi] === ci ? null : ci;
     update({...attempt, answers});
+    // "Дараагийн бодлого руу шилжих" setting: on to the next question once this one is answered.
+    const pos = attempt.order.indexOf(qi);
+    if (prefs.autoNext && answers[qi] !== null && pos + 1 < total) setTimeout(() => jump(pos + 1), 250);
   };
 
   const finish = () => {
@@ -188,9 +206,11 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
           <span className="text-sm text-neutral-400">
             {answered}/{total} хариулсан
           </span>
-          <span className="flex items-center gap-1 text-sm tabular-nums text-neutral-400">
-            <Clock size={14} /> {formatTime(elapsed)}
-          </span>
+          {!prefs.hideTimer && (
+            <span className="flex items-center gap-1 text-sm tabular-nums text-neutral-400">
+              <Clock size={14} /> {formatTime(elapsed)}
+            </span>
+          )}
           {mode !== 'preview' && !!attempt.leaves && (
             <span className="flex items-center gap-1 text-sm text-amber-300" title="Тест өгөх үеэр өөр таб эсвэл апп руу шилжсэн тоо. Багш харна.">
               <AlertTriangle size={14} /> {attempt.leaves} удаа гарсан
@@ -291,6 +311,7 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
                   </Link>
                 </p>
               )}
+              {onBoard && !prefs.lbHideRank && attempt.resultId && <RankLine test={id} uid={owner} rid={attempt.resultId} />}
             </div>
           )}
           {mode === 'trial' && (

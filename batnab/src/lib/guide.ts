@@ -43,6 +43,13 @@ const setOpen = (v: boolean) => {
 
 export const openGuide = () => setOpen(true);
 
+/** The "Зааврыг дахин харуулах" setting: shows it now and again on later visits. */
+export function showGuideAgain(role: GuideRole) {
+  put(() => localStorage, hiddenKey(role), false);
+  put(() => sessionStorage, seenKey(role), false);
+  setOpen(true);
+}
+
 export const useGuideOpen = () =>
   useSyncExternalStore(
     (l) => {

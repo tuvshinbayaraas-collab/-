@@ -7,6 +7,7 @@ import Header from './components/Header';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
+import {usePrefs} from './lib/prefs';
 import {loadTest} from './tests';
 
 // The test pages carry the questions, figures and KaTeX, so they load on first visit.
@@ -17,6 +18,8 @@ const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Admin = lazy(() => import('./pages/admin/Admin'));
 const Credits = lazy(() => import('./pages/Credits'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -28,6 +31,12 @@ export default function App() {
     if (testId) loadTest(testId)?.catch(() => {});
   }, [testId]);
 
+  // "Том үсэг" setting: every size on the site is in rem, so this scales them all.
+  const {bigText} = usePrefs();
+  useEffect(() => {
+    document.documentElement.style.fontSize = bigText ? '112.5%' : '';
+  }, [bigText]);
+
   let page;
   if (path === '/') page = <Home />;
   else if (parts[0] === 'test' && parts.length === 2) page = <TestPage id={parts[1]} />;
@@ -36,6 +45,8 @@ export default function App() {
   else if (path === '/login') page = <Login />;
   else if (path === '/profile') page = <Profile />;
   else if (path === '/credits') page = <Credits />;
+  else if (path === '/leaderboard') page = <Leaderboard />;
+  else if (path === '/settings') page = <SettingsPage />;
   else if (parts[0] === 'admin' && (parts.length === 1 || (parts[1] === 'student' && parts.length === 3))) page = <Admin student={parts[2]} />;
   else
     page = (

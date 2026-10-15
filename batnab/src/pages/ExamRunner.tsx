@@ -6,6 +6,7 @@ import {formatDuration, formatTime} from '../lib/attempt';
 import {examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {ask, useLeaveCounter} from '../lib/leaves';
+import {usePrefs} from '../lib/prefs';
 import {Link} from '../lib/router';
 import {clock, serverNow, useNow} from '../lib/time';
 import {loadTest, testInfo} from '../tests';
@@ -58,6 +59,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [onlyWrong, setOnlyWrong] = useState(false);
   const {full, jump} = useJump(() => setOnlyWrong(false));
+  const prefs = usePrefs();
   const [submitted, setSubmitted] = useState(false);
   const now = useNow(1000);
   const state = examState(exam, now);
@@ -155,7 +157,13 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const left = exam.end - now;
   const leaves = saved && (done || ended) ? saved.leaves : attempt.leaves;
 
-  const choose = (qi: number, ci: number) => change((a) => ({...a, answers: a.answers.map((x, i) => (i === qi ? (x === ci ? null : ci) : x))}));
+  const choose = (qi: number, ci: number) => {
+    const picked = attempt.answers[qi] !== ci;
+    change((a) => ({...a, answers: a.answers.map((x, i) => (i === qi ? (x === ci ? null : ci) : x))}));
+    // "Дараагийн бодлого руу шилжих" setting.
+    const pos = attempt.order.indexOf(qi);
+    if (prefs.autoNext && picked && pos + 1 < total) setTimeout(() => jump(pos + 1), 250);
+  };
 
   const finish = () => {
     const empty = total - answered;

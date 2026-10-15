@@ -8,9 +8,11 @@ export interface Settings {
   trial: string;
   /** Whether students may take a test again. */
   retakes: boolean;
+  /** Whether the weekly leaderboard (and its medals) is on. */
+  leaderboard: boolean;
 }
 
-const DEFAULTS: Settings = {trial: '1A', retakes: true};
+const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true};
 
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
@@ -23,7 +25,7 @@ function start() {
     ref(db, 'settings'),
     (s) => {
       const v = (s.val() ?? {}) as Partial<Settings>;
-      current = {trial: typeof v.trial === 'string' ? v.trial : DEFAULTS.trial, retakes: v.retakes !== false};
+      current = {trial: typeof v.trial === 'string' ? v.trial : DEFAULTS.trial, retakes: v.retakes !== false, leaderboard: v.leaderboard !== false};
       listeners.forEach((l) => l());
     },
     () => {

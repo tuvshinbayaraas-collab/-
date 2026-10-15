@@ -12,6 +12,7 @@ import {
   Settings2,
   Shuffle,
   Target,
+  Trophy,
   UserRound,
   Users,
   X,
@@ -138,6 +139,14 @@ export default function GuideDialog({role}: {role: GuideRole}) {
                 title: 'Долоо хоног бүр шинээр',
                 text: 'Дүн Баасан гараг бүрийн 24:00-д шинээр эхэлнэ.',
               },
+              settings?.leaderboard
+                ? {
+                    icon: <Trophy size={18} />,
+                    title: 'Leaderboard',
+                    text: 'Долоо хоногийн эхний 3 сурагч алт, мөнгө, хүрэл медаль авна. Оноогоо нуух бол цэсний «Тохиргоо».',
+                    go: {label: 'Leaderboard', href: '/leaderboard'},
+                  }
+                : null,
               {
                 icon: <UserRound size={18} />,
                 title: 'Профайл',

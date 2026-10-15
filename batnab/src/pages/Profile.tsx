@@ -1,9 +1,13 @@
-import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Trash2, X} from 'lucide-react';
+import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Medal as MedalIcon, Trash2, X} from 'lucide-react';
 import {useEffect, useId, useRef, useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import {saveNickname, savePhoto, squarePhoto} from '../lib/accounts';
+import {PLACES, refreshMine, useMedals, weekLabel} from '../lib/leaderboard';
+import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
+import {useSettings} from '../lib/settings';
+import {testInfo} from '../tests';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const card = 'rounded-2xl bg-neutral-900';
@@ -34,9 +38,49 @@ export default function Profile() {
         <Row icon={<AtSign size={18} />} label="Nickname" value={nickname || <span className="text-neutral-500">Тавиагүй</span>} onClick={() => setOpen('nickname')} />
         <Row icon={<KeyRound size={18} />} label="Нууц үг" value={<span className="tracking-widest">••••••</span>} onClick={() => setOpen('password')} />
       </div>
+      {!session.admin && <Medals uid={session.user.uid} />}
       {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+/** Weekly leaderboard medals: gold, silver, bronze for the top 3 of each week. */
+function Medals({uid}: {uid: string}) {
+  const settings = useSettings();
+  const medals = useMedals(uid, true);
+  if (!medals || (!medals.length && !settings?.leaderboard)) return null;
+  return (
+    <section className={`${card} p-5`}>
+      <h2 className="flex items-center gap-2 font-semibold">
+        <MedalIcon size={18} className="text-amber-300" /> Медалиуд {medals.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals.length}</span>}
+      </h2>
+      {medals.length ? (
+        <ul className="mt-4 grid grid-cols-3 gap-3">
+          {medals.map((m) => {
+            const look = PLACES[m.place];
+            return (
+              <li key={m.week} className="flex flex-col items-center text-center">
+                <span className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-extrabold ${look.badge}`}>{m.place}</span>
+                <span className={`mt-2 text-sm font-semibold ${look.text}`}>{look.name}</span>
+                <span className="text-xs text-neutral-400">{weekLabel(m.week)}</span>
+                <span className="text-[11px] text-neutral-500">
+                  {testInfo(m.test)?.title} · {m.score}/{m.total}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="mt-1 text-sm text-neutral-400">
+          Долоо хоногийн{' '}
+          <Link href="/leaderboard" className="text-blue-400 hover:underline">
+            leaderboard
+          </Link>
+          -ийн эхний 3 байрт орвол энд алт, мөнгө, хүрэл медаль нэмэгдэнэ.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -71,7 +115,13 @@ function Identity({profile}: {profile: ProfileData}) {
       setBusy(false);
     }
   };
-  const pick = (file: File | undefined) => file && run(async () => savePhoto(await squarePhoto(file)), 'Зураг солигдлоо.');
+  const pick = (file: File | undefined) =>
+    file &&
+    run(async () => {
+      const photo = await squarePhoto(file);
+      await savePhoto(photo);
+      await refreshMine({...profile, photo}).catch(() => {});
+    }, 'Зураг солигдлоо.');
 
   return (
     <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
@@ -105,7 +155,12 @@ function Identity({profile}: {profile: ProfileData}) {
         {profile.photo && (
           <button
             disabled={busy}
-            onClick={() => run(() => savePhoto(null), 'Зураг устлаа.')}
+            onClick={() =>
+              run(async () => {
+                await savePhoto(null);
+                await refreshMine({...profile, photo: undefined}).catch(() => {});
+              }, 'Зураг устлаа.')
+            }
             className="flex items-center gap-2 rounded-full px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800 disabled:opacity-60"
           >
             <Trash2 size={16} /> Устгах
@@ -162,6 +217,7 @@ function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () =>
     setError('');
     try {
       await saveNickname(value);
+      await refreshMine({...profile, nickname: value.trim().replace(/\s+/g, ' ').slice(0, 30) || undefined}).catch(() => {});
       onClose();
     } catch (e) {
       setError(authError(e));

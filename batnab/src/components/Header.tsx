@@ -1,7 +1,8 @@
-import {CircleHelp, Download, GraduationCap, ListChecks, LogIn, LogOut, UserRound} from 'lucide-react';
+import {CircleHelp, Download, GraduationCap, ListChecks, LogIn, LogOut, Settings, Trophy, UserRound} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
+import {useSettings} from '../lib/settings';
 import Avatar from './Avatar';
 import {openGuide} from '../lib/guide';
 import {BetaBadge, useGetApp} from './GetApp';
@@ -14,6 +15,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const app = useGetApp();
   const guideRole = useGuideRole();
+  const settings = useSettings();
   const name = shownName(profile);
 
   const item = (href: string, icon: ReactNode, label: string) => (
@@ -51,7 +53,9 @@ export default function Header() {
                   {profile && !profile.disabled && (
                     <>
                       {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
+                      {settings?.leaderboard && item('/leaderboard', <Trophy size={20} />, 'Leaderboard')}
                       {item('/profile', <UserRound size={20} />, 'Профайл')}
+                      {item('/settings', <Settings size={20} />, 'Тохиргоо')}
                     </>
                   )}
                   {guideRole && (

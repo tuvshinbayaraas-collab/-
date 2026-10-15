@@ -12,6 +12,7 @@ import {
 import {onValue, ref} from 'firebase/database';
 import {useSyncExternalStore} from 'react';
 import {auth, db} from './firebase';
+import type {PrefKey} from './prefs';
 
 export interface Profile {
   /** Login name, lower case. */
@@ -24,6 +25,8 @@ export interface Profile {
   photo?: string;
   createdAt?: number;
   disabled?: boolean;
+  /** The student's own settings (see lib/prefs.ts). */
+  prefs?: Partial<Record<PrefKey, boolean>>;
 }
 
 export interface Session {

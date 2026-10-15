@@ -47,6 +47,19 @@ export default function SettingsTab({data}: {data: AdminData}) {
         </label>
       </section>
 
+      <section className="rounded-2xl bg-neutral-900 p-5">
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="font-semibold">Leaderboard</span>
+            <span className="mt-1 block text-sm text-neutral-400">
+              Сурагчид долоо хоног бүрийн эхний 3-ыг (тест бүрээр болон хамгийн өндөр оноогоор) харж, долоо хоногийн эцэст эхний 3 нь медаль авна. Сурагч
+              өөрийн оноог тохиргооноосоо нууж болно. Оноог сурагчийн хадгалсан хариулт, түлхүүрээс энэ самбар дахин тооцоолж засдаг.
+            </span>
+          </span>
+          <input type="checkbox" checked={settings.leaderboard} onChange={(e) => change('leaderboard', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
+        </label>
+      </section>
+
       {error && <p className="text-sm text-red-400">Хадгалж чадсангүй: {error}</p>}
 
       <section className="rounded-2xl bg-neutral-900 p-5">
