@@ -57,7 +57,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
         action: {label: 'Татах', run: app.start},
       };
 
-  const content: {title: string; sub: string; items: (Item | null)[]} =
+  const content: {title: string; sub?: string; items: (Item | null)[]} =
     role === 'teacher'
       ? {
           title: 'Багшийн самбарт тавтай морил',
@@ -149,7 +149,6 @@ export default function GuideDialog({role}: {role: GuideRole}) {
           }
         : {
             title: 'Batnab-д тавтай морил!',
-            sub: 'Ангийн математикийн тест, шалгалтын сайт.',
             items: [
               {
                 icon: <LogIn size={18} />,
@@ -181,7 +180,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
           <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold">{content.title}</h2>
-            <p className="text-sm text-neutral-400">{content.sub}</p>
+            {content.sub && <p className="text-sm text-neutral-400">{content.sub}</p>}
           </div>
           <button onClick={ok} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
             <X size={18} />
