@@ -53,6 +53,8 @@ export const setBlocked = (uid: string, blocked: boolean) => set(ref(db, `users/
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
 export const deleteStudent = (uid: string) => update(ref(db), {[`users/${uid}`]: null, [`results/${uid}`]: null});
 export const deleteResult = (uid: string, test: string, id: string) => set(ref(db, `results/${uid}/${test}/${id}`), null);
+/** The teacher takes a student's photo down (from the leaderboard podium too). */
+export const removePhoto = (uid: string) => update(ref(db), {[`users/${uid}/photo`]: null, [`pub/${uid}`]: null});
 
 function me() {
   const uid = auth.currentUser?.uid;
@@ -61,30 +63,6 @@ function me() {
 }
 export const saveNickname = (nickname: string) => set(ref(db, `users/${me()}/nickname`), nickname.trim().replace(/\s+/g, ' ').slice(0, 30) || null);
 export const savePhoto = (photo: string | null) => set(ref(db, `users/${me()}/photo`), photo);
-
-/** A picture cropped to a 128px square JPEG data URL (a few KB), small enough to keep in the database. */
-export async function squarePhoto(file: File, size = 128): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Зураг сонгоно уу.');
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const side = Math.min(img.naturalWidth, img.naturalHeight);
-    if (!side) throw new Error('Зургийг уншиж чадсангүй.');
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, size, size);
-    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
-    return canvas.toDataURL('image/jpeg', 0.85);
-  } catch (e) {
-    throw new Error((e as Error).message?.startsWith('Зураг') ? (e as Error).message : 'Зургийг уншиж чадсангүй.');
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 const CYRILLIC: Record<string, string> = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'j', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n',

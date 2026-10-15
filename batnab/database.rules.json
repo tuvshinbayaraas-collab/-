@@ -19,6 +19,9 @@
       "leaderboard": {
         ".validate": "newData.isBoolean()"
       },
+      "photos": {
+        ".validate": "newData.isBoolean()"
+      },
       "$other": {
         ".validate": false
       }
@@ -41,7 +44,7 @@
         },
         "photo": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 60000"
+          ".validate": "newData.isString() && (newData.val().matches(/^avatar:[a-z]{2,20}$/) || (newData.val().beginsWith('data:image/') && newData.val().length <= 60000 && root.child('settings/photos').val() !== false))"
         },
         "createdAt": {
           ".validate": "newData.isNumber()"

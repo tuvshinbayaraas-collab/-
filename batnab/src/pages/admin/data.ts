@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
-import {compare, overall, parseWeek, publicName, weekKey, type Entry} from '../../lib/leaderboard';
+import {compare, overall, parseWeek, publicName, pubOf, weekKey, type Entry} from '../../lib/leaderboard';
 import {clearOld, flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
 import {useSettings} from '../../lib/settings';
@@ -64,9 +64,9 @@ export function useAdminData() {
   useEffect(() => {
     const {users, admins, results, keys, leaderboard, pub, error} = raw;
     if (!users || !admins || !results || !keys || !leaderboard || !pub || error || !settings?.leaderboard) return;
-    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub);
+    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub, settings.photos);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
-  }, [raw, settings?.leaderboard]);
+  }, [raw, settings?.leaderboard, settings?.photos]);
   useEffect(() => {
     const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>
       onValue(
@@ -109,6 +109,7 @@ export function leaderboardFixes(
   keys: Record<string, string>,
   leaderboard: Record<string, Record<string, Record<string, Partial<Entry>>>>,
   pub: Record<string, {photo?: string}>,
+  photos = true,
 ) {
   const ops: Record<string, unknown> = {};
   const week = weekKey();
@@ -136,10 +137,10 @@ export function leaderboardFixes(
     }
     for (const uid of have.keys()) ops[`leaderboard/${week}/${test}/${uid}`] = null;
   }
-  // Photos for the podium: only of students on the leaderboard.
+  // Photos for the podium: only of students on the leaderboard (and while photos are off, only ready-made pictures).
   const shown = new Set(Object.values(want).flatMap((t) => Object.keys(t)));
   for (const uid of new Set([...shown, ...Object.keys(pub)])) {
-    const photo = shown.has(uid) ? (users[uid]?.photo ?? null) : null;
+    const photo = shown.has(uid) ? (pubOf(users[uid]?.photo, photos)?.photo ?? null) : null;
     if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
   }
   // Finished weeks: medals for the top 3 of "Хамгийн өндөр оноо", then the week's entries go.

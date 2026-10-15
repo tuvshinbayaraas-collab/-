@@ -60,6 +60,19 @@ export default function SettingsTab({data}: {data: AdminData}) {
         </label>
       </section>
 
+      <section className="rounded-2xl bg-neutral-900 p-5">
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="font-semibold">Сурагчид өөрийн зураг тавихыг зөвшөөрөх</span>
+            <span className="mt-1 block text-sm text-neutral-400">
+              Унтраавал сурагчид зөвхөн бэлэн дүрснээс (амьтан г.м.) сонгоно, тавьсан зургууд нь сайт дээр харагдахгүй болно. Зургууд устахгүй: буцааж
+              асаахад дахин харагдана. Нэг сурагчийн зургийг түүний хуудаснаас устгаж болно.
+            </span>
+          </span>
+          <input type="checkbox" checked={settings.photos} onChange={(e) => change('photos', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
+        </label>
+      </section>
+
       {error && <p className="text-sm text-red-400">Хадгалж чадсангүй: {error}</p>}
 
       <section className="rounded-2xl bg-neutral-900 p-5">

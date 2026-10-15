@@ -1,8 +1,8 @@
-import {ArrowLeft, Ban, Check, Pencil, RotateCcw, Trash2, X} from 'lucide-react';
+import {ArrowLeft, Ban, Check, ImageOff, Pencil, RotateCcw, Trash2, X} from 'lucide-react';
 import {useState} from 'react';
 import Avatar from '../../components/Avatar';
 import {formatDuration} from '../../lib/attempt';
-import {deleteResult, deleteStudent, renameStudent, setBlocked} from '../../lib/accounts';
+import {deleteResult, deleteStudent, removePhoto, renameStudent, setBlocked} from '../../lib/accounts';
 import {percent} from '../../lib/keys';
 import {formatDate} from '../../lib/results';
 import {Link, navigate} from '../../lib/router';
@@ -106,6 +106,15 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
           >
             <Ban size={15} /> {p.disabled ? 'Нээх' : 'Түр хаах'}
           </button>
+          {p.photo?.startsWith('data:') && (
+            <button
+              disabled={busy}
+              onClick={() => confirm(`${p.name}-ийн тавьсан зургийг устгах уу?`) && act(() => removePhoto(uid))}
+              className="flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50"
+            >
+              <ImageOff size={15} /> Зургийг устгах
+            </button>
+          )}
           <button disabled={busy} onClick={remove} className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 disabled:opacity-50">
             <Trash2 size={15} /> Устгах
           </button>

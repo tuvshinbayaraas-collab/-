@@ -1,8 +1,10 @@
-import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Medal as MedalIcon, Trash2, X} from 'lucide-react';
-import {useEffect, useId, useRef, useState, type FormEvent, type ReactNode} from 'react';
+import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Medal as MedalIcon} from 'lucide-react';
+import {useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {InactiveNote, LockedNote} from '../components/Notices';
-import {saveNickname, savePhoto, squarePhoto} from '../lib/accounts';
+import PhotoPicker from '../components/PhotoPicker';
+import Sheet from '../components/Sheet';
+import {saveNickname, savePhoto} from '../lib/accounts';
 import {PLACES, refreshMine, useMedals, weekLabel} from '../lib/leaderboard';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
@@ -99,43 +101,24 @@ function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; val
 
 /** Photo, the name the site shows, the login name; tap the photo to change it. */
 function Identity({profile}: {profile: ProfileData}) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [picking, setPicking] = useState(false);
   const [status, setStatus] = useState<Status>(null);
-  const [busy, setBusy] = useState(false);
   const name = shownName(profile);
-  const run = async (job: () => Promise<unknown>, done: string) => {
-    setBusy(true);
-    setStatus(null);
-    try {
-      await job();
-      setStatus({ok: true, text: done});
-    } catch (e) {
-      setStatus({ok: false, text: authError(e)});
-    } finally {
-      setBusy(false);
-    }
+  // Without a connection the change is kept on the device and sent once it's back; the sheet doesn't wait for that.
+  const save = async (photo: string | null) => {
+    const write = savePhoto(photo).then(() => refreshMine({...profile, photo: photo ?? undefined}).catch(() => {}));
+    const sent = await Promise.race([write.then(() => true), new Promise<false>((r) => setTimeout(() => r(false), 6000))]);
+    setStatus({ok: true, text: sent ? (photo ? 'Зураг солигдлоо.' : 'Зураг арилгалаа.') : 'Интернэт холболт сэргэхэд хадгалагдана.'});
+    write.catch((e) => setStatus({ok: false, text: authError(e)}));
   };
-  const pick = (file: File | undefined) =>
-    file &&
-    run(async () => {
-      const photo = await squarePhoto(file);
-      await savePhoto(photo);
-      await refreshMine({...profile, photo}).catch(() => {});
-    }, 'Зураг солигдлоо.');
+  const pick = () => {
+    setStatus(null);
+    setPicking(true);
+  };
 
   return (
     <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          pick(e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <button disabled={busy} onClick={() => fileRef.current?.click()} aria-label="Зураг солих" className="relative rounded-full disabled:opacity-60">
+      <button onClick={pick} aria-label="Зураг солих" className="relative rounded-full">
         <Avatar name={name} photo={profile.photo} size={104} />
         <span className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
           <Camera size={16} />
@@ -144,67 +127,16 @@ function Identity({profile}: {profile: ProfileData}) {
       <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
       <p className="text-sm text-neutral-400">@{profile.username}</p>
       {profile.nickname?.trim() && <p className="mt-1 text-sm text-neutral-500">Жинхэнэ нэр: {profile.name}</p>}
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <button
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700 disabled:opacity-60"
-        >
-          <Camera size={16} /> {busy ? 'Хадгалж байна…' : 'Зураг солих'}
-        </button>
-        {profile.photo && (
-          <button
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                await savePhoto(null);
-                await refreshMine({...profile, photo: undefined}).catch(() => {});
-              }, 'Зураг устлаа.')
-            }
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800 disabled:opacity-60"
-          >
-            <Trash2 size={16} /> Устгах
-          </button>
-        )}
-      </div>
+      <button onClick={pick} className="mt-4 flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
+        <Camera size={16} /> Зураг солих
+      </button>
       {status && (
         <p className={`mt-3 flex items-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
           {status.ok && <Check size={16} />} {status.text}
         </p>
       )}
+      {picking && <PhotoPicker name={name} photo={profile.photo} onSave={save} onClose={() => setPicking(false)} />}
     </section>
-  );
-}
-
-/** A panel over the page: slides up from the bottom on a phone, centered on a wider screen. Escape or the backdrop closes it. */
-function Sheet({title, sub, onClose, children}: {title: string; sub?: string; onClose: () => void; children: ReactNode}) {
-  const id = useId();
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={id}>
-      <div
-        className="max-h-[90dvh] w-full max-w-md animate-[sheet-up_.22s_ease-out] motion-reduce:animate-none overflow-y-auto rounded-t-3xl bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:animate-none sm:rounded-3xl sm:pt-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-700 sm:hidden" />
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 id={id} className="text-lg font-semibold">
-              {title}
-            </h2>
-            {sub && <p className="mt-0.5 text-sm text-neutral-400">{sub}</p>}
-          </div>
-          <button onClick={onClose} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
   );
 }
 

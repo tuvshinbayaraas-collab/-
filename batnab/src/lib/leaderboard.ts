@@ -2,13 +2,14 @@
 // A student adds their own score after handing in a test (the rules tie it to one of their results from this week);
 // the teacher's dashboard recomputes every entry from the results and the key, so a wrong score doesn't last.
 // When a week is over the dashboard turns its top 3 into medals (medals/{uid}/{weekStart}).
-// pub/{uid}/photo carries the photo of students on the leaderboard, so the podium can show it.
+// pub/{uid}/photo carries the photo (or ready-made picture) of students on the leaderboard, so the podium can show it.
 import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {TESTS} from '../tests';
 import {auth, db} from './firebase';
 import {percent, type Grade} from './keys';
 import type {Profile} from './session';
+import {photosAllowed} from './settings';
 import {serverNow} from './time';
 import {weekStart} from './week';
 
@@ -102,6 +103,9 @@ export function usePhotos(uids: string[]) {
   return photos;
 }
 
+/** What classmates may see of a student's picture: a ready-made one always, a photo only while photos are allowed. */
+export const pubOf = (photo: string | null | undefined, photos = photosAllowed()) => (photo && (photo.startsWith('avatar:') || photos) ? {photo} : null);
+
 /**
  * Puts a handed-in test on the leaderboard, if it beats the student's entry for that test this week.
  * `seconds` must be the stored result's (the rules compare them).
@@ -116,7 +120,7 @@ export async function submitScore(test: string, g: Grade, seconds: number, rid: 
   const keep = old && compare(old, mine) <= 0 ? old : mine;
   await update(ref(db), {
     [path]: {score: keep.score, total: keep.total, seconds: keep.seconds, name: mine.name, rid: keep.rid, at: keep === mine ? serverTimestamp() : keep.at},
-    [`pub/${uid}`]: profile.photo ? {photo: profile.photo} : null,
+    [`pub/${uid}`]: pubOf(profile.photo),
   });
 }
 
@@ -138,7 +142,7 @@ export async function refreshMine(profile: Profile) {
   if (!tests.length) return;
   await update(ref(db), {
     ...Object.fromEntries(tests.map((t) => [`leaderboard/${week}/${t}/${uid}/name`, publicName(profile)])),
-    [`pub/${uid}`]: profile.photo ? {photo: profile.photo} : null,
+    [`pub/${uid}`]: pubOf(profile.photo),
   });
 }
 
