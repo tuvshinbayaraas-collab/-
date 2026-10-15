@@ -61,10 +61,11 @@ export default function App() {
     );
 
   return (
-    <div className="min-h-screen">
+    // A column as tall as the screen at least, so the footer sits at the very bottom even on a short page.
+    <div className="flex min-h-screen flex-col supports-[min-height:100dvh]:min-h-dvh">
       <Header />
       <OfflineBar />
-      <main className="px-4 pb-10 pt-4 sm:px-6">
+      <main className="flex-1 px-4 pb-10 pt-4 sm:px-6">
         <ErrorBoundary resetKey={path}>
           <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
         </ErrorBoundary>
