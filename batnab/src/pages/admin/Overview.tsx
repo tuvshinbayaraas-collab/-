@@ -1,14 +1,14 @@
-import {AlertTriangle, ArrowLeft, CalendarClock, Check, ChevronDown, ChevronRight, KeyRound, UserX} from 'lucide-react';
-import {useState, type ReactNode} from 'react';
+import {AlertTriangle, ArrowLeft, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight, KeyRound, UserX} from 'lucide-react';
+import {useRef, useState, type ReactNode} from 'react';
 import Avatar from '../../components/Avatar';
 import MathText from '../../components/MathText';
 import {formatDuration} from '../../lib/attempt';
 import {percent} from '../../lib/keys';
-import {Link} from '../../lib/router';
+import {Link, useLocation} from '../../lib/router';
 import {shownName} from '../../lib/session';
 import {clock} from '../../lib/time';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
-import {LETTERS, type Question} from '../../tests/types';
+import {LETTERS, type Question, type Test} from '../../tests/types';
 import {gradeOf, mean, reports, testReport, timeAgo, type AdminData, type QuestionStat, type Student, type TestReport} from './data';
 import {useTest} from './useTest';
 import WeekBanner from './WeekBanner';
@@ -19,12 +19,13 @@ const SERIES = '#3987e5';
 const TRACK = '#0d366b';
 const MUTED = '#525252';
 const WARNING = '#fab219';
+// Re-stepped so the darkest step still stands out from the surface (ramp validator: monotone, even steps, 2.8:1).
 const RAMP = [
-  {min: 85, bg: '#86b6ef', fg: '#0b0b0b'},
-  {min: 70, bg: '#5598e7', fg: '#0b0b0b'},
-  {min: 55, bg: '#2a78d6', fg: '#ffffff'},
-  {min: 40, bg: '#1c5cab', fg: '#ffffff'},
-  {min: 0, bg: '#104281', fg: '#ffffff'},
+  {min: 85, bg: '#a3c9f3', fg: '#0b0b0b'},
+  {min: 70, bg: '#74ade9', fg: '#0b0b0b'},
+  {min: 55, bg: '#4d92e4', fg: '#0b0b0b'},
+  {min: 40, bg: '#2a78d6', fg: '#ffffff'},
+  {min: 0, bg: '#1d5fb0', fg: '#ffffff'},
 ];
 const rampOf = (p: number) => RAMP.find((r) => p >= r.min)!;
 const short = (t: TestInfo) => t.title.replace('Тест ', '');
@@ -79,7 +80,6 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
   const takers = new Set(data.results.map((r) => r.uid));
   const graded = all.flatMap((r) => r.firstPercents);
   const keyless = all.filter((r) => r.rows.length && !r.key);
-  const byUid = new Map(data.students.map((s) => [s.uid, s]));
 
   if (!data.students.length)
     return (
@@ -173,15 +173,30 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
         </div>
       </section>
 
-      <ClassTable data={data} />
+      {/* On a wide screen the class table and the latest attempts sit side by side. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <ClassTable data={data} />
+        <Recent data={data} />
+      </div>
+    </div>
+  );
+}
 
-      <section>
-        <h2 className="mb-2 font-semibold">Сүүлийн оролдлогууд</h2>
-        {!data.results.length ? (
-          <p className="text-sm text-neutral-400">Энэ долоо хоногт хэн ч тест өгөөгүй байна.</p>
-        ) : (
-          <ul className="grid gap-x-8 rounded-2xl bg-neutral-900 px-4 lg:grid-cols-2">
-            {data.results.slice(0, 10).map((r) => {
+const RECENT = 5;
+
+/** The latest attempts: a few, more on request. */
+function Recent({data}: {data: AdminData}) {
+  const [more, setMore] = useState(false);
+  const byUid = new Map(data.students.map((s) => [s.uid, s]));
+  return (
+    <section>
+      <h2 className="mb-2 font-semibold">Сүүлийн оролдлогууд</h2>
+      {!data.results.length ? (
+        <p className="text-sm text-neutral-400">Энэ долоо хоногт хэн ч тест өгөөгүй байна.</p>
+      ) : (
+        <>
+          <ul className="rounded-2xl bg-neutral-900 px-4">
+            {data.results.slice(0, more ? 30 : RECENT).map((r) => {
               const g = gradeOf(r, data.keys);
               return (
                 <li key={r.id} className="border-b border-neutral-800">
@@ -195,9 +210,14 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
               );
             })}
           </ul>
-        )}
-      </section>
-    </div>
+          {data.results.length > RECENT && (
+            <button onClick={() => setMore((m) => !m)} className="mt-2 w-full rounded-full bg-neutral-900 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
+              {more ? 'Хураах' : `Илүү ихийг харах (${Math.min(30, data.results.length)})`}
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -287,92 +307,131 @@ function ClassTable({data}: {data: AdminData}) {
           </tbody>
         </table>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-        {[...RAMP].reverse().map((r, i, list) => (
-          <span key={r.min} className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded-sm" style={{background: r.bg}} />
-            {r.min}–{i + 1 < list.length ? list[i + 1].min - 1 : 100}%
-          </span>
-        ))}
-        <span>— өгөөгүй</span>
-      </div>
+      <RampLegend extra={<span>— өгөөгүй</span>} />
     </section>
   );
 }
 
+type View = 'summary' | 'questions' | 'students';
+const VIEWS: [View, string][] = [
+  ['summary', 'Тойм'],
+  ['questions', 'Бодлого'],
+  ['students', 'Сурагчид'],
+];
+
+/**
+ * One test across the class, in three views instead of one long page: Тойм (numbers, spread, hardest questions and
+ * the question grid), Бодлого (the grid with one question's detail beside it), Сурагчид (sortable list). The test
+ * and view switches stay on screen.
+ */
 function TestDetail({report}: {report: TestReport}) {
-  const {info, rows, missing, firstPercents, key} = report;
-  const [sort, setSort] = useState<'num' | 'hard'>('num');
+  const {info, rows, missing, key} = report;
+  const {query} = useLocation();
+  const view = VIEWS.find(([v]) => v === query.get('view'))?.[0] ?? 'summary';
   const test = useTest(info.id);
-  const scores = rows.flatMap((r) => (r.first ? [r.first] : []));
   const rate = (q: QuestionStat) => (q.key === null || !rows.length ? null : (q.correct / rows.length) * 100);
-  const hardest = report.questions
-    .filter((q) => rate(q) !== null)
-    .sort((a, b) => rate(a)! - rate(b)!)
-    .slice(0, 5);
+  const href = (t: string, v: View = view, extra = '') => `/admin?tab=overview&test=${t}${v === 'summary' ? '' : `&view=${v}`}${extra}`;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link href="/admin?tab=overview" className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
-          <ArrowLeft size={16} /> Бүх тест
-        </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h2 className="text-xl font-bold">{info.title}</h2>
-          <div className="flex gap-1">
+    <div className="space-y-5">
+      <div className="sticky top-14 z-20 -mx-4 space-y-2 border-b border-neutral-800 bg-[#0f0f0f]/95 px-4 pb-2.5 pt-1.5 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex items-center gap-1.5">
+          <Link href="/admin?tab=overview" aria-label="Бүх тест" title="Бүх тест" className="shrink-0 rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
             {TESTS.map((t) => (
               <Link
                 key={t.id}
-                href={`/admin?tab=overview&test=${t.id}`}
-                className={`rounded-full px-3 py-1 text-sm font-medium ${t.id === info.id ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+                href={href(t.id)}
+                aria-current={t.id === info.id ? 'page' : undefined}
+                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${t.id === info.id ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
               >
-                {short(t)}
+                {t.title}
               </Link>
             ))}
           </div>
+        </div>
+        <div className="grid grid-cols-3 rounded-full bg-neutral-900 p-1 text-sm font-medium" role="tablist">
+          {VIEWS.map(([v, label]) => (
+            <Link
+              key={v}
+              href={href(info.id, v)}
+              role="tab"
+              aria-selected={view === v}
+              className={`rounded-full py-1.5 text-center ${view === v ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              {label}
+              {v === 'students' && <span className="ml-1 text-xs text-neutral-400">{rows.length}</span>}
+            </Link>
+          ))}
         </div>
       </div>
 
       {!key && (
         <Link href={`/admin?tab=keys&test=${info.id}`} className="flex items-center gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 hover:bg-amber-500/15">
-          <KeyRound size={18} /> <span className="flex-1">Түлхүүр оруулаагүй тул оноо тооцох боломжгүй. Түлхүүр оруулах</span> <ChevronRight size={16} />
+          <KeyRound size={18} className="shrink-0" />
+          <span className="flex-1">
+            Түлхүүр оруулаагүй тул оноо тооцох боломжгүй. Сурагчдын хариулт хадгалагдсан байгаа: түлхүүр оруулмагц бүх дүн, анализ шууд гарна.
+          </span>
+          <ChevronRight size={16} />
         </Link>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Өгсөн" value={`${rows.length}/${rows.length + missing.length}`} sub="сурагч" />
-        <Stat label="Дундаж оноо" value={pct(mean(firstPercents))} sub="эхний оролдлогоор" />
-        <Stat
-          label="Хамгийн өндөр"
-          value={scores.length ? `${Math.max(...scores.map((g) => g.score))}/${scores[0].total}` : '—'}
-          sub={scores.length ? `хамгийн бага ${Math.min(...scores.map((g) => g.score))}` : undefined}
-        />
-        <Stat label="Дундаж хугацаа" value={report.avgSeconds === null ? '—' : formatDuration(report.avgSeconds)} />
-      </div>
+      {view === 'summary' && <Summary report={report} rate={rate} href={href} />}
+      {view === 'questions' && <Questions report={report} rate={rate} test={test} initial={Number(query.get('q')) - 1} />}
+      {view === 'students' && <Students report={report} initial={query.get('show') === 'missing' ? 'missing' : 'taken'} />}
+      {!rows.length && view !== 'students' && <p className="text-sm text-neutral-400">Энэ долоо хоногт энэ тестийг хэн ч өгөөгүй байна.</p>}
+    </div>
+  );
+}
 
-      {missing.length > 0 && (
-        <div className="flex gap-3 rounded-xl bg-neutral-900 px-4 py-3 text-sm">
-          <UserX size={18} className="mt-0.5 shrink-0 text-neutral-400" />
-          <p>
-            <span className="font-medium">Өгөөгүй {missing.length} сурагч: </span>
-            <span className="text-neutral-400">{missing.map((s) => s.profile.name).join(', ')}</span>
-          </p>
+function Summary({report, rate, href}: {report: TestReport; rate: (q: QuestionStat) => number | null; href: (t: string, v?: View, extra?: string) => string}) {
+  const {info, rows, missing, firstPercents, key} = report;
+  const scores = rows.flatMap((r) => (r.first ? [r.first] : []));
+  const hardest = report.questions
+    .filter((q) => rate(q) !== null)
+    .sort((a, b) => rate(a)! - rate(b)!)
+    .slice(0, 5);
+  return (
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="Өгсөн" value={`${rows.length}/${rows.length + missing.length}`} sub="сурагч" />
+          <Stat label="Дундаж оноо" value={pct(mean(firstPercents))} sub="эхний оролдлогоор" />
+          <Stat
+            label="Хамгийн өндөр"
+            value={scores.length ? `${Math.max(...scores.map((g) => g.score))}/${scores[0].total}` : '—'}
+            sub={scores.length ? `хамгийн бага ${Math.min(...scores.map((g) => g.score))}` : undefined}
+          />
+          <Stat label="Дундаж хугацаа" value={report.avgSeconds === null ? '—' : formatDuration(report.avgSeconds)} />
         </div>
-      )}
-
+        {missing.length > 0 && (
+          <Link href={href(info.id, 'students', '&show=missing')} className="flex items-center gap-3 rounded-xl bg-neutral-900 px-4 py-3 text-sm hover:bg-neutral-800/70">
+            <UserX size={18} className="shrink-0 text-neutral-400" />
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-medium">Өгөөгүй {missing.length} сурагч: </span>
+              <span className="text-neutral-400">{missing.map((s) => s.profile.name).join(', ')}</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-neutral-500" />
+          </Link>
+        )}
+      </div>
       {rows.length > 0 && key && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
-            <h3 className="font-semibold">Онооны тархалт</h3>
-            <p className="text-sm text-neutral-400">Эхний оролдлогын оноогоор хэдэн сурагч байна</p>
-            <Distribution report={report} />
-          </section>
-          <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
-            <h3 className="font-semibold">Хамгийн хүнд 5 бодлого</h3>
-            <p className="text-sm text-neutral-400">Зөв бодсон сурагчдын хувь</p>
-            <ul className="mt-3 space-y-3">
-              {hardest.map((q) => (
-                <li key={q.i} className="grid grid-cols-[2.25rem_minmax(0,1fr)_3rem] items-center gap-x-3 text-sm">
+        <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
+          <h3 className="font-semibold">Онооны тархалт</h3>
+          <p className="text-sm text-neutral-400">Эхний оролдлогын оноогоор хэдэн сурагч байна</p>
+          <Distribution report={report} />
+        </section>
+      )}
+      {rows.length > 0 && key && (
+        <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
+          <h3 className="font-semibold">Хамгийн хүнд 5 бодлого</h3>
+          <p className="text-sm text-neutral-400">Зөв бодсон сурагчдын хувь. Дээр нь дарж дэлгэрэнгүйг харна.</p>
+          <ul className="mt-3 space-y-1">
+            {hardest.map((q) => (
+              <li key={q.i}>
+                <Link href={href(info.id, 'questions', `&q=${q.i + 1}`)} className="-mx-2 grid grid-cols-[2.25rem_minmax(0,1fr)_3rem] items-center gap-x-3 rounded-lg px-2 py-1.5 text-sm hover:bg-neutral-800/60">
                   <span className="font-semibold tabular-nums">{q.i + 1}.</span>
                   <span>
                     <Meter value={rate(q)} />
@@ -382,74 +441,205 @@ function TestDetail({report}: {report: TestReport}) {
                     </span>
                   </span>
                   <span className="text-right tabular-nums">{pct(rate(q))}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      )}
-
-      {rows.length > 0 && (
-        <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="font-semibold">Бодлого бүрээр</h3>
-              <p className="text-sm text-neutral-400">Зөв бодсон хувь. Бодлого дээр дарж аль хариултыг хэд сонгосныг харна.</p>
-            </div>
-            <div className="flex rounded-full bg-neutral-800 p-0.5 text-xs">
-              {(
-                [
-                  ['num', 'Дугаараар'],
-                  ['hard', 'Хүндээс нь'],
-                ] as const
-              ).map(([id, label]) => (
-                <button key={id} onClick={() => setSort(id)} className={`rounded-full px-3 py-1 font-medium ${sort === id ? 'bg-neutral-100 text-black' : 'text-neutral-300'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <ul className="mt-3 divide-y divide-neutral-800">
-            {(sort === 'num' ? report.questions : [...report.questions].sort((a, b) => (rate(a) ?? 101) - (rate(b) ?? 101))).map((q) => (
-              <QuestionRow key={q.i} q={q} rate={rate(q)} takers={rows.length} question={test?.questions[q.i]} />
+                </Link>
+              </li>
             ))}
           </ul>
         </section>
       )}
-
-      <section>
-        <h3 className="mb-2 font-semibold">Сурагчид</h3>
-        {!rows.length ? (
-          <p className="text-sm text-neutral-400">Энэ долоо хоногт энэ тестийг хэн ч өгөөгүй байна.</p>
-        ) : (
-          <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
-            {[...rows]
-              .sort((a, b) => (b.first ? percent(b.first) : -1) - (a.first ? percent(a.first) : -1))
-              .map((r) => (
-                <li key={r.student.uid} className="flex items-center gap-3 px-4 py-2.5">
-                  <Link href={`/admin/student/${r.student.uid}`} className="min-w-0 flex-1 hover:opacity-80">
-                    <StudentName
-                      student={r.student}
-                      sub={[
-                        r.attempts.length > 1 && r.best ? `шилдэг ${r.best.score}` : '',
-                        `${r.attempts.length} удаа`,
-                        formatDuration(r.attempts[0].seconds),
-                        r.attempts[0].leaves ? `⚠ хуудаснаас ${r.attempts[0].leaves} удаа гарсан` : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' • ')}
-                    />
-                  </Link>
-                  <Link href={`/review/${info.id}/${r.attempts[0].id}?u=${r.student.uid}`} className="shrink-0 rounded-lg px-2 py-1 text-right hover:bg-neutral-800">
-                    <span className="block text-lg font-semibold tabular-nums">{r.first ? `${r.first.score}/${r.first.total}` : '—'}</span>
-                    <span className="block text-xs text-neutral-500">{r.first ? `${percent(r.first)}%` : 'түлхүүргүй'}</span>
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        )}
-      </section>
+      {rows.length > 0 && key && (
+        <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="font-semibold">Бодлого бүрээр</h3>
+            <Link href={href(info.id, 'questions')} className="text-sm text-blue-400 hover:underline">
+              Дэлгэрэнгүй
+            </Link>
+          </div>
+          <p className="text-sm text-neutral-400">Зөв бодсон хувь</p>
+          <QuestionGrid questions={report.questions} rate={rate} link={(i) => href(info.id, 'questions', `&q=${i + 1}`)} />
+        </section>
+      )}
     </div>
+  );
+}
+
+/** 30 questions as squares on the blue ramp, the percentage printed in each; hard ones (< 50%) carry a warning mark. */
+function QuestionGrid({questions, rate, selected, onSelect, link}: {questions: QuestionStat[]; rate: (q: QuestionStat) => number | null; selected?: number; onSelect?: (i: number) => void; link?: (i: number) => string}) {
+  return (
+    <>
+      <div className="mt-3 grid grid-cols-6 gap-1.5 sm:grid-cols-10">
+        {questions.map((q) => {
+          const r = rate(q);
+          const c = r === null ? null : rampOf(r);
+          const label = `${q.i + 1}-р бодлого: ${r === null ? 'түлхүүргүй' : `${Math.round(r)}% зөв`}${r !== null && r < 50 ? ', хүнд' : ''}`;
+          const cls = `relative flex aspect-square flex-col items-center justify-center rounded-lg leading-tight outline-none focus-visible:ring-2 focus-visible:ring-white hover:brightness-110 ${selected === q.i ? 'ring-2 ring-white ring-offset-2 ring-offset-neutral-900' : ''}`;
+          const style = c ? {background: c.bg, color: c.fg} : {background: '#262626', color: '#a3a3a3'};
+          const body = (
+            <>
+              <span className="text-[10px] opacity-80">{q.i + 1}</span>
+              <span className="text-sm font-semibold tabular-nums">{r === null ? '—' : Math.round(r)}</span>
+              {r !== null && r < 50 && <AlertTriangle size={10} color={WARNING} className="absolute right-1 top-1" aria-hidden />}
+            </>
+          );
+          return link ? (
+            <Link key={q.i} href={link(q.i)} title={label} aria-label={label} className={cls} style={style}>
+              {body}
+            </Link>
+          ) : (
+            <button key={q.i} onClick={() => onSelect?.(q.i)} title={label} aria-label={label} aria-pressed={selected === q.i} className={cls} style={style}>
+              {body}
+            </button>
+          );
+        })}
+      </div>
+      <RampLegend extra={<span className="flex items-center gap-1"><AlertTriangle size={12} color={WARNING} /> хүнд (&lt;50%)</span>} />
+    </>
+  );
+}
+
+function RampLegend({extra}: {extra?: ReactNode}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+      {[...RAMP].reverse().map((r, i, list) => (
+        <span key={r.min} className="flex items-center gap-1">
+          <span className="h-3 w-3 rounded-sm" style={{background: r.bg}} />
+          {r.min}–{i + 1 < list.length ? list[i + 1].min - 1 : 100}%
+        </span>
+      ))}
+      {extra}
+    </div>
+  );
+}
+
+function Questions({report, rate, test, initial}: {report: TestReport; rate: (q: QuestionStat) => number | null; test: Test | null; initial: number}) {
+  const qs = report.questions;
+  const hardestFirst = qs.filter((q) => rate(q) !== null).sort((a, b) => rate(a)! - rate(b)!)[0]?.i ?? 0;
+  const [sel, setSel] = useState(initial >= 0 && initial < qs.length ? initial : hardestFirst);
+  const detail = useRef<HTMLDivElement>(null);
+  if (!report.rows.length) return null;
+  const pick = (i: number) => {
+    setSel(i);
+    const url = new URL(location.href);
+    url.searchParams.set('q', String(i + 1));
+    history.replaceState(null, '', url.pathname + url.search);
+    // On a phone the detail is under the grid: bring it into view.
+    if (window.innerWidth < 1024) detail.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  };
+  const q = qs[sel];
+  return (
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
+        <h3 className="font-semibold">Бодлого бүрээр</h3>
+        <p className="text-sm text-neutral-400">Зөв бодсон хувь. Дөрвөлжин дээр дарж бодлогыг харна.</p>
+        <QuestionGrid questions={qs} rate={rate} selected={sel} onSelect={pick} />
+      </section>
+      <div ref={detail} className="scroll-mt-40 rounded-2xl bg-neutral-900 p-4 sm:p-5 lg:sticky lg:top-44">
+        <div className="flex items-center gap-2">
+          <h3 className="flex-1 font-semibold">
+            {q.i + 1}-р бодлого <span className="font-normal text-neutral-400">· {pct(rate(q))} зөв</span>
+            {rate(q) !== null && rate(q)! < 50 && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-neutral-200">
+                <AlertTriangle size={13} color={WARNING} /> Хүнд
+              </span>
+            )}
+          </h3>
+          <button onClick={() => pick((sel + qs.length - 1) % qs.length)} aria-label="Өмнөх бодлого" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
+            <ChevronLeft size={18} />
+          </button>
+          <button onClick={() => pick((sel + 1) % qs.length)} aria-label="Дараагийн бодлого" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        <QuestionDetail q={q} takers={report.rows.length} question={test?.questions[q.i]} />
+      </div>
+    </div>
+  );
+}
+
+type Order = 'score' | 'name' | 'time';
+const ORDERS: [Order, string][] = [
+  ['score', 'Оноогоор'],
+  ['name', 'Нэрээр'],
+  ['time', 'Хугацаагаар'],
+];
+const SHOWN = 10;
+
+function Students({report, initial}: {report: TestReport; initial: 'taken' | 'missing'}) {
+  const {info, rows, missing} = report;
+  const [show, setShow] = useState<'taken' | 'missing'>(missing.length ? initial : 'taken');
+  const [order, setOrder] = useState<Order>('score');
+  const [all, setAll] = useState(false);
+  const score = (r: (typeof rows)[number]) => (r.first ? percent(r.first) : -1);
+  const sorted = [...rows].sort((a, b) =>
+    order === 'name' ? a.student.profile.name.localeCompare(b.student.profile.name) : order === 'time' ? a.attempts[0].seconds - b.attempts[0].seconds : score(b) - score(a),
+  );
+  const list = all ? sorted : sorted.slice(0, SHOWN);
+  const chip = (on: boolean) => `shrink-0 rounded-full px-3 py-1 text-sm font-medium ${on ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => setShow('taken')} aria-pressed={show === 'taken'} className={chip(show === 'taken')}>
+          Өгсөн {rows.length}
+        </button>
+        <button onClick={() => setShow('missing')} aria-pressed={show === 'missing'} className={chip(show === 'missing')} disabled={!missing.length}>
+          Өгөөгүй {missing.length}
+        </button>
+        {show === 'taken' && rows.length > 1 && (
+          <div className="ml-auto flex rounded-full bg-neutral-900 p-0.5 text-xs">
+            {ORDERS.map(([o, label]) => (
+              <button key={o} onClick={() => setOrder(o)} aria-pressed={order === o} className={`rounded-full px-2.5 py-1 font-medium ${order === o ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {show === 'missing' ? (
+        <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
+          {missing.map((s) => (
+            <li key={s.uid}>
+              <Link href={`/admin/student/${s.uid}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-800/50">
+                <StudentName student={s} sub={`${info.title}-ийг энэ долоо хоногт өгөөгүй`} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : !rows.length ? (
+        <p className="text-sm text-neutral-400">Энэ долоо хоногт энэ тестийг хэн ч өгөөгүй байна.</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
+            {list.map((r) => (
+              <li key={r.student.uid} className="flex items-center gap-3 px-4 py-2.5">
+                <Link href={`/admin/student/${r.student.uid}`} className="min-w-0 flex-1 hover:opacity-80">
+                  <StudentName
+                    student={r.student}
+                    sub={[
+                      r.attempts.length > 1 && r.best ? `шилдэг ${r.best.score}` : '',
+                      `${r.attempts.length} удаа`,
+                      formatDuration(r.attempts[0].seconds),
+                      r.attempts[0].leaves ? `⚠ хуудаснаас ${r.attempts[0].leaves} удаа гарсан` : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  />
+                </Link>
+                <Link href={`/review/${info.id}/${r.attempts[0].id}?u=${r.student.uid}`} className="shrink-0 rounded-lg px-2 py-1 text-right hover:bg-neutral-800">
+                  <span className="block text-lg font-semibold tabular-nums">{r.first ? `${r.first.score}/${r.first.total}` : '—'}</span>
+                  <span className="block text-xs text-neutral-500">{r.first ? `${percent(r.first)}%` : 'түлхүүргүй'}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {sorted.length > SHOWN && (
+            <button onClick={() => setAll((a) => !a)} className="w-full rounded-full bg-neutral-900 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
+              {all ? 'Хураах' : `Бүгдийг харах (${sorted.length})`}
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -504,7 +694,6 @@ export function Distribution({report}: {report: TestReport}) {
 
 export function QuestionRow({q, rate, takers, question}: {q: QuestionStat; rate: number | null; takers: number; question?: Question}) {
   const [open, setOpen] = useState(false);
-  const blank = takers - q.answered;
   const hard = rate !== null && rate < 50;
   return (
     <li>
@@ -528,35 +717,45 @@ export function QuestionRow({q, rate, takers, question}: {q: QuestionStat; rate:
       </button>
       {open && (
         <div className="mb-3 rounded-xl bg-neutral-950/60 p-3 sm:ml-[2.75rem]">
-          {question && (
-            <div className="text-sm leading-relaxed text-neutral-300">
-              <MathText text={question.q} />
-              {question.fig && <div className="mt-2 flex justify-center text-neutral-300 [&_svg]:max-h-40">{question.fig}</div>}
-            </div>
-          )}
-          <ul className="mt-3 space-y-1.5">
-            {LETTERS.map((L, c) => {
-              const n = q.picks[c];
-              const right = q.key === c;
-              return (
-                <li key={L} className="grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem] items-center gap-2 text-xs">
-                  <span className={`flex h-5 w-5 items-center justify-center rounded-full font-bold ${right ? 'bg-neutral-100 text-black' : 'bg-neutral-800'}`}>{L}</span>
-                  <span className="block h-2.5 overflow-hidden rounded-full bg-neutral-800">
-                    <span className="block h-full rounded-full" style={{width: `${takers ? (n / takers) * 100 : 0}%`, background: right ? SERIES : MUTED}} />
-                  </span>
-                  <span className="flex items-center gap-1 tabular-nums text-neutral-300">
-                    {n} сурагч {right && <Check size={13} className="text-green-400" aria-label="зөв" />}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-2 text-xs text-neutral-500">
-            {q.key === null ? 'Энэ бодлогын түлхүүр оруулаагүй. ' : `Зөв хариулт: ${LETTERS[q.key]}. `}
-            {blank > 0 && `Хариулаагүй: ${blank}.`}
-          </p>
+          <QuestionDetail q={q} takers={takers} question={question} />
         </div>
       )}
     </li>
+  );
+}
+
+/** One question: its text and figure, how many picked each answer, the key. */
+export function QuestionDetail({q, takers, question}: {q: QuestionStat; takers: number; question?: Question}) {
+  const blank = takers - q.answered;
+  return (
+    <div className="mt-2">
+      {question && (
+        <div className="text-sm leading-relaxed text-neutral-300">
+          <MathText text={question.q} />
+          {question.fig && <div className="mt-2 flex justify-center text-neutral-300 [&_svg]:max-h-40">{question.fig}</div>}
+        </div>
+      )}
+      <ul className="mt-3 space-y-1.5">
+        {LETTERS.map((L, c) => {
+          const n = q.picks[c];
+          const right = q.key === c;
+          return (
+            <li key={L} className="grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem] items-center gap-2 text-xs">
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-bold ${right ? 'bg-neutral-100 text-black' : 'bg-neutral-800'}`}>{L}</span>
+              <span className="block h-2.5 overflow-hidden rounded-full bg-neutral-800">
+                <span className="block h-full rounded-full" style={{width: `${takers ? (n / takers) * 100 : 0}%`, background: right ? SERIES : MUTED}} />
+              </span>
+              <span className="flex items-center gap-1 tabular-nums text-neutral-300">
+                {n} сурагч {right && <Check size={13} className="text-green-400" aria-label="зөв" />}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-xs text-neutral-500">
+        {q.key === null ? 'Энэ бодлогын түлхүүр оруулаагүй. ' : `Зөв хариулт: ${LETTERS[q.key]}. `}
+        {blank > 0 && `Хариулаагүй: ${blank}.`}
+      </p>
+    </div>
   );
 }

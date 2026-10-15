@@ -1,4 +1,4 @@
-import {ArrowLeft, Ban, Check, Pencil, Trash2, X} from 'lucide-react';
+import {ArrowLeft, Ban, Check, Pencil, RotateCcw, Trash2, X} from 'lucide-react';
 import {useState} from 'react';
 import Avatar from '../../components/Avatar';
 import {formatDuration} from '../../lib/attempt';
@@ -7,6 +7,7 @@ import {percent} from '../../lib/keys';
 import {formatDate} from '../../lib/results';
 import {Link, navigate} from '../../lib/router';
 import {shownName} from '../../lib/session';
+import {useSettings} from '../../lib/settings';
 import {TESTS} from '../../tests';
 import {gradeOf, mean, type AdminData} from './data';
 import {Stat} from './Overview';
@@ -16,6 +17,8 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const settings = useSettings();
+  const retakesOff = settings?.retakes === false;
 
   if (!student)
     return (
@@ -118,6 +121,12 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
 
       <section>
         <h3 className="mb-2 font-semibold">Энэ долоо хоногийн оролдлогууд</h3>
+        {retakesOff && results.length > 0 && (
+          <p className="mb-2 text-sm text-neutral-400">
+            Дахин өгөх хаалттай байгаа. Сурагч тестээ санамсаргүй илгээсэн бол «Дахин өгүүлэх» дарна: тэр оролдлого устаж, сурагч тестийг дахин нэг удаа
+            өгөх боломжтой болно.
+          </p>
+        )}
         {!results.length ? (
           <p className="text-sm text-neutral-400">Энэ долоо хоногт тест өгөөгүй байна.</p>
         ) : (
@@ -132,14 +141,27 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
                   </span>
                 </Link>
                 <span className="text-right tabular-nums">{g ? `${g.score}/${g.total} • ${percent(g)}%` : <span className="text-sm text-neutral-500">түлхүүргүй</span>}</span>
-                <button
-                  disabled={busy}
-                  onClick={() => confirm('Энэ оролдлогыг устгах уу?') && act(() => deleteResult(uid, r.test, r.id))}
-                  aria-label="Оролдлогыг устгах"
-                  className="rounded-full p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {retakesOff ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm(`${p.name}-ийн ${TESTS.find((t) => t.id === r.test)?.title}-ийн энэ оролдлогыг устгаж, дахин нэг удаа өгөх боломж олгох уу? Энэ оролдлогын хариулт устна.`) &&
+                      act(() => deleteResult(uid, r.test, r.id))
+                    }
+                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-xs font-medium hover:bg-neutral-700"
+                  >
+                    <RotateCcw size={14} /> Дахин өгүүлэх
+                  </button>
+                ) : (
+                  <button
+                    disabled={busy}
+                    onClick={() => confirm('Энэ оролдлогыг устгах уу? Хариулт нь устна.') && act(() => deleteResult(uid, r.test, r.id))}
+                    aria-label="Оролдлогыг устгах"
+                    className="rounded-full p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>

@@ -58,10 +58,30 @@ export default function TestPage({id}: {id: string}) {
 
   const taken = mine?.find((r) => r.test === id);
   const owner = session.user?.uid ?? 'guest';
-  return <Runner key={`${owner}/${id}`} id={id} owner={owner} mode={mode} canRetake={mode !== 'student' || settings.retakes} taken={taken ? {test: id, id: taken.id} : null} />;
+  const saved = mine ? mine.filter((r) => r.test === id).map((r) => r.id) : null;
+  return (
+    <Runner
+      key={`${owner}/${id}`}
+      id={id}
+      owner={owner}
+      mode={mode}
+      canRetake={mode !== 'student' || settings.retakes}
+      taken={taken ? {test: id, id: taken.id} : null}
+      saved={saved}
+    />
+  );
 }
 
-function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string; mode: Mode; canRetake: boolean; taken: {test: string; id: string} | null}) {
+function Runner(props: {
+  id: string;
+  owner: string;
+  mode: Mode;
+  canRetake: boolean;
+  taken: {test: string; id: string} | null;
+  /** Ids of this week's stored attempts at this test (null while loading). */
+  saved: string[] | null;
+}) {
+  const {id, owner, mode, canRetake, taken, saved} = props;
   const [test, setTest] = useState<Test | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -99,6 +119,19 @@ function Runner({id, owner, mode, canRetake, taken}: {id: string; owner: string;
     setAttempt(a);
     saveAttempt(owner, id, a);
   };
+
+  // The teacher removed the stored attempt (say, one handed in by mistake while retakes are off), but this device
+  // still holds it as finished: start afresh, or show the test closed if another attempt still counts.
+  const gone = mode === 'student' && !!saved && !!attempt?.finished && !!attempt.resultId && !saved.includes(attempt.resultId);
+  useEffect(() => {
+    if (!gone || !test) return;
+    clearAttempt(owner, id);
+    setSaveError('');
+    setOnlyWrong(false);
+    if (!canRetake && saved!.length) return setBlocked(true);
+    update(newAttempt(test.questions.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gone, test]);
 
   const finished = !!attempt?.finished;
 
