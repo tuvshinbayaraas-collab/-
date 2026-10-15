@@ -1,5 +1,6 @@
 import {WifiOff} from 'lucide-react';
 import {lazy, Suspense, useEffect, useState} from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import {InstallHelpHost} from './components/GetApp';
 import GuideHost from './components/Guide';
 import Header from './components/Header';
@@ -50,7 +51,9 @@ export default function App() {
       <Header />
       <OfflineBar />
       <main className="px-4 pb-10 pt-4 sm:px-6">
-        <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
+        <ErrorBoundary resetKey={path}>
+          <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
+        </ErrorBoundary>
       </main>
       {path !== '/credits' && (
         <footer className="px-4 pb-8 text-center text-xs text-neutral-500">

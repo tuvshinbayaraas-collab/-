@@ -47,7 +47,8 @@ self.addEventListener('fetch', (event) => {
         (hit) =>
           hit ||
           fetch(request).then((response) => {
-            if (response.ok) {
+            // A file from an older version is gone and the server answers with the page instead: never keep that.
+            if (response.ok && !(response.headers.get('content-type') || '').includes('text/html')) {
               const copy = response.clone();
               caches.open(CACHE).then((cache) => cache.put(request, copy));
             }
