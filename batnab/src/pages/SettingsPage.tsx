@@ -1,7 +1,7 @@
 import {CircleHelp, Clock, Forward, Medal, Trophy, Type} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {useGuideRole} from '../components/Guide';
-import {LockedNote} from '../components/Notices';
+import {InactiveNote, LockedNote} from '../components/Notices';
 import {showGuideAgain} from '../lib/guide';
 import {grade, useKeys} from '../lib/keys';
 import {compare, submitScore, withdraw, type Entry} from '../lib/leaderboard';
@@ -24,17 +24,22 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState<PrefKey | null>(null);
 
   if (session.ready && !session.user) return <LockedNote text="Тохиргоогоо өөрчлөхийн тулд нэвтэрнэ үү." />;
-  if (!session.ready || !session.profile) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.profile || session.profile.disabled) return <InactiveNote blocked={!!session.profile?.disabled} />;
   const profile = session.profile;
 
   const change = async (key: PrefKey, on: boolean) => {
     setError('');
+    // The switch flips at once: the database applies the change on this device straight away and sends it as soon
+    // as it can (also when offline). Only the leaderboard one waits, as it takes this week's scores off or back on.
+    const save = savePref(key, on);
+    if (key !== 'lbOff') return void save.catch((e) => setError((e as Error).message));
     setBusy(key);
     try {
-      await savePref(key, on);
-      if (key === 'lbOff' && on) await withdraw();
+      await save;
+      if (on) await withdraw();
       // Back on the leaderboard: this week's best score of each test goes up again.
-      if (key === 'lbOff' && !on) {
+      if (!on) {
         const best = new Map<string, Entry>();
         for (const r of results ?? []) {
           const g = grade(r.answers, keys[r.test], testInfo(r.test)!.count);

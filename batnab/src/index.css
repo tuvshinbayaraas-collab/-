@@ -9,6 +9,13 @@
   }
 }
 
+/* KaTeX's invisible spacing boxes reach well outside a formula. A tap there has to land on the answer button that is
+   actually under the finger, not on the neighbouring answer the formula belongs to. */
+.katex,
+.katex * {
+  pointer-events: none;
+}
+
 @layer base {
   html {
     color-scheme: dark;
