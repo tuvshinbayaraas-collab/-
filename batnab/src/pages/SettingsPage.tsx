@@ -1,7 +1,8 @@
-import {CircleHelp, Clock, Forward, Medal, Trophy, Type} from 'lucide-react';
+import {ChevronRight, CircleHelp, Clock, Forward, Medal, Settings2, Trophy, Type} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
+import Switch, {SavedNote, useSavedNote} from '../components/Switch';
 import {showGuideAgain} from '../lib/guide';
 import {grade, useKeys} from '../lib/keys';
 import {compare, submitScore, withdraw, type Entry} from '../lib/leaderboard';
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const guideRole = useGuideRole();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<PrefKey | null>(null);
+  const [saved, flash] = useSavedNote();
 
   if (session.ready && !session.user) return <LockedNote text="Тохиргоогоо өөрчлөхийн тулд нэвтэрнэ үү." />;
   if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
@@ -33,7 +35,7 @@ export default function SettingsPage() {
     // The switch flips at once: the database applies the change on this device straight away and sends it as soon
     // as it can (also when offline). Only the leaderboard one waits, as it takes this week's scores off or back on.
     const save = savePref(key, on);
-    if (key !== 'lbOff') return void save.catch((e) => setError((e as Error).message));
+    if (key !== 'lbOff') return void save.then(flash, (e) => setError((e as Error).message));
     setBusy(key);
     try {
       await save;
@@ -51,6 +53,7 @@ export default function SettingsPage() {
         const me = {...profile, prefs: {...profile.prefs, lbOff: false}};
         await Promise.all([...best.values()].map((e) => submitScore(e.test, {score: e.score, total: e.total, count: e.total}, e.seconds, e.rid, me)));
       }
+      flash();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -58,18 +61,32 @@ export default function SettingsPage() {
     }
   };
 
-  const toggle = (key: PrefKey, icon: ReactNode, title: string, text: string, invert = false) => (
-    <Toggle icon={icon} title={title} text={text} on={invert ? !prefs[key] : prefs[key]} busy={busy === key} onChange={(on) => change(key, invert ? !on : on)} />
+  const toggle = (key: PrefKey, tone: Tone, icon: ReactNode, title: string, text: string, invert = false) => (
+    <Switch on={invert ? !prefs[key] : prefs[key]} busy={busy === key} onChange={(on) => change(key, invert ? !on : on)} className="px-4 py-4">
+      <Icon tone={tone}>{icon}</Icon>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-neutral-400">{text}</span>
+      </span>
+    </Switch>
   );
 
   return (
     <div className="mx-auto max-w-xl space-y-6 py-4 sm:py-6">
-      <h1 className="text-2xl font-bold">Тохиргоо</h1>
+      <header className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-300">
+          <Settings2 size={24} />
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">Тохиргоо</h1>
+          <p className="text-sm text-neutral-400">Шууд хадгалагдана. Өөр утас, компьютер дээр ч адилхан.</p>
+        </div>
+      </header>
 
       {settings?.leaderboard && (
         <Group title="Leaderboard">
           {session.admin ? (
-            <p className="px-4 py-3.5 text-sm text-neutral-400">
+            <p className="px-4 py-4 text-sm text-neutral-400">
               Багш leaderboard-д оролцохгүй. Leaderboard-ийг бүхэлд нь{' '}
               <Link href="/admin?tab=settings" className="text-blue-400 hover:underline">
                 багшийн самбарын Тохиргоо
@@ -78,39 +95,53 @@ export default function SettingsPage() {
             </p>
           ) : (
             <>
-              {toggle('lbOff', <Trophy size={18} />, 'Оноогоо leaderboard-д харуулах', 'Асаалттай үед бусад сурагчид таны nickname, зураг, оноог харна. Жинхэнэ нэр тань харагдахгүй. Унтраавал энэ долоо хоногийн оноо тань leaderboard-оос хасагдаж, медаль авахгүй.', true)}
-              {toggle('lbHideRank', <Medal size={18} />, 'Тест дуусахад байраа харуулах', 'Тестээ дуусгасны дараа leaderboard-ийн хэддүгээрт явааг тань харуулна.', true)}
+              {toggle('lbOff', 'amber', <Trophy size={18} />, 'Оноогоо leaderboard-д харуулах', 'Асаалттай үед бусад сурагчид таны nickname, зураг, оноог харна. Жинхэнэ нэр тань харагдахгүй. Унтраавал энэ долоо хоногийн оноо тань leaderboard-оос хасагдаж, медаль авахгүй.', true)}
+              {toggle('lbHideRank', 'amber', <Medal size={18} />, 'Тест дуусахад байраа харуулах', 'Тестээ дуусгасны дараа leaderboard-ийн хэддүгээрт явааг тань харуулна.', true)}
             </>
           )}
         </Group>
       )}
 
       <Group title="Тест өгөх">
-        {toggle('hideTimer', <Clock size={18} />, 'Цаг харуулах', 'Тест өгөх үед зарцуулсан хугацаа дээд талд гүйж харагдана. Шалгалтын үлдсэн хугацаа үргэлж харагдана.', true)}
-        {toggle('autoNext', <Forward size={18} />, 'Дараагийн бодлого руу шилжих', 'Хариултаа сонгоход дараагийн бодлого руу автоматаар гүйлгэнэ.')}
+        {toggle('hideTimer', 'green', <Clock size={18} />, 'Цаг харуулах', 'Тест өгөх үед зарцуулсан хугацаа дээд талд харагдана. Шалгалтын үлдсэн хугацаа үргэлж харагдана.', true)}
+        {toggle('autoNext', 'green', <Forward size={18} />, 'Дараагийн бодлого руу шилжих', 'Хариултаа сонгомогц дараагийн бодлого руу өөрөө гүйлгэнэ.')}
       </Group>
 
-      <Group title="Харагдац">{toggle('bigText', <Type size={18} />, 'Том үсэг', 'Сайтын бүх бичгийг томруулж харуулна.')}</Group>
+      <Group title="Харагдац">{toggle('bigText', 'violet', <Type size={18} />, 'Том үсэг', 'Сайтын бүх бичгийг томруулж харуулна.')}</Group>
 
       {guideRole && (
         <Group title="Тусламж">
-          <button onClick={() => showGuideAgain(guideRole)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-neutral-800/60">
-            <Icon>
+          <button
+            onClick={() => showGuideAgain(guideRole)}
+            className="flex w-full items-center gap-3 px-4 py-4 text-left outline-none transition-colors hover:bg-neutral-800/50 focus-visible:bg-neutral-800/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+          >
+            <Icon tone="blue">
               <CircleHelp size={18} />
             </Icon>
             <span className="min-w-0 flex-1">
-              <span className="block font-medium">Зааврыг дахин харуулах</span>
-              <span className="block text-sm text-neutral-400">«Дахин харахгүй» гэж чагталсан зааврыг дахин нээнэ.</span>
+              <span className="block font-semibold">Зааврыг дахин үзэх</span>
+              <span className="mt-0.5 block text-[13px] leading-snug text-neutral-400">Сайтыг хэрхэн ашиглахыг алхам алхмаар дахин үзүүлнэ.</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black">
+              Үзэх <ChevronRight size={16} />
             </span>
           </button>
         </Group>
       )}
 
-      {error && <p className="text-sm text-red-400">Хадгалж чадсангүй: {error}</p>}
-      <p className="text-center text-xs text-neutral-500">Тохиргоо таны бүртгэлд хадгалагдах тул өөр утас, компьютер дээр ч адилхан байна.</p>
+      {error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Хадгалж чадсангүй: {error}</p>}
+      <SavedNote show={saved} />
     </div>
   );
 }
+
+const TONES = {
+  amber: 'bg-amber-500/15 text-amber-300',
+  green: 'bg-green-500/15 text-green-300',
+  violet: 'bg-violet-500/15 text-violet-300',
+  blue: 'bg-blue-500/15 text-blue-300',
+};
+type Tone = keyof typeof TONES;
 
 function Group({title, children}: {title: string; children: ReactNode}) {
   return (
@@ -121,20 +152,6 @@ function Group({title, children}: {title: string; children: ReactNode}) {
   );
 }
 
-const Icon = ({children}: {children: ReactNode}) => <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-300">{children}</span>;
-
-/** A setting with an on/off switch; the whole row is the control. */
-function Toggle({icon, title, text, on, busy, onChange}: {icon: ReactNode; title: string; text: string; on: boolean; busy: boolean; onChange: (on: boolean) => void}) {
-  return (
-    <button role="switch" aria-checked={on} disabled={busy} onClick={() => onChange(!on)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-neutral-800/60 disabled:opacity-60">
-      <Icon>{icon}</Icon>
-      <span className="min-w-0 flex-1">
-        <span className="block font-medium">{title}</span>
-        <span className="block text-sm text-neutral-400">{text}</span>
-      </span>
-      <span className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-blue-500' : 'bg-neutral-700'}`}>
-        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-[left] ${on ? 'left-6' : 'left-1'}`} />
-      </span>
-    </button>
-  );
-}
+const Icon = ({tone, children}: {tone: Tone; children: ReactNode}) => (
+  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TONES[tone]}`}>{children}</span>
+);

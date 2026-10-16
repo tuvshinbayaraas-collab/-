@@ -1,5 +1,5 @@
 import {WifiOff} from 'lucide-react';
-import {lazy, Suspense, useEffect, useState} from 'react';
+import {lazy, Suspense, useEffect, useState, type ComponentType} from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import {InstallHelpHost} from './components/GetApp';
 import GuideHost from './components/Guide';
@@ -19,6 +19,20 @@ const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Admin = lazy(() => import('./pages/admin/Admin'));
 const Credits = lazy(() => import('./pages/Credits'));
+/**
+ * The credits page is tiny: it comes down in the background, so the footer link opens it at once. Once it's here it's
+ * shown straight away (a lazy page would still show "Ачаалж байна…" for a moment).
+ */
+let CreditsReady: ComponentType | null = null;
+let creditsWarm = false;
+function warmCredits() {
+  if (creditsWarm) return;
+  creditsWarm = true;
+  import('./pages/Credits').then(
+    (m) => (CreditsReady = m.default),
+    () => (creditsWarm = false),
+  );
+}
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
@@ -33,6 +47,21 @@ export default function App() {
     if (testId) loadTest(testId)?.catch(() => {});
   }, [testId]);
 
+  // Once the first page is up and the browser has nothing else to do.
+  useEffect(() => {
+    // Safari has no requestIdleCallback: a short wait does the same there.
+    const idle = window.requestIdleCallback as typeof requestIdleCallback | undefined;
+    let id = 0;
+    const later = () => (id = idle ? idle(warmCredits, {timeout: 4000}) : window.setTimeout(warmCredits, 2500));
+    if (document.readyState === 'complete') later();
+    else window.addEventListener('load', later, {once: true});
+    return () => {
+      window.removeEventListener('load', later);
+      if (idle) cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, []);
+
   // "Том үсэг" setting: every size on the site is in rem, so this scales them all.
   const {bigText} = usePrefs();
   useEffect(() => {
@@ -46,7 +75,7 @@ export default function App() {
   else if (path === '/results') page = <MyResults />;
   else if (path === '/login') page = <Login />;
   else if (path === '/profile') page = <Profile />;
-  else if (path === '/credits') page = <Credits />;
+  else if (path === '/credits') page = CreditsReady ? <CreditsReady /> : <Credits />;
   else if (path === '/leaderboard') page = <Leaderboard />;
   else if (path === '/settings') page = <SettingsPage />;
   else if (parts[0] === 'u' && parts.length === 2) page = <PublicProfile uid={parts[1]} />;
@@ -72,7 +101,7 @@ export default function App() {
       </main>
       {path !== '/credits' && (
         <footer className="px-4 pb-8 text-center text-xs text-neutral-500">
-          <Link href="/credits" className="hover:text-neutral-300">
+          <Link href="/credits" onPointerEnter={warmCredits} onTouchStart={warmCredits} onFocus={warmCredits} className="hover:text-neutral-300">
             © {new Date().getFullYear()} Batnab · Бүтээсэн: Баттүшиг
           </Link>
         </footer>

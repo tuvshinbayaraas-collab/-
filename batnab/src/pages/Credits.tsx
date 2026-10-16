@@ -1,5 +1,6 @@
 import {BarChart3, Bot, CodeXml, Crown, Flame, Lightbulb, MonitorPlay, Palette} from 'lucide-react';
 import type {ReactNode} from 'react';
+import appIcon from '../lib/appIcon';
 
 /** Who made what. Add a line here to credit someone else. */
 const CREDITS: {role: string; en: string; name: string; icon: ReactNode}[] = [
@@ -17,7 +18,7 @@ export default function Credits() {
   return (
     <div className="mx-auto max-w-2xl py-6">
       <div className="flex flex-col items-center rounded-2xl bg-neutral-900 px-5 py-8 text-center">
-        <img src="/icons/icon-192.png" alt="" className="h-16 w-16 rounded-2xl" />
+        <img src={appIcon} alt="" className="h-16 w-16 rounded-2xl" />
         <h1 className="mt-4 text-2xl font-bold">Бүтээгчид</h1>
         <p className="mt-5 text-xs font-medium uppercase tracking-wider text-neutral-500">Бүтээсэн</p>
         <p className="mt-1 text-3xl font-extrabold tracking-tight text-blue-300">Баттүшиг</p>

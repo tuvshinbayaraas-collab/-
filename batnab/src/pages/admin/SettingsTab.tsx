@@ -1,5 +1,6 @@
 import {Download} from 'lucide-react';
 import {useState} from 'react';
+import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {useSettings, saveSetting, type Settings} from '../../lib/settings';
 import {TESTS} from '../../tests';
 import {untilReset} from '../../lib/week';
@@ -8,12 +9,21 @@ import {download, resultsCsv, type AdminData} from './data';
 export default function SettingsTab({data}: {data: AdminData}) {
   const settings = useSettings();
   const [error, setError] = useState('');
+  const [saved, flash] = useSavedNote();
   if (!settings) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
 
   const change = <K extends keyof Settings>(name: K, value: Settings[K]) => {
     setError('');
-    saveSetting(name, value).catch((e) => setError((e as Error).message));
+    saveSetting(name, value).then(flash, (e) => setError((e as Error).message));
   };
+  const row = (name: 'retakes' | 'leaderboard' | 'photos', title: string, text: string) => (
+    <Switch on={settings[name]} onChange={(on) => change(name, on)} className="items-start p-5">
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">{title}</span>
+        <span className="mt-1 block text-sm text-neutral-400">{text}</span>
+      </span>
+    </Switch>
+  );
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -24,7 +34,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
         <select
           value={settings.trial}
           onChange={(e) => change('trial', e.target.value)}
-          className="mt-3 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 outline-none focus:border-blue-500"
+          className="mt-3 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500 sm:w-auto"
         >
           <option value="">Туршилтгүй</option>
           {TESTS.map((t) => (
@@ -35,45 +45,26 @@ export default function SettingsTab({data}: {data: AdminData}) {
         </select>
       </section>
 
-      <section className="rounded-2xl bg-neutral-900 p-5">
-        <label className="flex items-start justify-between gap-4">
-          <span>
-            <span className="font-semibold">Тестийг дахин өгөхийг зөвшөөрөх</span>
-            <span className="mt-1 block text-sm text-neutral-400">
-              Унтраавал сурагч тест бүрийг долоо хоногт нэг л удаа өгнө. Асаалттай үед ч анализ эхний оролдлогыг тусад нь харуулдаг.
-            </span>
-          </span>
-          <input type="checkbox" checked={settings.retakes} onChange={(e) => change('retakes', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
-        </label>
+      <section className="divide-y divide-neutral-800 overflow-hidden rounded-2xl bg-neutral-900">
+        {row(
+          'retakes',
+          'Тестийг дахин өгөхийг зөвшөөрөх',
+          'Унтраавал сурагч тест бүрийг долоо хоногт нэг л удаа өгнө. Асаалттай үед ч анализ эхний оролдлогыг тусад нь харуулдаг.',
+        )}
+        {row(
+          'leaderboard',
+          'Leaderboard',
+          'Сурагчид долоо хоног бүрийн эхний 3-ыг (тест бүрээр болон хамгийн өндөр оноогоор) харж, долоо хоногийн эцэст эхний 3 нь медаль авна. Сурагч өөрийн оноог тохиргооноосоо нууж болно. Оноог сурагчийн хадгалсан хариулт, түлхүүрээс энэ самбар дахин тооцоолж засдаг.',
+        )}
+        {row(
+          'photos',
+          'Сурагчид өөрийн зураг тавихыг зөвшөөрөх',
+          'Унтраавал сурагчид зөвхөн бэлэн дүрснээс (амьтан г.м.) сонгоно, тавьсан зургууд нь сайт дээр харагдахгүй болно. Зургууд устахгүй: буцааж асаахад дахин харагдана. Нэг сурагчийн зургийг түүний хуудаснаас устгаж болно.',
+        )}
       </section>
 
-      <section className="rounded-2xl bg-neutral-900 p-5">
-        <label className="flex items-start justify-between gap-4">
-          <span>
-            <span className="font-semibold">Leaderboard</span>
-            <span className="mt-1 block text-sm text-neutral-400">
-              Сурагчид долоо хоног бүрийн эхний 3-ыг (тест бүрээр болон хамгийн өндөр оноогоор) харж, долоо хоногийн эцэст эхний 3 нь медаль авна. Сурагч
-              өөрийн оноог тохиргооноосоо нууж болно. Оноог сурагчийн хадгалсан хариулт, түлхүүрээс энэ самбар дахин тооцоолж засдаг.
-            </span>
-          </span>
-          <input type="checkbox" checked={settings.leaderboard} onChange={(e) => change('leaderboard', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
-        </label>
-      </section>
-
-      <section className="rounded-2xl bg-neutral-900 p-5">
-        <label className="flex items-start justify-between gap-4">
-          <span>
-            <span className="font-semibold">Сурагчид өөрийн зураг тавихыг зөвшөөрөх</span>
-            <span className="mt-1 block text-sm text-neutral-400">
-              Унтраавал сурагчид зөвхөн бэлэн дүрснээс (амьтан г.м.) сонгоно, тавьсан зургууд нь сайт дээр харагдахгүй болно. Зургууд устахгүй: буцааж
-              асаахад дахин харагдана. Нэг сурагчийн зургийг түүний хуудаснаас устгаж болно.
-            </span>
-          </span>
-          <input type="checkbox" checked={settings.photos} onChange={(e) => change('photos', e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-blue-500" />
-        </label>
-      </section>
-
-      {error && <p className="text-sm text-red-400">Хадгалж чадсангүй: {error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Хадгалж чадсангүй: {error}</p>}
+      <SavedNote show={saved} />
 
       <section className="rounded-2xl bg-neutral-900 p-5">
         <h2 className="font-semibold">Долоо хоног бүр шинээр эхлэх</h2>

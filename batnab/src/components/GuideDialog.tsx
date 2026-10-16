@@ -1,11 +1,15 @@
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   BarChart3,
   CalendarClock,
+  Check,
   ChevronRight,
   Download,
   FlaskConical,
   KeyRound,
+  Lightbulb,
   ListChecks,
   LogIn,
   RefreshCw,
@@ -17,7 +21,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import {useEffect, useState, type ReactNode} from 'react';
+import {useEffect, useRef, useState, type PointerEvent, type ReactNode} from 'react';
+import appIcon from '../lib/appIcon';
 import {closeGuide, guideHidden, type GuideRole} from '../lib/guide';
 import {navigate} from '../lib/router';
 import {shownName, useSession} from '../lib/session';
@@ -25,212 +30,326 @@ import {useSettings} from '../lib/settings';
 import {testInfo} from '../tests';
 import {useGetApp} from './GetApp';
 
-interface Item {
-  icon: ReactNode;
+const TONES = {
+  blue: 'bg-blue-500/15 text-blue-300',
+  green: 'bg-green-500/15 text-green-300',
+  violet: 'bg-violet-500/15 text-violet-300',
+  amber: 'bg-amber-500/15 text-amber-300',
+  pink: 'bg-pink-500/15 text-pink-300',
+  cyan: 'bg-cyan-500/15 text-cyan-300',
+};
+
+interface Step {
+  /** None: the app's own icon (the welcome step). */
+  icon?: ReactNode;
+  tone?: keyof typeof TONES;
   title: string;
   text: ReactNode;
+  /** A short hint under the text. */
+  tip?: ReactNode;
   /** Optional shortcut: a page to open from the guide. */
   go?: {label: string; href: string};
   action?: {label: string; run: () => void};
 }
 
-/** The welcome guide, different for guests, students and the teacher. */
+/** The welcome guide, one step at a time (Дараах / Буцах, or a swipe); different for guests, students and the teacher. */
 export default function GuideDialog({role}: {role: GuideRole}) {
   const session = useSession();
   const settings = useSettings();
   const app = useGetApp();
   const [never, setNever] = useState(() => guideHidden(role));
+  const [step, setStep] = useState(0);
+  const [dir, setDir] = useState<'next' | 'back'>('next');
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const swipe = useRef<{x: number; y: number} | null>(null);
   const ok = () => closeGuide(role, never);
 
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && closeGuide(role, never);
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [role, never]);
-
   const trial = settings?.trial ? testInfo(settings.trial) : undefined;
-  const getApp: Item | null = app.installed
+  const getApp: Step | null = app.installed
     ? null
     : {
-        icon: <Download size={18} />,
-        title: 'Апп татах',
-        text: 'Утасныхаа нүүр дэлгэцэд нэмээд апп шиг нээж ашиглаарай.',
-        action: {label: 'Татах', run: app.start},
+        icon: <Download size={34} />,
+        tone: 'blue',
+        title: 'Апп болгох',
+        text: 'Утасныхаа нүүр дэлгэцэд нэмбэл Batnab апп шиг нэг товшилтоор нээгдэнэ.',
+        action: {label: 'Апп татах', run: app.start},
       };
 
-  const content: {title: string; sub?: string; items: (Item | null)[]} =
+  const all: (Step | null)[] =
     role === 'teacher'
-      ? {
-          title: 'Багшийн самбарт тавтай морил',
-          sub: 'Эхлээд эдгээрийг хийнэ:',
-          items: [
-            {
-              icon: <Users size={18} />,
-              title: '1. Сурагч нэмэх',
-              text: 'Нэг нэгээр эсвэл нэрсийн жагсаалтаар нэмнэ. Гарсан нэвтрэх нэр, нууц үгийг хуулж эсвэл татаж аваад сурагчдад өгнө.',
-              go: {label: 'Сурагчид', href: '/admin?tab=students'},
-            },
-            {
-              icon: <KeyRound size={18} />,
-              title: '2. Түлхүүр оруулах',
-              text: 'Тест бүрийн зөв хариултыг хариултын хуудас шиг дугуйлж бөглөнө. Түлхүүргүй бол оноо гарахгүй.',
-              go: {label: 'Түлхүүр', href: '/admin?tab=keys'},
-            },
-            {
-              icon: <CalendarClock size={18} />,
-              title: '3. Шалгалт товлох',
-              text: 'Өдөр, эхлэх-дуусах цагийг сонгоно. Шалгалтын үеэр хэн хэдэн бодлого бөглөж, хэдэн удаа хуудаснаас гарсныг шууд харна.',
-              go: {label: 'Шалгалт', href: '/admin?tab=exams'},
-            },
-            {
-              icon: <BarChart3 size={18} />,
-              title: 'Анализ',
-              text: 'Ангийн дүнгийн хүснэгт, тест бүрийн хүнд бодлогууд, сурагч бүрийн оролдлогууд.',
-              go: {label: 'Анализ', href: '/admin?tab=overview'},
-            },
-            {
-              icon: <RefreshCw size={18} />,
-              title: 'Баасан гараг бүр шинээр',
-              text: 'Дүн Баасан гарагийн 24:00-д цэвэрлэгдэнэ. Хадгалах бол өмнө нь CSV-ээр татаж аваарай.',
-            },
-            {
-              icon: <Settings2 size={18} />,
-              title: 'Тохиргоо',
-              text: 'Туршилтын тест, тестийг дахин өгөхийг зөвшөөрөх эсэх.',
-              go: {label: 'Тохиргоо', href: '/admin?tab=settings'},
-            },
-          ],
-        }
+      ? [
+          {
+            title: 'Багшийн самбарт тавтай морил',
+            text: 'Эхлээд гурван зүйл хийнэ: сурагчдаа нэмэх, түлхүүр оруулах, хэрэгтэй бол шалгалт товлох.',
+          },
+          {
+            icon: <Users size={34} />,
+            tone: 'blue',
+            title: '1. Сурагч нэмэх',
+            text: 'Сурагчдын нэрийг нэг нэгээр эсвэл жагсаалтаар (нэг мөрөнд нэг нэр) оруулна. Нэвтрэх нэр, нууц үг нь өөрөө гарна.',
+            tip: 'Гарсан нэвтрэх нэр, нууц үгийг хуулж эсвэл CSV-ээр татаж аваад сурагчдад өгнө.',
+            go: {label: 'Сурагчид хэсгийг нээх', href: '/admin?tab=students'},
+          },
+          {
+            icon: <KeyRound size={34} />,
+            tone: 'green',
+            title: '2. Түлхүүр оруулах',
+            text: 'Тест бүрийн зөв хариултыг хариултын хуудас шиг дарж бөглөнө, эсвэл «АБВГД…» гэж нэг дор буулгана.',
+            tip: 'Түлхүүргүй тестэд оноо гарахгүй. Түлхүүрээ хожим оруулахад өмнөх дүнгүүд өөрөө тооцогдоно.',
+            go: {label: 'Түлхүүр хэсгийг нээх', href: '/admin?tab=keys'},
+          },
+          {
+            icon: <CalendarClock size={34} />,
+            tone: 'cyan',
+            title: '3. Шалгалт товлох',
+            text: 'Өдөр, эхлэх ба дуусах цагаа сонгоно. Тест зөвхөн тэр хугацаанд нээгдэж, сурагч нэг л удаа өгнө.',
+            tip: 'Шалгалтын үеэр хэн хэдэн бодлого бөглөж, хэдэн удаа хуудаснаас гарсныг шууд харна.',
+            go: {label: 'Шалгалт хэсгийг нээх', href: '/admin?tab=exams'},
+          },
+          {
+            icon: <BarChart3 size={34} />,
+            tone: 'violet',
+            title: 'Анализ',
+            text: 'Ангийн дүнгийн хүснэгт, тест бүрийн хамгийн хүнд бодлогууд, бодлого бүрт аль хариултыг хэд сонгосныг харна.',
+            go: {label: 'Анализ хэсгийг нээх', href: '/admin?tab=overview'},
+          },
+          {
+            icon: <RefreshCw size={34} />,
+            tone: 'amber',
+            title: 'Баасан гараг бүр шинээр',
+            text: 'Баасан гарагийн 24:00-д бүх дүн цэвэрлэгдэнэ. Бүртгэл, түлхүүр, тохиргоо хэвээр үлдэнэ.',
+            tip: 'Дүнгээ хадгалах бол цэвэрлэгдэхээс өмнө «Тохиргоо»-оос CSV-ээр татаж аваарай.',
+          },
+          {
+            icon: <Settings2 size={34} />,
+            tone: 'pink',
+            title: 'Тохиргоо',
+            text: 'Туршилтын тест, тестийг дахин өгөх эсэх, leaderboard, сурагчдын зураг зэргийг эндээс асааж унтраана.',
+            go: {label: 'Тохиргоог нээх', href: '/admin?tab=settings'},
+          },
+        ]
       : role === 'student'
-        ? {
-            title: `Сайн уу, ${shownName(session.profile)}!`,
-            sub: 'Batnab-ийг ингэж ашиглана:',
-            items: [
-              {
-                icon: <ListChecks size={18} />,
-                title: 'Тест өгөх',
-                text: 'Нүүр хуудаснаас тест сонгоно. Хариулт тань автоматаар хадгалагдана, дуусгаад «Дуусгах» дарна.',
-              },
-              {
-                icon: <Shuffle size={18} />,
-                title: 'Бодлогууд холилдоно',
-                text: 'Тест өгөх бүрт бодлогуудын байр солигдоно. Дээд талын дугааруудаар бодлого хооронд шилжинэ.',
-              },
-              {
-                icon: <Target size={18} />,
-                title: 'Алдаагаа засах',
-                text:
-                  settings?.retakes === false
-                    ? 'Дуусгахад аль бодлого дээр алдсанаа харна (зөв хариулт харагдахгүй). Тест бүрийг долоо хоногт нэг удаа өгнө.'
-                    : 'Дуусгахад аль бодлого дээр алдсанаа харна (зөв хариулт харагдахгүй). Дахин бодоод дахин өгч болно.',
-              },
-              {
-                icon: <CalendarClock size={18} />,
-                title: 'Шалгалт',
-                text: 'Багш товлосон цагт л нээгдэнэ, нэг л удаа өгнө. Цаг дуусахад хариулт тань автоматаар илгээгдэнэ.',
-              },
-              {
-                icon: <AlertTriangle size={18} />,
-                title: 'Анхаар',
-                text: 'Тест өгөх үеэр өөр апп эсвэл таб руу шилжвэл тоологдож багшид харагдана.',
-              },
-              {
-                icon: <RefreshCw size={18} />,
-                title: 'Долоо хоног бүр шинээр',
-                text: 'Дүн Баасан гараг бүрийн 24:00-д шинээр эхэлнэ.',
-              },
-              settings?.leaderboard
-                ? {
-                    icon: <Trophy size={18} />,
-                    title: 'Leaderboard',
-                    text: 'Долоо хоногийн эхний 3 сурагч алт, мөнгө, хүрэл медаль авна. Оноогоо нуух бол цэсний «Тохиргоо».',
-                    go: {label: 'Leaderboard', href: '/leaderboard'},
-                  }
-                : null,
-              {
-                icon: <UserRound size={18} />,
-                title: 'Профайл',
-                text: 'Nickname, зургаа сольж, нууц үгээ шинэчилж болно.',
-                go: {label: 'Профайл', href: '/profile'},
-              },
-              getApp,
-            ],
-          }
-        : {
-            title: 'Batnab-д тавтай морил!',
-            items: [
-              {
-                icon: <LogIn size={18} />,
-                title: 'Нэвтрэх',
-                text: 'Нэвтрэх нэр, нууц үгээ багшаасаа авна. Өөрөө бүртгүүлэх боломжгүй.',
-                go: {label: 'Нэвтрэх', href: '/login'},
-              },
-              trial
-                ? {
-                    icon: <FlaskConical size={18} />,
-                    title: 'Туршиж үзэх',
-                    text: `Нэвтрэлгүйгээр ${trial.title}-г туршиж үзэж болно. Дүн нь хадгалагдахгүй.`,
-                    go: {label: 'Туршилт', href: `/test/${trial.id}`},
-                  }
-                : null,
-              {
-                icon: <Shuffle size={18} />,
-                title: 'Тестүүд',
-                text: 'Тест бүр 30 бодлоготой. Өгөх бүрт бодлогуудын байр холилдоно, дуусгахад оноо болон алдсан бодлогууд харагдана.',
-              },
-              getApp,
-            ],
-          };
+        ? [
+            {
+              title: `Сайн уу, ${shownName(session.profile)}!`,
+              text: 'Энд математикийн тест өгч, дүнгээ шууд харна. Хэрхэн ашиглахыг хэдхэн алхмаар үзүүлье.',
+            },
+            {
+              icon: <ListChecks size={34} />,
+              tone: 'green',
+              title: 'Тест өгөх',
+              text: 'Нүүр хуудаснаас тестээ сонго. Бодлого бүрийн доорх А–Д хариултаас зөвийг нь дар. Бүгдийг бөглөөд дээд талын «Дуусгах» товчийг дар.',
+              tip: 'Хариулт тань автоматаар хадгалагдана. Хуудас хаагдсан ч алга болохгүй.',
+            },
+            {
+              icon: <Shuffle size={34} />,
+              tone: 'violet',
+              title: 'Бодлогууд холилдоно',
+              text: 'Тест өгөх бүрт бодлогуудын дараалал өөр байна. Дээд талын дугаарууд дээр дарж хүссэн бодлого руугаа шууд очно.',
+              tip: 'Хариулсан бодлогын дугаар цэнхэр болно. Алгассан бодлогоо ингэж амархан олно.',
+            },
+            {
+              icon: <Target size={34} />,
+              tone: 'blue',
+              title: 'Дүнгээ харах',
+              text: '«Дуусгах» дарахад оноо тань гарч, алдсан бодлого бүрт «Энэ бодлого дээр алдсан» гэж бичигдэнэ. Зөв хариулт нь харагдахгүй.',
+              tip: settings?.retakes === false ? 'Тест бүрийг долоо хоногт нэг л удаа өгнө.' : 'Алдсан бодлогоо дахин бодоод тестээ дахин өгч болно.',
+              go: {label: 'Миний дүнгүүдийг нээх', href: '/results'},
+            },
+            {
+              icon: <CalendarClock size={34} />,
+              tone: 'cyan',
+              title: 'Шалгалт',
+              text: 'Багш шалгалт товловол тест тэр цагт л нээгдэнэ, нэг л удаа өгнө. Хугацаа дуусахад хариулт тань өөрөө илгээгдэнэ.',
+            },
+            {
+              icon: <AlertTriangle size={34} />,
+              tone: 'amber',
+              title: 'Анхаар',
+              text: 'Тест өгөх үеэр өөр апп эсвэл таб руу шилжвэл тоологдож, багшид харагдана.',
+              tip: 'Тестээ дуусгах хүртлээ энэ хуудаснаас бүү гараарай.',
+            },
+            settings?.leaderboard
+              ? {
+                  icon: <Trophy size={34} />,
+                  tone: 'amber',
+                  title: 'Leaderboard',
+                  text: 'Долоо хоног бүр хамгийн өндөр оноотой 3 сурагч алт, мөнгө, хүрэл медаль авна. Бусдад таны nickname л харагдана.',
+                  tip: 'Оноогоо харуулахыг хүсэхгүй бол цэсний «Тохиргоо»-оос унтраана.',
+                  go: {label: 'Leaderboard нээх', href: '/leaderboard'},
+                }
+              : null,
+            {
+              icon: <RefreshCw size={34} />,
+              tone: 'green',
+              title: 'Долоо хоног бүр шинээр',
+              text: 'Баасан гараг бүрийн 24:00-д дүн арилж, бүх тест шинээр эхэлнэ.',
+            },
+            {
+              icon: <UserRound size={34} />,
+              tone: 'pink',
+              title: 'Профайл ба тохиргоо',
+              text: 'Баруун дээд буланд байгаа зураг дээрээ дарж цэсээ нээнэ. «Профайл»-аас nickname, зураг, нууц үгээ солино. «Тохиргоо»-оос цаг, том үсэг зэргийг тааруулна.',
+              go: {label: 'Профайлаа нээх', href: '/profile'},
+            },
+            getApp,
+          ]
+        : [
+            {
+              title: 'Batnab-д тавтай морил!',
+              text: 'Энд математикийн тест өгч, дүнгээ шууд харна.',
+            },
+            {
+              icon: <LogIn size={34} />,
+              tone: 'blue',
+              title: 'Нэвтрэх',
+              text: 'Нэвтрэх нэр, нууц үгээ багшаасаа авна. Өөрөө бүртгүүлэх боломжгүй.',
+              go: {label: 'Нэвтрэх', href: '/login'},
+            },
+            trial
+              ? {
+                  icon: <FlaskConical size={34} />,
+                  tone: 'green',
+                  title: 'Туршиж үзэх',
+                  text: `Нэвтрэлгүйгээр ${trial.title}-г өгч үзэж болно. Дүн нь хадгалагдахгүй.`,
+                  go: {label: 'Туршиж үзэх', href: `/test/${trial.id}`},
+                }
+              : null,
+            {
+              icon: <Shuffle size={34} />,
+              tone: 'violet',
+              title: 'Тестүүд',
+              text: 'Тест бүр 30 бодлоготой. Өгөх бүрт бодлогуудын дараалал өөр байна. Дуусгахад оноо болон алдсан бодлогууд харагдана.',
+            },
+            getApp,
+          ];
+  const steps = all.filter((s): s is Step => !!s);
+  const at = Math.min(step, steps.length - 1);
+  const last = at === steps.length - 1;
+
+  const goTo = (i: number) => {
+    if (i < 0 || i >= steps.length || i === at) return;
+    setDir(i > at ? 'next' : 'back');
+    setStep(i);
+  };
+  const next = () => (last ? ok() : goTo(at + 1));
+  const back = () => goTo(at - 1);
+
+  useEffect(() => nextRef.current?.focus(), []);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') ok();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key === 'ArrowLeft') back();
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  });
+
+  // A sideways swipe on a phone turns the page too.
+  const down = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse') swipe.current = {x: e.clientX, y: e.clientY};
+  };
+  const up = (e: PointerEvent) => {
+    const start = swipe.current;
+    swipe.current = null;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - start.y) * 1.5) (dx < 0 ? next : back)();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={ok} role="dialog" aria-modal="true" aria-label="Заавар">
-      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl bg-neutral-900 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start gap-3 p-5 pb-3">
-          <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">{content.title}</h2>
-            {content.sub && <p className="text-sm text-neutral-400">{content.sub}</p>}
-          </div>
-          <button onClick={ok} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
+      <div
+        className="flex max-h-[92dvh] w-full max-w-md animate-[sheet-up_.22s_ease-out] flex-col overflow-y-auto rounded-t-3xl bg-neutral-900 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 motion-reduce:animate-none sm:animate-none sm:rounded-3xl sm:pt-4"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={down}
+        onPointerUp={up}
+        onPointerCancel={() => (swipe.current = null)}
+        style={{touchAction: 'pan-y'}}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium tabular-nums text-neutral-500">
+            Заавар · {at + 1}/{steps.length}
+          </span>
+          <button onClick={ok} aria-label="Хаах" className="-mr-1.5 rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
             <X size={18} />
           </button>
         </div>
 
-        <ul className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-4">
-          {content.items
-            .filter((x): x is Item => !!x)
-            .map((item) => (
-              <li key={item.title} className="flex gap-3 rounded-xl bg-neutral-800/50 p-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-300">{item.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{item.title}</p>
-                  <p className="text-sm leading-relaxed text-neutral-400">{item.text}</p>
-                </div>
-                {(item.go || item.action) && (
-                  <button
-                    onClick={() => {
-                      ok();
-                      if (item.go) navigate(item.go.href);
-                      else item.action!.run();
-                    }}
-                    className="flex shrink-0 items-center gap-0.5 self-center rounded-full px-2.5 py-1 text-xs font-medium text-blue-300 hover:bg-blue-500/10"
-                  >
-                    {item.go?.label ?? item.action!.label} <ChevronRight size={14} />
-                  </button>
-                )}
-              </li>
-            ))}
-        </ul>
+        {/* Every step sits in the same grid cell, only the current one visible: the sheet is as tall as its tallest step
+            and doesn't jump from step to step. */}
+        <div className="grid" aria-live="polite">
+          {steps.map((x, i) => (
+            <div
+              key={x.title}
+              aria-hidden={i !== at}
+              className={`col-start-1 row-start-1 flex flex-col items-center justify-center py-3 text-center ${i !== at ? 'invisible' : `motion-reduce:animate-none ${dir === 'next' ? 'animate-[guide-next_.22s_ease-out]' : 'animate-[guide-back_.22s_ease-out]'}`}`}
+            >
+              {x.icon ? (
+                <span className={`flex h-20 w-20 items-center justify-center rounded-3xl ${TONES[x.tone ?? 'blue']}`}>{x.icon}</span>
+              ) : (
+                <img src={appIcon} alt="" className="h-20 w-20 rounded-3xl" />
+              )}
+              <h2 className="mt-5 text-xl font-bold">{x.title}</h2>
+              <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-neutral-300">{x.text}</p>
+              {x.tip && (
+                <p className="mt-4 flex max-w-sm gap-2 rounded-xl bg-neutral-800/70 px-3 py-2.5 text-left text-sm text-neutral-300">
+                  <Lightbulb size={16} className="mt-0.5 shrink-0 text-amber-300" /> <span>{x.tip}</span>
+                </p>
+              )}
+              {(x.go || x.action) && (
+                <button
+                  tabIndex={i === at ? undefined : -1}
+                  onClick={() => {
+                    ok();
+                    if (x.go) navigate(x.go.href);
+                    else x.action!.run();
+                  }}
+                  className="mt-4 flex items-center gap-1 rounded-full bg-blue-500/15 px-4 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-500/25"
+                >
+                  {x.go?.label ?? x.action!.label} <ChevronRight size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
-        <div className="flex items-center gap-3 border-t border-neutral-800 px-5 py-3">
-          <label className="flex flex-1 cursor-pointer select-none items-center gap-2 text-sm text-neutral-300">
-            <input type="checkbox" checked={never} onChange={(e) => setNever(e.target.checked)} className="h-4 w-4 accent-blue-500" />
-            Дахин харахгүй
-          </label>
-          <button onClick={ok} className="rounded-full bg-blue-500 px-6 py-2 text-sm font-semibold text-black hover:bg-blue-400">
-            Ойлголоо
+        <div className="flex justify-center gap-1" aria-label="Алхмууд">
+          {steps.map((x, i) => (
+            <button key={x.title} aria-current={i === at ? 'step' : undefined} aria-label={`${i + 1}-р алхам: ${x.title}`} onClick={() => goTo(i)} className="p-1">
+              <span className={`block h-2 rounded-full transition-all ${i === at ? 'w-6 bg-blue-400' : i < at ? 'w-2 bg-blue-400/40' : 'w-2 bg-neutral-700'}`} />
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {at === 0 ? (
+            <button onClick={ok} className="rounded-full bg-neutral-800 py-3 text-sm font-semibold text-neutral-300 hover:bg-neutral-700">
+              Алгасах
+            </button>
+          ) : (
+            <button onClick={back} className="flex items-center justify-center gap-1.5 rounded-full bg-neutral-800 py-3 text-sm font-semibold hover:bg-neutral-700">
+              <ArrowLeft size={16} /> Буцах
+            </button>
+          )}
+          <button ref={nextRef} onClick={next} className="flex items-center justify-center gap-1.5 rounded-full bg-blue-500 py-3 text-sm font-semibold text-black hover:bg-blue-400">
+            {last ? (
+              <>
+                <Check size={16} /> Ойлголоо
+              </>
+            ) : (
+              <>
+                Дараах <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </div>
+
+        <label className="mt-3 flex cursor-pointer select-none items-center justify-center gap-2 text-sm text-neutral-400">
+          <input type="checkbox" checked={never} onChange={(e) => setNever(e.target.checked)} className="h-4 w-4 accent-blue-500" />
+          Дахин харахгүй
+        </label>
       </div>
     </div>
   );

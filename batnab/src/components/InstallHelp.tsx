@@ -1,5 +1,6 @@
 import {ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Ellipsis, EllipsisVertical, Glasses, Menu, MonitorDown, Share, SquarePlus, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
+import appIcon from '../lib/appIcon';
 import {platform} from '../lib/install';
 
 // iPhones have no Mongolian interface, so the guide quotes the buttons as the phone shows them (English or Russian)
@@ -51,7 +52,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">
-          <img src="/icons/icon-192.png" alt="" className="h-12 w-12 rounded-xl" />
+          <img src={appIcon} alt="" className="h-12 w-12 rounded-xl" />
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold">{p === 'ios' ? 'Нүүр дэлгэцэд нэмэх' : 'Batnab-г апп болгож суулгах'}</h2>
             <p className="text-sm text-neutral-400">Дараа нь нүүр дэлгэцийн дүрснээс апп шиг нээгдэнэ.</p>
@@ -163,7 +164,7 @@ function AddScreen() {
         </Hot>
       </div>
       <div className="mt-2 flex items-center gap-2 rounded-lg bg-neutral-800/60 p-2">
-        <img src="/icons/icon-192.png" alt="" className="h-8 w-8 rounded-lg" />
+        <img src={appIcon} alt="" className="h-8 w-8 rounded-lg" />
         <span className="text-sm text-neutral-200">Batnab</span>
       </div>
     </Frame>
@@ -212,7 +213,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
     (n: number) => (
       <Step n={n}>
         <Check size={16} className="-mt-1 mr-1 inline text-green-400" />
-        Нүүр дэлгэцэд гарсан <img src="/icons/icon-192.png" alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээнэ.
+        Нүүр дэлгэцэд гарсан <img src={appIcon} alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээнэ.
       </Step>
     ),
   ];

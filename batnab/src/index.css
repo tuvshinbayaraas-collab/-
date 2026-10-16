@@ -8,6 +8,24 @@
     transform: translateY(100%);
   }
 }
+@keyframes guide-next {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes guide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes saved-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
 
 /* KaTeX's invisible spacing boxes reach well outside a formula. A tap there has to land on the answer button that is
    actually under the finger, not on the neighbouring answer the formula belongs to. */
