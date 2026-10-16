@@ -1,0 +1,249 @@
+{
+  "rules": {
+    "admins": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": false,
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid"
+      }
+    },
+    "settings": {
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "trial": {
+        ".validate": "newData.isString() && newData.val().matches(/^([0-9]{1,2}[AB])?$/)"
+      },
+      "retakes": {
+        ".validate": "newData.isBoolean()"
+      },
+      "leaderboard": {
+        ".validate": "newData.isBoolean()"
+      },
+      "photos": {
+        ".validate": "newData.isBoolean()"
+      },
+      "$other": {
+        ".validate": false
+      }
+    },
+    "users": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren(['username', 'name'])",
+        "username": {
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9_.-]{3,30}$/)"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+        },
+        "nickname": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "photo": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && (newData.val().matches(/^avatar:[a-z]{2,20}$/) || (newData.val().beginsWith('data:image/') && newData.val().length <= 60000 && root.child('settings/photos').val() !== false))"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "disabled": {
+          ".validate": "newData.isBoolean()"
+        },
+        "prefs": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists()",
+          "lbOff": {
+            ".validate": "newData.isBoolean()"
+          },
+          "lbHideRank": {
+            ".validate": "newData.isBoolean()"
+          },
+          "hideTimer": {
+            ".validate": "newData.isBoolean()"
+          },
+          "autoNext": {
+            ".validate": "newData.isBoolean()"
+          },
+          "bigText": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "keys": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$testId": {
+        ".read": "!(root.child('exams').child($testId).exists() && now <= root.child('exams').child($testId).child('end').val()) && (root.child('settings/trial').val() === $testId || (!root.child('settings/trial').exists() && $testId === '1A') || (auth != null && (root.child('results').child(auth.uid).child($testId).exists() || root.child('examAnswers').child($testId).child(auth.uid).exists())))",
+        ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"
+      }
+    },
+    "results": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$testId": {
+          ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/)",
+          "$resultId": {
+            ".write": "auth != null && auth.uid === $uid && ((!data.exists() && newData.exists() && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (root.child('settings/retakes').val() !== false || !root.child('results').child($uid).child($testId).exists()) && !(root.child('exams').child($testId).exists() && now <= root.child('exams').child($testId).child('end').val())) || (!newData.exists() && data.child('at').val() < now - ((now - 144000000) % 604800000)))",
+            ".validate": "newData.hasChildren(['answers', 'seconds', 'at'])",
+            "answers": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"
+            },
+            "seconds": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 604800"
+            },
+            "at": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "leaves": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "away": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "exams": {
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$testId": {
+        ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.hasChildren(['start', 'end']) && newData.child('end').val() > newData.child('start').val()",
+        "start": {
+          ".validate": "newData.isNumber()"
+        },
+        "end": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "examAnswers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$testId": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && newData.exists() && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && root.child('exams').child($testId).exists() && now >= root.child('exams').child($testId).child('start').val() && now <= root.child('exams').child($testId).child('end').val() + 60000 && data.child('done').val() !== true",
+          ".validate": "newData.hasChildren(['answers', 'leaves', 'away', 'seconds', 'at', 'startedAt'])",
+          "answers": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"
+          },
+          "leaves": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())"
+          },
+          "away": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())"
+          },
+          "seconds": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 604800"
+          },
+          "startedAt": {
+            ".validate": "newData.isNumber() && newData.val() <= now && (!data.exists() || newData.val() === data.val())"
+          },
+          "at": {
+            ".validate": "newData.val() === now"
+          },
+          "done": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "leaderboard": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('settings/leaderboard').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$week": {
+        ".validate": "$week.matches(/^[0-9]{13}$/)",
+        "$testId": {
+          ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/)",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && $week === (now - ((now - 144000000) % 604800000)) + '' && root.child('settings/leaderboard').val() !== false && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (!newData.exists() || (root.child('results').child($uid).child($testId).child(newData.child('rid').val()).child('at').val() >= (now - ((now - 144000000) % 604800000)) && root.child('results').child($uid).child($testId).child(newData.child('rid').val()).child('seconds').val() === newData.child('seconds').val()))",
+            ".validate": "newData.hasChildren(['score', 'total', 'seconds', 'name', 'rid'])",
+            "score": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= newData.parent().child('total').val()"
+            },
+            "total": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100"
+            },
+            "seconds": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "rid": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "name": {
+              ".validate": "newData.isString() && (newData.val() === root.child('users').child($uid).child('nickname').val() || newData.val() === '@' + root.child('users').child($uid).child('username').val())"
+            },
+            "at": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "pub": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('settings/leaderboard').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true",
+        "photo": {
+          ".validate": "newData.isString() && newData.val() === root.child('users').child($uid).child('photo').val()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "medals": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('settings/leaderboard').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+        "$week": {
+          ".validate": "$week.matches(/^[0-9]{13}$/) && newData.hasChildren(['place', 'test', 'score', 'total'])",
+          "place": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 3"
+          },
+          "test": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9]{1,2}[AB]$/)"
+          },
+          "score": {
+            ".validate": "newData.isNumber()"
+          },
+          "total": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    }
+  }
+}

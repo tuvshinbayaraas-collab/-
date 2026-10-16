@@ -1,0 +1,181 @@
+import {ArrowLeft, Ban, Check, ImageOff, Pencil, RotateCcw, Trash2, X} from 'lucide-react';
+import {useState} from 'react';
+import Avatar from '../../components/Avatar';
+import {formatDuration} from '../../lib/attempt';
+import {deleteResult, deleteStudent, removePhoto, renameStudent, setBlocked} from '../../lib/accounts';
+import {percent} from '../../lib/keys';
+import {formatDate} from '../../lib/results';
+import {Link, navigate} from '../../lib/router';
+import {shownName} from '../../lib/session';
+import {useSettings} from '../../lib/settings';
+import {TESTS} from '../../tests';
+import {gradeOf, mean, type AdminData} from './data';
+import {Stat} from './Overview';
+
+export default function StudentDetail({uid, data}: {uid: string; data: AdminData}) {
+  const student = data.students.find((s) => s.uid === uid);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const settings = useSettings();
+  const retakesOff = settings?.retakes === false;
+
+  if (!student)
+    return (
+      <div className="py-16 text-center text-neutral-400">
+        Сурагч олдсонгүй.{' '}
+        <Link href="/admin?tab=students" className="text-blue-400 hover:underline">
+          Сурагчид
+        </Link>
+      </div>
+    );
+
+  const p = student.profile;
+  const results = data.results.filter((r) => r.uid === uid);
+  const graded = results.map((r) => ({r, g: gradeOf(r, data.keys)}));
+  const avg = mean(graded.flatMap(({g}) => (g ? [percent(g)] : [])));
+
+  const act = async (job: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await job();
+    } catch (e) {
+      alert(`Алдаа: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = () => {
+    if (!confirm(`${p.name}-ийн бүртгэл болон бүх дүнг устгах уу? Буцаах боломжгүй.`)) return;
+    act(async () => {
+      await deleteStudent(uid);
+      navigate('/admin?tab=students');
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Link href="/admin?tab=students" className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
+        <ArrowLeft size={16} /> Сурагчид
+      </Link>
+      <section className="flex flex-wrap items-center gap-5 rounded-2xl bg-neutral-900 p-5">
+        <Avatar name={shownName(p)} photo={p.photo} size={72} />
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                act(() => renameStudent(uid, name)).then(() => setEditing(false));
+              }}
+              className="flex gap-2"
+            >
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-1.5 outline-none focus:border-blue-500" />
+              <button disabled={busy || !name.trim()} aria-label="Хадгалах" className="rounded-full bg-blue-500 px-3 text-black disabled:opacity-50">
+                <Check size={16} />
+              </button>
+              <button type="button" onClick={() => setEditing(false)} aria-label="Болих" className="rounded-full bg-neutral-800 px-3">
+                <X size={16} />
+              </button>
+            </form>
+          ) : (
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              {p.name}
+              <button
+                onClick={() => {
+                  setName(p.name);
+                  setEditing(true);
+                }}
+                aria-label="Нэр засах"
+                className="rounded-full p-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              >
+                <Pencil size={15} />
+              </button>
+            </h2>
+          )}
+          <p className="text-neutral-400">
+            Nickname: {p.nickname || <span className="text-neutral-500">тавиагүй</span>} • @{p.username}
+          </p>
+          {p.createdAt && <p className="text-sm text-neutral-500">Бүртгэсэн: {formatDate(p.createdAt)}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            disabled={busy}
+            onClick={() => act(() => setBlocked(uid, !p.disabled))}
+            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50 ${p.disabled ? 'bg-green-500/15 text-green-300 hover:bg-green-500/25' : 'bg-neutral-800 hover:bg-neutral-700'}`}
+          >
+            <Ban size={15} /> {p.disabled ? 'Нээх' : 'Түр хаах'}
+          </button>
+          {p.photo?.startsWith('data:') && (
+            <button
+              disabled={busy}
+              onClick={() => confirm(`${p.name}-ийн тавьсан зургийг устгах уу?`) && act(() => removePhoto(uid))}
+              className="flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50"
+            >
+              <ImageOff size={15} /> Зургийг устгах
+            </button>
+          )}
+          <button disabled={busy} onClick={remove} className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+            <Trash2 size={15} /> Устгах
+          </button>
+        </div>
+      </section>
+      {p.disabled && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-sm text-red-300">Энэ бүртгэл түр хаагдсан: сурагч нэвтэрсэн ч тест өгч чадахгүй.</p>}
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Өгсөн тест" value={`${new Set(results.map((r) => r.test)).size}/${TESTS.length}`} />
+        <Stat label="Оролдлого" value={results.length} />
+        <Stat label="Дундаж" value={avg === null ? '—' : `${Math.round(avg)}%`} sub="бүх оролдлогоор" />
+      </div>
+
+      <section>
+        <h3 className="mb-2 font-semibold">Энэ долоо хоногийн оролдлогууд</h3>
+        {retakesOff && results.length > 0 && (
+          <p className="mb-2 text-sm text-neutral-400">
+            Дахин өгөх хаалттай байгаа. Сурагч тестээ санамсаргүй илгээсэн бол «Дахин өгүүлэх» дарна: тэр оролдлого устаж, сурагч тестийг дахин нэг удаа
+            өгөх боломжтой болно.
+          </p>
+        )}
+        {!results.length ? (
+          <p className="text-sm text-neutral-400">Энэ долоо хоногт тест өгөөгүй байна.</p>
+        ) : (
+          <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
+            {graded.map(({r, g}) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                <Link href={`/review/${r.test}/${r.id}?u=${uid}`} className="min-w-0 flex-1 hover:underline">
+                  <span className="font-medium">{TESTS.find((t) => t.id === r.test)?.title}</span>
+                  <span className="block text-sm text-neutral-400">
+                    {formatDate(r.at)} • {formatDuration(r.seconds)}
+                    {!!r.leaves && ` • хуудаснаас ${r.leaves} удаа гарсан`}
+                  </span>
+                </Link>
+                <span className="text-right tabular-nums">{g ? `${g.score}/${g.total} • ${percent(g)}%` : <span className="text-sm text-neutral-500">түлхүүргүй</span>}</span>
+                {retakesOff ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm(`${p.name}-ийн ${TESTS.find((t) => t.id === r.test)?.title}-ийн энэ оролдлогыг устгаж, дахин нэг удаа өгөх боломж олгох уу? Энэ оролдлогын хариулт устна.`) &&
+                      act(() => deleteResult(uid, r.test, r.id))
+                    }
+                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-xs font-medium hover:bg-neutral-700"
+                  >
+                    <RotateCcw size={14} /> Дахин өгүүлэх
+                  </button>
+                ) : (
+                  <button
+                    disabled={busy}
+                    onClick={() => confirm('Энэ оролдлогыг устгах уу? Хариулт нь устна.') && act(() => deleteResult(uid, r.test, r.id))}
+                    aria-label="Оролдлогыг устгах"
+                    className="rounded-full p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
