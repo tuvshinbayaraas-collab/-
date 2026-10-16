@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import {useEffect, useRef, useState, type PointerEvent, type ReactNode} from 'react';
 import appIcon from '../lib/appIcon';
+import {useBackdrop} from '../lib/backdrop';
 import {closeGuide, guideHidden, type GuideRole} from '../lib/guide';
 import {navigate} from '../lib/router';
 import {shownName, useSession} from '../lib/session';
@@ -63,6 +64,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
   const nextRef = useRef<HTMLButtonElement>(null);
   const swipe = useRef<{x: number; y: number} | null>(null);
   const ok = () => closeGuide(role, never);
+  const backdrop = useBackdrop(ok);
 
   const trial = settings?.trial ? testInfo(settings.trial) : undefined;
   const getApp: Step | null = app.installed
@@ -260,7 +262,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={ok} role="dialog" aria-modal="true" aria-label="Заавар">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" {...backdrop} role="dialog" aria-modal="true" aria-label="Заавар">
       <div
         className="flex max-h-[92dvh] w-full max-w-md animate-[sheet-up_.22s_ease-out] flex-col overflow-y-auto rounded-t-3xl bg-neutral-900 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 motion-reduce:animate-none sm:animate-none sm:rounded-3xl sm:pt-4"
         onClick={(e) => e.stopPropagation()}

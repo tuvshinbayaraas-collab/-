@@ -12,7 +12,8 @@ function avatarColor(name: string): string {
 
 /** A round picture: the student's photo, a ready-made picture, or the first letter of the name. Photos are hidden while the teacher has them off. */
 export default function Avatar({name, photo, size = 36}: {name: string; photo?: string | null; size?: number}) {
-  const [broken, setBroken] = useState(false);
+  // The photo that failed to load, so a new one is tried again.
+  const [broken, setBroken] = useState<string | null>(null);
   const photosOff = useSettings()?.photos === false;
   const preset = avatarOf(photo);
   if (preset)
@@ -21,13 +22,13 @@ export default function Avatar({name, photo, size = 36}: {name: string; photo?: 
         {preset.emoji}
       </div>
     );
-  if (photo?.startsWith('data:image/') && !broken && !photosOff) {
+  if (photo?.startsWith('data:image/') && broken !== photo && !photosOff) {
     return (
       <img
         src={photo}
         alt=""
         referrerPolicy="no-referrer"
-        onError={() => setBroken(true)}
+        onError={() => setBroken(photo)}
         className="shrink-0 rounded-full object-cover"
         style={{width: size, height: size}}
       />

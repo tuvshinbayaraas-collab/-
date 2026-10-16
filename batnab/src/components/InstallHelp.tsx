@@ -1,6 +1,7 @@
 import {ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Ellipsis, EllipsisVertical, Glasses, Menu, MonitorDown, Share, SquarePlus, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import appIcon from '../lib/appIcon';
+import {useBackdrop} from '../lib/backdrop';
 import {platform} from '../lib/install';
 
 // iPhones have no Mongolian interface, so the guide quotes the buttons as the phone shows them (English or Russian)
@@ -28,6 +29,7 @@ function iosBrowser(): {browser: Browser; ipad: boolean; safari26: boolean} {
 
 /** How to add the site to the home screen when the browser has no install dialog we can open. */
 export default function InstallHelp({onClose}: {onClose: () => void}) {
+  const backdrop = useBackdrop(onClose);
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', key);
@@ -42,7 +44,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
   return (
     <div
       className={`fixed inset-0 z-50 flex justify-center bg-black/70 ${arrow?.startsWith('bottom') ? 'items-start p-3 pt-4' : 'items-end sm:items-center sm:p-4'}`}
-      onClick={onClose}
+      {...backdrop}
       role="dialog"
       aria-modal="true"
       aria-label="Апп болгож суулгах"

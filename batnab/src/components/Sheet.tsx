@@ -1,16 +1,18 @@
 import {X} from 'lucide-react';
 import {useEffect, useId, type ReactNode} from 'react';
+import {useBackdrop} from '../lib/backdrop';
 
 /** A panel over the page: slides up from the bottom on a phone, centered on a wider screen. Escape or the backdrop closes it. */
 export default function Sheet({title, sub, onClose, children}: {title: string; sub?: string; onClose: () => void; children: ReactNode}) {
   const id = useId();
+  const backdrop = useBackdrop(onClose);
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={id}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" {...backdrop} role="dialog" aria-modal="true" aria-labelledby={id}>
       <div
         className="max-h-[90dvh] w-full max-w-md animate-[sheet-up_.22s_ease-out] text-left motion-reduce:animate-none overflow-y-auto rounded-t-3xl bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:animate-none sm:rounded-3xl sm:pt-5"
         onClick={(e) => e.stopPropagation()}

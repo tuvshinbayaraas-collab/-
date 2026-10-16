@@ -1,6 +1,7 @@
 import {Check, ChevronLeft, ChevronRight, Eye, KeyRound, Pencil, X} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import QuestionCard from '../../components/QuestionCard';
+import {useBackdrop} from '../../lib/backdrop';
 import {choiceAt, saveKey} from '../../lib/keys';
 import {navigate} from '../../lib/router';
 import {TESTS, testInfo} from '../../tests';
@@ -251,6 +252,7 @@ function TypeIn({count, onApply}: {count: number; onApply: (key: string) => void
 function Preview(props: {test: Test; index: number; draft: string; onPick: (i: number, ci: number) => void; onMove: (i: number) => void; onClose: () => void}) {
   const {test, index, draft, onPick, onMove, onClose} = props;
   const last = test.questions.length - 1;
+  const backdrop = useBackdrop(onClose);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -262,7 +264,7 @@ function Preview(props: {test: Test; index: number; draft: string; onPick: (i: n
   }, [index, last, onClose, onMove]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4" {...backdrop} role="dialog" aria-modal="true">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-neutral-950 p-3 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-center gap-2">
           <button onClick={() => onMove(index - 1)} disabled={index === 0} aria-label="Өмнөх" className="rounded-full p-2 hover:bg-neutral-800 disabled:opacity-30">
