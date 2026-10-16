@@ -1,5 +1,6 @@
 import {ChevronRight, RefreshCw} from 'lucide-react';
 import {InactiveNote, LockedNote} from '../components/Notices';
+import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
 import {formatDuration} from '../lib/attempt';
 import {grade, percent, useKeys} from '../lib/keys';
 import {formatDate, useMyResults} from '../lib/results';
@@ -40,10 +41,11 @@ export default function MyResults() {
             {taken.map((t) => {
               const mine = graded.filter((x) => x.r.test === t.id);
               const best = mine.reduce<number | null>((b, x) => (x.g && (b === null || percent(x.g) > b) ? percent(x.g) : b), null);
+              const perfect = mine.some((x) => isPerfect(x.g));
               return (
                 <div key={t.id} className="rounded-2xl bg-neutral-900 p-4">
                   <p className="text-sm text-neutral-400">{t.title}</p>
-                  <p className="mt-1 text-2xl font-bold">{best === null ? '—' : `${best}%`}</p>
+                  <p className={`mt-1 text-2xl font-bold ${perfect ? perfectText('test') : ''}`}>{best === null ? '—' : `${best}%`}</p>
                   <p className="text-xs text-neutral-500">
                     шилдэг • {mine.length} удаа
                   </p>
@@ -58,7 +60,9 @@ export default function MyResults() {
               <li key={r.id}>
                 <Link href={`/review/${r.test}/${r.id}`} className="flex items-center gap-4 px-4 py-3 hover:bg-neutral-800/60">
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{testInfo(r.test)?.title ?? r.test}</p>
+                    <p className="flex flex-wrap items-center gap-x-2 font-semibold">
+                      {testInfo(r.test)?.title ?? r.test} {isPerfect(g) && <PerfectBadge kind="test" />}
+                    </p>
                     <p className="text-sm text-neutral-400">
                       {formatDate(r.at)} • {formatDuration(r.seconds)}
                     </p>

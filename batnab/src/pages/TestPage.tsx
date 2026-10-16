@@ -1,6 +1,7 @@
 import {AlertTriangle, Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
+import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import RankLine from '../components/RankLine';
@@ -199,6 +200,7 @@ function Runner(props: {
   const answered = attempt.answers.filter((x) => x !== null).length;
   const elapsed = ((attempt.finished ?? now) - attempt.started) / 1000;
   const g = key ? grade(encode(attempt.answers), key, total) : null;
+  const perfect = isPerfect(g);
   const correctOf = (qi: number) => (g ? choiceAt(key, qi) : null);
   const missed = attempt.order.filter((qi) => correctOf(qi) !== null && attempt.answers[qi] !== correctOf(qi));
 
@@ -287,7 +289,7 @@ function Runner(props: {
       </div>
 
       {finished && (
-        <div className="mt-4 rounded-2xl bg-neutral-900 p-5">
+        <ResultCard perfect={perfect ? 'test' : null} id={attempt.resultId ?? `${id}-${attempt.started}`} className="mt-4">
           {mode === 'student' && !attempt.resultId ? (
             saveError ? (
               <div>
@@ -319,11 +321,20 @@ function Runner(props: {
             </div>
           ) : (
             <div>
-              <p className="text-sm text-neutral-400">Таны оноо</p>
-              <p className="mt-1 text-4xl font-bold">
-                {g.score} <span className="text-2xl text-neutral-400">/ {g.total}</span>
-                <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
-              </p>
+              {perfect && <PerfectTitle kind="test" />}
+              <p className={`text-sm text-neutral-400 ${perfect ? 'mt-2' : ''}`}>Таны оноо</p>
+              {perfect ? (
+                <p className={`mt-1 text-5xl font-extrabold ${perfectText('test')}`}>
+                  {g.score} <span className="text-3xl">/ {g.total}</span>
+                  <span className="ml-3 text-2xl">{percent(g)}%</span>
+                </p>
+              ) : (
+                <p className="mt-1 text-4xl font-bold">
+                  {g.score} <span className="text-2xl text-neutral-400">/ {g.total}</span>
+                  <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
+                </p>
+              )}
+              {perfect && <p className="mt-1 text-sm text-neutral-300">Бүх бодлогыг зөв бодлоо. Гайхалтай!</p>}
               <p className="mt-1 text-sm text-neutral-400">Зарцуулсан хугацаа: {formatDuration(elapsed)}</p>
               {g.total < g.count && <p className="mt-1 text-sm text-amber-300">{g.count - g.total} бодлогын зөв хариултыг багш оруулаагүй тул тооцоогүй.</p>}
               {missed.length > 0 && (
@@ -359,7 +370,7 @@ function Runner(props: {
               </div>
             </div>
           )}
-        </div>
+        </ResultCard>
       )}
 
       <QuestionList full={full}>

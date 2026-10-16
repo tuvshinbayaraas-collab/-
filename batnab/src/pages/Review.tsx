@@ -1,6 +1,7 @@
 import {ArrowLeft} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, LockedNote} from '../components/Notices';
+import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
 import {formatDuration} from '../lib/attempt';
@@ -69,6 +70,14 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         </p>
         {key === undefined ? (
           <p className="mt-2 text-neutral-400">Ачаалж байна…</p>
+        ) : g && isPerfect(g) ? (
+          <div className="mt-2">
+            <PerfectBadge kind={isExam ? 'exam' : 'test'} />
+            <p className={`mt-1 text-3xl font-extrabold ${perfectText(isExam ? 'exam' : 'test')}`}>
+              {g.score} <span className="text-xl">/ {g.total}</span>
+              <span className="ml-3 text-lg">{percent(g)}%</span>
+            </p>
+          </div>
         ) : g ? (
           <p className="mt-2 text-3xl font-bold">
             {g.score} <span className="text-xl text-neutral-400">/ {g.total}</span>

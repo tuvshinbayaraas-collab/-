@@ -1,5 +1,6 @@
 import {AlertTriangle, Check, CloudOff, Timer} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
+import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import {formatDuration, formatTime} from '../lib/attempt';
@@ -152,6 +153,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const chosen = (qi: number) => choiceAt(shown, qi);
   const answered = [...shown].filter((c) => c !== '-').length;
   const g = answerKey ? grade(shown, answerKey, total) : null;
+  const perfect = isPerfect(g);
   const correctOf = (qi: number) => (g ? choiceAt(answerKey, qi) : null);
   const missed = attempt.order.filter((qi) => correctOf(qi) !== null && chosen(qi) !== correctOf(qi));
   const left = exam.end - now;
@@ -246,7 +248,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
       )}
 
       {finished && (
-        <div className="mt-4 rounded-2xl bg-neutral-900 p-5">
+        <ResultCard perfect={perfect ? 'exam' : null} id={`exam-${uid}-${id}-${exam.start}`} className="mt-4">
           {!ended && !done ? (
             status === 'error' ? (
               <div>
@@ -277,11 +279,20 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
             <p className="text-neutral-400">Шалгалт дууссан. Багш зөв хариултыг оруулсны дараа дүн гарна.</p>
           ) : (
             <div>
-              <p className="text-sm text-neutral-400">Шалгалтын оноо</p>
-              <p className="mt-1 text-4xl font-bold">
-                {g.score} <span className="text-2xl text-neutral-400">/ {g.total}</span>
-                <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
-              </p>
+              {perfect && <PerfectTitle kind="exam" />}
+              <p className={`text-sm text-neutral-400 ${perfect ? 'mt-2' : ''}`}>Шалгалтын оноо</p>
+              {perfect ? (
+                <p className={`mt-1 text-5xl font-extrabold ${perfectText('exam')}`}>
+                  {g.score} <span className="text-3xl">/ {g.total}</span>
+                  <span className="ml-3 text-2xl">{percent(g)}%</span>
+                </p>
+              ) : (
+                <p className="mt-1 text-4xl font-bold">
+                  {g.score} <span className="text-2xl text-neutral-400">/ {g.total}</span>
+                  <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
+                </p>
+              )}
+              {perfect && <p className="mt-1 text-sm text-neutral-300">Шалгалтын бүх бодлогыг зөв бодлоо. Баяр хүргэе!</p>}
               <p className="mt-1 text-sm text-neutral-400">
                 Зарцуулсан хугацаа: {formatDuration(saved.seconds)}
                 {!saved.done && ' • хугацаа дуусахад автоматаар илгээгдсэн'}
@@ -303,7 +314,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
               Энэ тестийг дасгал болгож дахин өгөх
             </Link>
           )}
-        </div>
+        </ResultCard>
       )}
 
       <QuestionList full={full}>
