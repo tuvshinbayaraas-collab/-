@@ -1,5 +1,5 @@
 import {lazy, Suspense, useSyncExternalStore} from 'react';
-import {install, useInstall} from '../lib/install';
+import {downloadWindowsApp, install, isWindows, useInstall} from '../lib/install';
 
 const InstallHelp = lazy(() => import('./InstallHelp'));
 
@@ -20,13 +20,17 @@ const useHelpOpen = () =>
   );
 
 /**
- * "Апп татах": opens the browser's install dialog where there is one, otherwise the step-by-step guide.
+ * "Апп татах": on a Windows computer downloads the real program and shows how to install it; elsewhere opens the
+ * browser's install dialog where there is one, otherwise the step-by-step guide.
  * `installed` is true when the site already runs as an installed app (nothing to offer then).
  */
 export function useGetApp() {
   const {installed} = useInstall();
   const start = async () => {
-    if (!(await install())) setHelp(true);
+    if (isWindows()) {
+      downloadWindowsApp();
+      setHelp(true);
+    } else if (!(await install())) setHelp(true);
   };
   return {installed, start};
 }

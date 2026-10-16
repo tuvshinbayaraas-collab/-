@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Batnab",
+  "version": "1.0.0",
+  "identifier": "app.web.batnab",
+  "build": {
+    "frontendDist": "https://batnab.web.app"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Battushig",
+    "copyright": "© Battushig",
+    "category": "Education",
+    "shortDescription": "Batnab — математикийн тест",
+    "longDescription": "Batnab-ийн тестүүдийг өгөх програм. batnab.web.app-ийг тусдаа цонхонд нээнэ.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

@@ -27,8 +27,25 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
-/** Opened from the home-screen icon (already an app). */
-export const runningAsApp = () => matchMedia('(display-mode: standalone)').matches || (navigator as {standalone?: boolean}).standalone === true;
+/** Opened from the home-screen icon, or inside the Windows program (already an app). */
+export const runningAsApp = () =>
+  matchMedia('(display-mode: standalone)').matches ||
+  (navigator as {standalone?: boolean}).standalone === true ||
+  (window as {__BATNAB_DESKTOP__?: boolean}).__BATNAB_DESKTOP__ === true;
+
+/** A Windows computer: it gets the real program (batnab/desktop, built by .github/workflows/batnab-desktop.yml). */
+export const isWindows = () => platform() === 'desktop' && /Windows/.test(navigator.userAgent);
+export const WINDOWS_APP = 'https://github.com/tuvshinbayaraas-collab/-/releases/download/batnab-desktop/Batnab-Setup.exe';
+
+/** Starts downloading the Windows installer (the server sends it as a file, so the page stays). */
+export function downloadWindowsApp() {
+  const a = document.createElement('a');
+  a.href = WINDOWS_APP;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 export type Platform = 'ios' | 'android' | 'desktop';
 export function platform(): Platform {

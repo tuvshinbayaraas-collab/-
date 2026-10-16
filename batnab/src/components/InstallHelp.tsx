@@ -2,7 +2,7 @@ import {ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Copy, El
 import {useEffect, useState, type ReactNode} from 'react';
 import appIcon from '../lib/appIcon';
 import {useBackdrop} from '../lib/backdrop';
-import {platform} from '../lib/install';
+import {install, isWindows, platform, useInstall, WINDOWS_APP} from '../lib/install';
 
 // iPhones have no Mongolian interface, so the guide quotes the buttons as the phone shows them (English or Russian)
 // and explains them in Mongolian.
@@ -38,6 +38,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
 
   const p = platform();
   const ios = p === 'ios' ? iosBrowser() : null;
+  const win = isWindows();
   // On iPhone Safari the Share button is in the browser's own bar, below the page: point at it.
   const arrow = ios?.browser === 'safari' ? (ios.ipad ? 'top-right' : ios.safari26 ? 'bottom-right' : 'bottom-center') : null;
 
@@ -56,15 +57,15 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
         <div className="flex items-start gap-3">
           <img src={appIcon} alt="" className="h-12 w-12 rounded-xl" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">{p === 'ios' ? 'Нүүр дэлгэцэд нэмэх' : 'Batnab-г апп болгож суулгах'}</h2>
-            <p className="text-sm text-neutral-400">Дараа нь нүүр дэлгэцийн дүрснээс апп шиг нээгдэнэ.</p>
+            <h2 className="text-lg font-semibold">{win ? 'Batnab програмыг суулгах' : p === 'ios' ? 'Нүүр дэлгэцэд нэмэх' : 'Batnab-г апп болгож суулгах'}</h2>
+            <p className="text-sm text-neutral-400">{win ? 'Windows-ийн жинхэнэ програм: Start цэс, taskbar-аас нээгдэнэ.' : 'Дараа нь нүүр дэлгэцийн дүрснээс апп шиг нээгдэнэ.'}</p>
           </div>
           <button onClick={onClose} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
             <X size={18} />
           </button>
         </div>
 
-        <ol className="mt-5 space-y-5">{ios ? <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : <DesktopSteps />}</ol>
+        <ol className="mt-5 space-y-5">{ios ? <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : win ? <WindowsSteps /> : <DesktopSteps />}</ol>
 
         <p className="mt-5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Туршилтын хувилбар: тест, шалгалт өгөхөд интернэт шаардлагатай хэвээр.</p>
         <button onClick={onClose} className="mt-4 w-full rounded-full bg-neutral-800 py-2 text-sm font-medium hover:bg-neutral-700">
@@ -273,6 +274,68 @@ function DesktopSteps() {
         <Btn label="Batnab-г суулгах" mn="Install Batnab" />-г дарна.
       </Step>
     </>
+  );
+}
+
+// Windows shows its own words in its own language (English or Russian on most computers here).
+const W = ru
+  ? {keep: 'Сохранить', protected: 'Система Windows защитила ваш компьютер', more: 'Подробнее', run: 'Выполнить в любом случае', dont: 'Не выполнять'}
+  : {keep: 'Keep', protected: 'Windows protected your PC', more: 'More info', run: 'Run anyway', dont: "Don't run"};
+
+/** The real Windows program: the download has already started; how to get past the warnings and open it. */
+function WindowsSteps() {
+  const {canPrompt} = useInstall();
+  return (
+    <>
+      <Step n={1}>
+        <b>Batnab-Setup.exe</b> татагдаж эхэллээ. Эхлээгүй бол{' '}
+        <a href={WINDOWS_APP} className="font-semibold text-blue-400 hover:underline">
+          энд дарж татна
+        </a>
+        .
+      </Step>
+      <Step n={2}>
+        Татагдсан файлыг нээнэ (хөтчийн татсан файлууд эсвэл <b>Downloads</b> хавтас). Хөтөч «түгээмэл биш файл» гэж анхааруулбал <Btn label={W.keep} mn="хадгалах" />{' '}
+        дарна.
+      </Step>
+      <Step n={3} mock={<SmartScreen />}>
+        Цэнхэр цонх гарвал <Btn label={W.more} mn="дэлгэрэнгүй" /> → <Btn label={W.run} mn="ажиллуулах" /> дарна. Програм шинэ, гарын үсэг (сертификат)-гүй учраас
+        Windows ингэж асуудаг.
+      </Step>
+      <Step n={4}>
+        Суулгаж дуусахад <Btn label="Run Batnab" mn="нээх" /> дарна. Дараа нь <b>Start</b> цэснээс «Batnab» гэж хайж нээнэ.
+      </Step>
+      {canPrompt && (
+        <li className="text-sm text-neutral-400">
+          Програм суулгах боломжгүй бол{' '}
+          <button onClick={() => install()} className="font-semibold text-blue-400 hover:underline">
+            хөтөч дээрээ апп болгож
+          </button>{' '}
+          болно.
+        </li>
+      )}
+    </>
+  );
+}
+
+/** What Windows SmartScreen looks like, with the two places to press. */
+function SmartScreen() {
+  return (
+    <div className="rounded-lg bg-[#1f5fa8] p-3 text-white">
+      <p className="text-sm font-semibold">{W.protected}</p>
+      <p className="mt-1 text-[11px] leading-snug text-white/75">Microsoft Defender SmartScreen prevented an unrecognized app from starting.</p>
+      <p className="mt-1.5">
+        <Hot>
+          <span className="px-1 text-xs font-semibold text-white underline">{W.more}</span>
+        </Hot>
+      </p>
+      <div className="mt-2 flex justify-end gap-2 text-xs">
+        <Hot>
+          <span className="px-2 font-semibold text-white">{W.run}</span>
+        </Hot>
+        <span className="rounded border border-white/60 px-2 py-1">{W.dont}</span>
+      </div>
+    </div>
   );
 }
 
