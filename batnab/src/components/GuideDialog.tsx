@@ -44,7 +44,7 @@ interface Step {
   icon?: ReactNode;
   tone?: keyof typeof TONES;
   title: string;
-  text: ReactNode;
+  text?: ReactNode;
   /** A short hint under the text. */
   tip?: ReactNode;
   /** Optional shortcut: a page to open from the guide. */
@@ -132,7 +132,6 @@ export default function GuideDialog({role}: {role: GuideRole}) {
         ? [
             {
               title: `Сайн уу, ${shownName(session.profile)}!`,
-              text: 'Энд математикийн тест өгч, дүнгээ шууд харна. Хэрхэн ашиглахыг хэдхэн алхмаар үзүүлье.',
             },
             {
               icon: <ListChecks size={34} />,
@@ -146,13 +145,13 @@ export default function GuideDialog({role}: {role: GuideRole}) {
               tone: 'violet',
               title: 'Бодлогууд холилдоно',
               text: 'Тест өгөх бүрт бодлогуудын дараалал өөр байна. Дээд талын дугаарууд дээр дарж хүссэн бодлого руугаа шууд очно.',
-              tip: 'Хариулсан бодлогын дугаар цэнхэр болно. Алгассан бодлогоо ингэж амархан олно.',
+              tip: 'Хариулсан бодлогын дугаар цэнхэр болно.',
             },
             {
               icon: <Target size={34} />,
               tone: 'blue',
               title: 'Дүнгээ харах',
-              text: '«Дуусгах» дарахад оноо тань гарч, алдсан бодлого бүрт «Энэ бодлого дээр алдсан» гэж бичигдэнэ. Зөв хариулт нь харагдахгүй.',
+              text: '«Дуусгах» дарахад оноо тань гарч, алдсан бодлого бүрт «Энэ бодлого дээр алдсан» гэж бичигдэнэ.',
               tip: settings?.retakes === false ? 'Тест бүрийг долоо хоногт нэг л удаа өгнө.' : 'Алдсан бодлогоо дахин бодоод тестээ дахин өгч болно.',
               go: {label: 'Миний дүнгүүдийг нээх', href: '/results'},
             },
@@ -197,7 +196,6 @@ export default function GuideDialog({role}: {role: GuideRole}) {
         : [
             {
               title: 'Batnab-д тавтай морил!',
-              text: 'Энд математикийн тест өгч, дүнгээ шууд харна.',
             },
             {
               icon: <LogIn size={34} />,
@@ -235,7 +233,10 @@ export default function GuideDialog({role}: {role: GuideRole}) {
   const next = () => (last ? ok() : goTo(at + 1));
   const back = () => goTo(at - 1);
 
-  useEffect(() => nextRef.current?.focus(), []);
+  // On a computer Enter or → goes on straight away; a phone gets no focus ring on a button nobody touched yet.
+  useEffect(() => {
+    if (!matchMedia('(pointer: coarse)').matches) nextRef.current?.focus();
+  }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') ok();
@@ -292,7 +293,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
                 <img src={appIcon} alt="" className="h-20 w-20 rounded-3xl" />
               )}
               <h2 className="mt-5 text-xl font-bold">{x.title}</h2>
-              <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-neutral-300">{x.text}</p>
+              {x.text && <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-neutral-300">{x.text}</p>}
               {x.tip && (
                 <p className="mt-4 flex max-w-sm gap-2 rounded-xl bg-neutral-800/70 px-3 py-2.5 text-left text-sm text-neutral-300">
                   <Lightbulb size={16} className="mt-0.5 shrink-0 text-amber-300" /> <span>{x.tip}</span>
@@ -333,7 +334,11 @@ export default function GuideDialog({role}: {role: GuideRole}) {
               <ArrowLeft size={16} /> Буцах
             </button>
           )}
-          <button ref={nextRef} onClick={next} className="flex items-center justify-center gap-1.5 rounded-full bg-blue-500 py-3 text-sm font-semibold text-black hover:bg-blue-400">
+          <button
+            ref={nextRef}
+            onClick={next}
+            className="flex items-center justify-center gap-1.5 rounded-full bg-blue-500 py-3 text-sm font-semibold text-black outline-none hover:bg-blue-400 focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+          >
             {last ? (
               <>
                 <Check size={16} /> Ойлголоо
