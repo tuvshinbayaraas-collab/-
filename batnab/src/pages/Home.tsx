@@ -1,5 +1,6 @@
 import {BookOpen, ChevronRight, FlaskConical, GraduationCap, Lock, LogIn, School, Timer} from 'lucide-react';
 import {InactiveNote, loginHref} from '../components/Notices';
+import Today from '../components/Today';
 import {inProgress} from '../lib/attempt';
 import {useClasses} from '../lib/classes';
 import {examState, useExamAnswer, useExams, type Exam} from '../lib/exams';
@@ -50,6 +51,7 @@ export default function Home() {
               <School size={15} /> {myClass}
             </p>
           )}
+          <Today uid={session.user!.uid} classId={session.profile?.class} />
         </>
       ) : (
         <>

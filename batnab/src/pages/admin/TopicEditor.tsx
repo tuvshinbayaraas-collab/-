@@ -6,6 +6,7 @@ import {useClasses} from '../../lib/classes';
 import {imageFile} from '../../lib/photo';
 import {Link, navigate} from '../../lib/router';
 import {
+  copyTopic,
   deleteTopic,
   imagesOf,
   LETTER_CODES,
@@ -51,6 +52,7 @@ const snapshot = (t: Topic, k: Record<string, string>) =>
   JSON.stringify([t.title.trim(), t.intro?.trim() ?? '', t.published, Object.keys(t.classes ?? {}).sort(), t.lesson, t.problems, Object.entries(k).filter(([, v]) => v).sort()]);
 
 function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>; data: AdminData}) {
+  const topics = useTopics();
   const [draft, setDraft] = useState<Topic>(() => structuredClone(topic));
   const [answers, setAnswers] = useState<Record<string, string>>(() => ({...keys}));
   const [saved, setSaved] = useState(() => snapshot(topic, keys));
@@ -85,6 +87,15 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+  const copy = async () => {
+    if (dirty && !confirm('Хадгалсан хувилбарыг хуулна (хадгалаагүй өөрчлөлт орохгүй). Үргэлжлүүлэх үү?')) return;
+    try {
+      const all = topics ?? [];
+      navigate(`/admin/topic/${await copyTopic(topic, keys, Math.max(Date.now(), ...all.map((t) => t.order + 1)))}`);
+    } catch (e) {
+      alert(`Алдаа: ${(e as Error).message}`);
     }
   };
   const remove = async () => {
@@ -184,9 +195,14 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
             </button>
           </section>
 
-          <button onClick={remove} className="flex items-center gap-1.5 text-sm text-red-400 hover:underline">
-            <Trash2 size={15} /> Сэдвийг устгах
-          </button>
+          <div className="flex flex-wrap gap-4">
+            <button onClick={copy} className="flex items-center gap-1.5 text-sm text-neutral-300 hover:underline">
+              <Copy size={15} /> Сэдвийг хуулбарлах (өөр ангид)
+            </button>
+            <button onClick={remove} className="flex items-center gap-1.5 text-sm text-red-400 hover:underline">
+              <Trash2 size={15} /> Сэдвийг устгах
+            </button>
+          </div>
 
           <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/95 px-4 py-3 shadow-xl backdrop-blur">
             <span className={`min-w-0 flex-1 text-sm ${dirty ? 'text-amber-300' : 'text-neutral-400'}`}>

@@ -101,7 +101,7 @@
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$testId": {
-        ".read": "!(root.child('exams').child($testId).exists() && now <= root.child('exams').child($testId).child('end').val()) && (root.child('settings/trial').val() === $testId || (!root.child('settings/trial').exists() && $testId === '1A') || (auth != null && (root.child('results').child(auth.uid).child($testId).exists() || root.child('examAnswers').child($testId).child(auth.uid).exists())))",
+        ".read": "!(root.child('exams').child($testId).exists() && now <= root.child('exams').child($testId).child('end').val()) && (root.child('settings/trial').val() === $testId || (!root.child('settings/trial').exists() && $testId === '1A') || (auth != null && (root.child('results').child(auth.uid).child($testId).exists() || root.child('examAnswers').child($testId).child(auth.uid).exists() || root.child('mistakeTests').child(auth.uid).child($testId).exists())))",
         ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"
       }
     },
@@ -320,6 +320,202 @@
             "$other": {
               ".validate": false
             }
+          }
+        }
+      }
+    },
+    "assignments": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$aid": {
+        ".validate": "$aid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['kind', 'ref', 'due', 'createdAt'])",
+        "kind": {
+          ".validate": "newData.val() === 'topic' || newData.val() === 'test'"
+        },
+        "ref": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+        },
+        "due": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "classes": {
+          "$cid": {
+            ".validate": "newData.val() === true"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "announcements": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".validate": "$id.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['text', 'at'])",
+        "text": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 600"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "classes": {
+          "$cid": {
+            ".validate": "newData.val() === true"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "questions": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$qid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && ((!data.exists() && newData.exists()) || (data.exists() && !newData.exists()))",
+          ".validate": "$qid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['text', 'at', 'ctx'])",
+          "text": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 600"
+          },
+          "at": {
+            ".validate": "newData.isNumber() && (data.exists() ? newData.val() === data.val() : newData.val() === now)"
+          },
+          "ctx": {
+            ".validate": "newData.hasChildren(['s', 't', 'label'])",
+            "s": {
+              ".validate": "newData.val() === 'p' || newData.val() === 't'"
+            },
+            "t": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "q": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "label": {
+              ".validate": "newData.isString() && newData.val().length <= 120"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "reply": {
+            ".validate": "newData.hasChildren(['text', 'at'])",
+            "text": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "seen": {
+            ".write": "auth != null && auth.uid === $uid && data.parent().exists()",
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "mistakes": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true",
+        "$mid": {
+          ".validate": "$mid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['s', 't', 'q', 'box', 'next', 'at'])",
+          "s": {
+            ".validate": "newData.val() === 'p' || newData.val() === 't'"
+          },
+          "t": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "q": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "box": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4"
+          },
+          "next": {
+            ".validate": "newData.isNumber()"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "mistakeTests": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$testId": {
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && !data.exists() && newData.exists() && root.child('results').child($uid).child($testId).exists()",
+          ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.val() === true"
+        }
+      }
+    },
+    "stats": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true",
+        "streak": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "best": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "last": {
+          ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+        },
+        "learned": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "days": {
+          "$day": {
+            ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "history": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$week": {
+          ".validate": "$week.matches(/^[0-9]{13}$/)",
+          "$testId": {
+            ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.hasChildren(['total', 'n'])",
+            "score": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('total').val()"
+            },
+            "total": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100"
+            },
+            "n": {
+              ".validate": "newData.isNumber() && newData.val() >= 1"
+            },
+            "$other": {
+              ".validate": false
+            },
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && $week < (now - ((now - 144000000) % 604800000)) + ''"
           }
         }
       }

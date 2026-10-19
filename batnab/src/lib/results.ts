@@ -5,6 +5,7 @@ import {onValue, push, ref, serverTimestamp, set} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {testInfo} from '../tests';
 import {auth, db} from './firebase';
+import {archiveMine} from './history';
 import {useSession} from './session';
 import {inThisWeek} from './week';
 
@@ -44,11 +45,6 @@ export function flatten(uid: string, tree: Tree | null): Result[] {
   return out.sort((a, b) => b.at - a.at);
 }
 
-/** Deletes results from before this week's reset (best effort: the rules allow it once the week has turned). */
-export function clearOld(results: Result[]) {
-  for (const r of results) if (!inThisWeek(r.at)) set(ref(db, `results/${r.uid}/${r.test}/${r.id}`), null).catch(() => {});
-}
-
 /** The signed-in user's results from this week, newest first: null while loading. */
 export function useMyResults() {
   const {user, ready} = useSession();
@@ -61,7 +57,7 @@ export function useMyResults() {
       ref(db, `results/${uid}`),
       (s) => {
         const all = flatten(uid, s.val());
-        clearOld(all);
+        archiveMine(uid, all).catch(() => {});
         setResults({uid, list: all.filter((r) => inThisWeek(r.at))});
       },
       () => setResults({uid, list: []}),

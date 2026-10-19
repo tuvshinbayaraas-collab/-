@@ -201,6 +201,35 @@ export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]
   });
 }
 
+/** A copy of the topic (a draft, its pictures and answers too) for another class; returns the new id. */
+export async function copyTopic(t: Topic, keys: Record<string, string>, order: number) {
+  const id = newId();
+  const ops: Record<string, unknown> = {};
+  const map = new Map<string, string>();
+  for (const iid of imagesOf(t)) {
+    const url = (await get(ref(db, `topicImages/${t.id}/${iid}`))).val();
+    if (typeof url !== 'string') continue;
+    const nid = push(ref(db, `topicImages/${id}`)).key!;
+    map.set(iid, nid);
+    ops[`topicImages/${id}/${nid}`] = url;
+  }
+  const img = (i?: string) => (i ? (map.get(i) ?? null) : null);
+  const pids = new Map(t.problems.map((p) => [p.id, newId()]));
+  ops[`topics/${id}`] = {
+    title: `${t.title} (хуулбар)`.slice(0, 80),
+    intro: t.intro ?? null,
+    published: false,
+    classes: null,
+    order,
+    createdAt: serverTimestamp(),
+    lesson: t.lesson.flatMap((b): Block[] => (b.t === 'text' ? [b] : img(b.img) ? [{t: 'img', img: img(b.img)!}] : [])),
+    problems: t.problems.map((p) => ({...p, id: pids.get(p.id)!, img: img(p.img), solImg: img(p.solImg), choices: p.choices ?? null, sol: p.sol ?? null})),
+  };
+  ops[`topicKeys/${id}`] = Object.fromEntries(Object.entries(keys).flatMap(([pid, k]) => (pids.has(pid) && k ? [[pids.get(pid)!, k]] : [])));
+  await update(ref(db), ops);
+  return id;
+}
+
 export const deleteTopic = (tid: string) => update(ref(db), {[`topics/${tid}`]: null, [`topicKeys/${tid}`]: null, [`topicImages/${tid}`]: null});
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});

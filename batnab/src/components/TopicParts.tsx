@@ -1,6 +1,7 @@
 import {Check, ImageOff, Lightbulb, RotateCcw, X} from 'lucide-react';
 import {useEffect, useState, type FormEvent} from 'react';
 import {useBackdrop} from '../lib/backdrop';
+import AskButton from './Ask';
 import {answer, LETTER_CODES, LETTER_LABELS, normalize, readKey, useTopicImage, type Letter, type Problem} from '../lib/topics';
 import MathText from './MathText';
 
@@ -59,12 +60,26 @@ export interface Outcome {
 /**
  * One problem for a student: pick А–Д (or write the answer), "Шалгах" records the first answer and shows whether it
  * was right, the right answer and the solution. "Дахин бодох" lets them try again just for practice (not recorded).
- * The teacher (`teacher`) checks against the key without anything being recorded.
+ * The teacher (`teacher`) checks against the key without anything being recorded. With `review` (the mistakes
+ * notebook) it starts as a practice try and reports whether it was right. `ask`: the "Багшаас асуух" button's label.
  */
-export function ProblemView({tid, p, num, first, teacher, onOutcome}: {tid: string; p: Problem; num: number; first?: {a: string}; teacher?: boolean; onOutcome?: (o: Outcome) => void}) {
+export function ProblemView(props: {
+  tid: string;
+  p: Problem;
+  num: number;
+  first?: {a: string};
+  teacher?: boolean;
+  onOutcome?: (o: Outcome) => void;
+  review?: (right: boolean) => void;
+  ask?: string;
+  heading?: string;
+}) {
+  const {tid, p, num, teacher, onOutcome, review, ask, heading} = props;
+  const first = review ? undefined : props.first;
   const [pick, setPick] = useState<string>('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [practice, setPractice] = useState(false);
+  const [practice, setPractice] = useState(!!review);
+  const [reported, setReported] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -97,6 +112,10 @@ export function ProblemView({tid, p, num, first, teacher, onOutcome}: {tid: stri
       if (practice || teacher || first) {
         const key = await readKey(tid, p.id);
         setOutcome({a: value, key});
+        if (review && !reported && key !== null) {
+          setReported(true);
+          review(value === key);
+        }
       } else {
         const key = await answer(tid, p.id, value);
         const o = {a: value, key};
@@ -123,7 +142,7 @@ export function ProblemView({tid, p, num, first, teacher, onOutcome}: {tid: stri
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 sm:p-5 ${done ? (ok ? 'ring-1 ring-green-500/40' : 'ring-1 ring-red-500/40') : ''}`}>
       <div className="flex items-center gap-2">
-        <span className="font-bold">{num}-р бодлого</span>
+        <span className="font-bold">{heading ?? `${num}-р бодлого`}</span>
         {practice && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-400">дасгал</span>}
         {first && !practice && (
           <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${ok ? 'bg-green-500/15 text-green-300' : done ? 'bg-red-500/15 text-red-300' : 'bg-neutral-800 text-neutral-400'}`}>
@@ -204,11 +223,16 @@ export function ProblemView({tid, p, num, first, teacher, onOutcome}: {tid: stri
               {p.solImg && <TopicPicture tid={tid} iid={p.solImg} className="mt-2 w-full" />}
             </details>
           )}
-          {outcome.key !== null && (
+          {outcome.key !== null && !review && (
             <button type="button" onClick={again} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700">
               <RotateCcw size={15} /> Дахин бодох
             </button>
           )}
+        </div>
+      )}
+      {ask && !teacher && (
+        <div className="mt-3 flex justify-end border-t border-neutral-800 pt-2">
+          <AskButton ctx={{s: 'p', t: tid, q: p.id, label: ask}} />
         </div>
       )}
     </li>

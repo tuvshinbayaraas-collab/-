@@ -12,6 +12,7 @@ import {useSettings} from '../../lib/settings';
 import {TESTS} from '../../tests';
 import {gradeOf, mean, type AdminData} from './data';
 import {Stat} from './Overview';
+import StudentGrowth from './StudentGrowth';
 
 export default function StudentDetail({uid, data}: {uid: string; data: AdminData}) {
   const student = data.students.find((s) => s.uid === uid);
@@ -196,6 +197,8 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
           </ul>
         )}
       </section>
+
+      <StudentGrowth uid={uid} data={data} />
     </div>
   );
 }

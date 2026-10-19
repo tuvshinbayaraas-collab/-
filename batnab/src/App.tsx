@@ -38,6 +38,9 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const Topics = lazy(() => import('./pages/Topics'));
 const TopicView = lazy(() => import('./pages/TopicView'));
+const Mistakes = lazy(() => import('./pages/Mistakes'));
+const Daily = lazy(() => import('./pages/Daily'));
+const Questions = lazy(() => import('./pages/Questions'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -82,9 +85,12 @@ export default function App() {
   else if (path === '/settings') page = <SettingsPage />;
   else if (parts[0] === 'u' && parts.length === 2) page = <PublicProfile uid={parts[1]} />;
   else if (path === '/topics') page = <Topics />;
+  else if (path === '/mistakes') page = <Mistakes />;
+  else if (path === '/daily') page = <Daily />;
+  else if (path === '/questions') page = <Questions />;
   else if (parts[0] === 'topics' && parts.length === 2) page = <TopicView id={parts[1]} />;
-  else if (parts[0] === 'admin' && (parts.length === 1 || ((parts[1] === 'student' || parts[1] === 'topic') && parts.length === 3)))
-    page = <Admin student={parts[1] === 'student' ? parts[2] : undefined} topic={parts[1] === 'topic' ? parts[2] : undefined} />;
+  else if (parts[0] === 'admin' && (parts.length === 1 || (parts[1] === 'report' && parts.length === 2) || ((parts[1] === 'student' || parts[1] === 'topic') && parts.length === 3)))
+    page = <Admin student={parts[1] === 'student' ? parts[2] : undefined} topic={parts[1] === 'topic' ? parts[2] : undefined} report={parts[1] === 'report'} />;
   else
     page = (
       <CenterNote title="Хуудас олдсонгүй">

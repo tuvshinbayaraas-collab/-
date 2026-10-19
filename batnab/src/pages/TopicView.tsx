@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectTitle, ResultCard} from '../components/Perfect';
 import {ProblemView, Rich, TopicPicture, type Outcome} from '../components/TopicParts';
+import {addMistakes, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {forClassOf, useProgress, useTopics} from '../lib/topics';
@@ -13,6 +14,7 @@ export default function TopicView({id}: {id: string}) {
   const topics = useTopics();
   const progress = useProgress(session.user && !session.admin ? session.user.uid : undefined);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  const mistakes = useMistakes(session.user && !session.admin ? session.user.uid : undefined);
   if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
   if (!session.user) return <LockedNote text="Сэдвийг үзэхийн тулд нэвтэрнэ үү." />;
   if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
@@ -93,7 +95,12 @@ export default function TopicView({id}: {id: string}) {
                 num={i + 1}
                 first={mine[p.id]}
                 teacher={session.admin}
-                onOutcome={(o) => setOutcomes((x) => (x[p.id]?.a === o.a && x[p.id]?.key === o.key ? x : {...x, [p.id]: o}))}
+                ask={`${t.title} · ${i + 1}-р бодлого`}
+                onOutcome={(o) => {
+                  setOutcomes((x) => (x[p.id]?.a === o.a && x[p.id]?.key === o.key ? x : {...x, [p.id]: o}));
+                  // A wrong first answer goes into the mistakes notebook (once).
+                  if (!session.admin && mistakes && o.key !== null && o.a !== o.key) addMistakes([{s: 'p', t: t.id, q: p.id}], mistakes).catch(() => {});
+                }}
               />
             ))}
           </ol>

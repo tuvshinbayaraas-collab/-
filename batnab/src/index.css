@@ -60,3 +60,19 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+/* Printing (the teacher's class report): the page on white, without the site's header, footer and menus. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body > #root > div > header,
+  body > #root > div > footer {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

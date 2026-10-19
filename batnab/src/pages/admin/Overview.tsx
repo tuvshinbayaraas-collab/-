@@ -12,6 +12,7 @@ import {LETTERS, type Question, type Test} from '../../tests/types';
 import {gradeOf, mean, reports, testReport, timeAgo, type AdminData, type QuestionStat, type Student, type TestReport} from './data';
 import {useTest} from './useTest';
 import WeekBanner from './WeekBanner';
+import WeakTopics from './WeakTopics';
 
 // Chart colours on the dark surface (#171717). One measure → one hue (blue); the class table uses the same hue as a
 // sequential ramp; "hard question" uses the warning status colour, always with an icon and a label.
@@ -172,6 +173,7 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
           })}
         </div>
       </section>
+      <WeakTopics data={data} />
 
       {/* On a wide screen the class table and the latest attempts sit side by side. */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">

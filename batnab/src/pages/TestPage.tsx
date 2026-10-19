@@ -1,5 +1,5 @@
 import {AlertTriangle, Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
@@ -10,6 +10,7 @@ import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {useDbConnected} from '../lib/connection';
 import {submitScore} from '../lib/leaderboard';
+import {addMistakes, useMistakes} from '../lib/mistakes';
 import {ask, useLeaveCounter} from '../lib/leaves';
 import {usePrefs} from '../lib/prefs';
 import {saveResult, useMyResults} from '../lib/results';
@@ -182,6 +183,16 @@ function Runner(props: {
     submitScore(id, graded, Math.round((attempt.finished - attempt.started) / 1000), attempt.resultId, session.profile).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBoard, attempt?.resultId, graded?.score, graded?.total]);
+  // Questions answered wrong in a saved attempt go into the mistakes notebook (once per attempt).
+  const mistakes = useMistakes(mode === 'student' ? session.user?.uid : undefined);
+  const noted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!mistakes || !key || !attempt?.finished || !attempt.resultId || noted.current === attempt.resultId) return;
+    noted.current = attempt.resultId;
+    const wrong = attempt.order.filter((qi) => attempt.answers[qi] !== null && choiceAt(key, qi) !== null && attempt.answers[qi] !== choiceAt(key, qi));
+    addMistakes(wrong.map((qi) => ({s: 't', t: id, q: String(qi)})), mistakes).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mistakes !== null, key, attempt?.resultId]);
 
   if (blocked)
     return (

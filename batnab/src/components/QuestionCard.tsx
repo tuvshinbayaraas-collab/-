@@ -20,8 +20,10 @@ export default function QuestionCard(props: {
   keyMode?: boolean;
   onChoose?: (ci: number) => void;
   id?: string;
+  /** Shown at the bottom of the card (e.g. "Багшаас асуух"). */
+  footer?: ReactNode;
 }) {
-  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id} = props;
+  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id, footer} = props;
   const graded = checked && correct !== null;
   const right = graded && chosen === correct;
   const figures = q.c.some((c) => typeof c !== 'string');
@@ -86,6 +88,7 @@ export default function QuestionCard(props: {
         </p>
       )}
       {checked && correct === null && <p className="mt-3 text-sm text-neutral-500">Энэ бодлогын зөв хариултыг багш оруулаагүй байна.</p>}
+      {footer && <div className="mt-3 flex justify-end border-t border-neutral-800 pt-2">{footer}</div>}
     </li>
   );
 }

@@ -6,6 +6,8 @@ const ANCHOR = 144_000_000;
 
 /** When the current week started (the last reset). */
 export const weekStart = (now = Date.now()) => now - ((now - ANCHOR) % WEEK);
+/** The start of the week `at` falls in. */
+export const weekOf = (at: number) => weekStart(at);
 /** When the next reset happens. */
 export const nextReset = (now = Date.now()) => weekStart(now) + WEEK;
 export const inThisWeek = (at: number, now = Date.now()) => at >= weekStart(now);

@@ -1,12 +1,16 @@
 import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Medal as MedalIcon} from 'lucide-react';
 import {useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
+import {BadgeGrid, useBadgeFacts} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
+import {ProgressChart, useWeeks} from '../components/Progress';
 import Sheet from '../components/Sheet';
 import {saveNickname, savePhoto} from '../lib/accounts';
 import {useClasses} from '../lib/classes';
+import {useKeys} from '../lib/keys';
 import {PLACES, refreshMine, useMedals, weekLabel} from '../lib/leaderboard';
+import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -42,9 +46,24 @@ export default function Profile() {
         <Row icon={<KeyRound size={18} />} label="Нууц үг" value={<span className="tracking-widest">••••••</span>} onClick={() => setOpen('password')} />
       </div>
       {!session.admin && <Medals uid={session.user.uid} />}
+      {!session.admin && <Growth uid={session.user.uid} />}
       {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+/** The progress chart, then the badges. */
+function Growth({uid}: {uid: string}) {
+  const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
+  const weeks = useWeeks(uid, results, keys);
+  const facts = useBadgeFacts(uid, results, keys);
+  return (
+    <>
+      {weeks && <ProgressChart points={weeks} />}
+      {facts && <BadgeGrid facts={facts} />}
+    </>
   );
 }
 

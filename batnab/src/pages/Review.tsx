@@ -2,6 +2,7 @@ import {ArrowLeft} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
+import AskButton from '../components/Ask';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
 import {formatDuration} from '../lib/attempt';
@@ -106,7 +107,16 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
       <QuestionList>
         {test.questions.map((q, i) =>
           onlyWrong && !missed.includes(i) ? null : (
-            <QuestionCard key={i} num={i + 1} q={q} chosen={choiceAt(result.answers, i)} checked correct={correctAt(i)} reveal={reveal} />
+            <QuestionCard
+              key={i}
+              num={i + 1}
+              q={q}
+              chosen={choiceAt(result.answers, i)}
+              checked
+              correct={correctAt(i)}
+              reveal={reveal}
+              footer={!session.admin && missed.includes(i) ? <AskButton ctx={{s: 't', t: testId, q: String(i), label: `${test.title} · ${i + 1}-р бодлого`}} /> : undefined}
+            />
           ),
         )}
       </QuestionList>

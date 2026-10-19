@@ -1,11 +1,12 @@
 // Everything the teacher's dashboard shows, read live from the database (admins may read users, results and keys).
-import {onValue, ref, update} from 'firebase/database';
+import {get, onValue, ref, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
 import {compare, overall, parseWeek, publicName, pubOf, weekKey, type Entry} from '../../lib/leaderboard';
-import {clearOld, flatten, type Result} from '../../lib/results';
+import {archiveOps, type History} from '../../lib/history';
+import {flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
 import {useSettings} from '../../lib/settings';
 import {inThisWeek, weekStart} from '../../lib/week';
@@ -57,8 +58,21 @@ export function useAdminData() {
       }
     }
     if (Object.keys(gone).length) update(ref(db), gone).catch(() => {});
-    clearOld(Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree) : [])));
-  }, [raw.results, raw.users, raw.exams, raw.error]);
+    // Finished weeks' results: a summary goes into everyone's history (for the progress charts), then they go.
+    if (!raw.keys) return;
+    const old = Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree).filter((r) => !inThisWeek(r.at)) : []));
+    if (!old.length) return;
+    const keys = raw.keys;
+    get(ref(db, 'history'))
+      .then((h) => {
+        const have = (h.val() ?? {}) as Record<string, History>;
+        const ops: Record<string, unknown> = {};
+        for (const uid of new Set(old.map((r) => r.uid)))
+          Object.assign(ops, archiveOps(uid, old.filter((r) => r.uid === uid), Object.fromEntries(TESTS.map((t) => [t.id, typeof keys[t.id] === 'string' ? keys[t.id] : null])), have[uid] ?? {}));
+        if (Object.keys(ops).length) return update(ref(db), ops);
+      })
+      .catch(() => {});
+  }, [raw.results, raw.users, raw.exams, raw.keys, raw.error]);
   // The leaderboard stays right: this week's entries are worked out again from the results and keys (what a student
   // sent is trusted only until then), and a finished week's top 3 become medals.
   useEffect(() => {
