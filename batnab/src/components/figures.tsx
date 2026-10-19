@@ -20,9 +20,24 @@ interface PlotProps {
   curve?: (x: number) => number;
   /** Hatched intersection of half-planes. */
   region?: Linear[];
+  /** Hatched areas between two functions over [from, to] (e.g. under a curve). */
+  fills?: Fill[];
   dashed?: [P, P][];
-  xLabels?: [number, string][];
+  /** Ticks with their text, below the axis ('above': over it, where a curve runs below). */
+  xLabels?: [number, string, 'above'?][];
   yLabels?: [number, string][];
+  /** Where "O" goes: left of the origin, below the axis, or nowhere (where a curve runs through the origin). */
+  origin?: 'left' | 'below' | false;
+}
+
+/** A dark outline behind label text, so a line running through it doesn't hide it. */
+const HALO = {stroke: '#171717', strokeWidth: 3, paintOrder: 'stroke'} as const;
+
+interface Fill {
+  from: number;
+  to: number;
+  lo: (x: number) => number;
+  hi: (x: number) => number;
 }
 
 /** Clip the line a·x + b·y = c to the box; null if it misses. */
@@ -63,7 +78,7 @@ function clipPolygon(poly: P[], [a, b, c]: Linear): P[] {
   return out;
 }
 
-export function Plot({x, y, scale = 18, lines = [], curve, region, dashed = [], xLabels = [], yLabels = []}: PlotProps) {
+export function Plot({x, y, scale = 18, lines = [], curve, region, fills = [], dashed = [], xLabels = [], yLabels = [], origin = 'left'}: PlotProps) {
   const id = useId().replace(/:/g, '');
   const pad = 14;
   const w = (x[1] - x[0]) * scale + pad * 2;
@@ -78,13 +93,20 @@ export function Plot({x, y, scale = 18, lines = [], curve, region, dashed = [], 
     for (const half of region) shaded = clipPolygon(shaded, half);
   }
 
+  const clampY = (v: number) => Math.min(y[1], Math.max(y[0], v));
+  const fillPts = fills.map(({from, to, lo, hi}) => {
+    const xs = Array.from({length: 61}, (_, i) => from + ((to - from) * i) / 60);
+    return [...xs.map((v): P => [v, clampY(hi(v))]), ...xs.reverse().map((v): P => [v, clampY(lo(v))])];
+  });
+
   let curvePath = '';
   if (curve) {
     let pen = false;
     for (let i = 0; i <= 240; i++) {
       const vx = x[0] + ((x[1] - x[0]) * i) / 240;
       const vy = curve(vx);
-      if (vy < y[0] || vy > y[1]) {
+      // NaN: the curve is not drawn there (e.g. only for x ≥ 0).
+      if (!Number.isFinite(vy) || vy < y[0] || vy > y[1]) {
         pen = false;
         continue;
       }
@@ -105,30 +127,16 @@ export function Plot({x, y, scale = 18, lines = [], curve, region, dashed = [], 
         </pattern>
       </defs>
       {shaded && shaded.length > 2 && <polygon points={shaded.map(pt).join(' ')} fill={`url(#hatch-${id})`} stroke="none" opacity={0.75} />}
+      {fillPts.map((f, i) => (
+        <polygon key={`f${i}`} points={f.map(pt).join(' ')} fill={`url(#hatch-${id})`} stroke="none" opacity={0.75} />
+      ))}
       <line x1={sx(x[0])} y1={sy(0)} x2={sx(x[1]) + 8} y2={sy(0)} markerEnd={`url(#${arrow})`} strokeWidth={1} />
       <line x1={sx(0)} y1={sy(y[0])} x2={sx(0)} y2={sy(y[1]) - 8} markerEnd={`url(#${arrow})`} strokeWidth={1} />
-      <g fill="currentColor" stroke="none" fontSize={FONT} fontStyle="italic">
-        <text x={sx(x[1]) - 2} y={sy(0) + 15}>x</text>
-        <text x={sx(0) - 13} y={sy(y[1]) + 2}>y</text>
-        <text x={sx(0) - 11} y={sy(0) - 4} fontStyle="normal">
-          O
-        </text>
-      </g>
-      {xLabels.map(([v, t]) => (
-        <g key={`x${v}`}>
-          <line x1={sx(v)} y1={sy(0) - 3} x2={sx(v)} y2={sy(0) + 3} strokeWidth={1} />
-          <text x={sx(v)} y={sy(0) + 15} textAnchor="middle" fontSize={FONT - 1} fill="currentColor" stroke="none">
-            {t}
-          </text>
-        </g>
+      {xLabels.map(([v]) => (
+        <line key={`xt${v}`} x1={sx(v)} y1={sy(0) - 3} x2={sx(v)} y2={sy(0) + 3} strokeWidth={1} />
       ))}
-      {yLabels.map(([v, t]) => (
-        <g key={`y${v}`}>
-          <line x1={sx(0) - 3} y1={sy(v)} x2={sx(0) + 3} y2={sy(v)} strokeWidth={1} />
-          <text x={sx(0) - 5} y={sy(v) + 4} textAnchor="end" fontSize={FONT - 1} fill="currentColor" stroke="none">
-            {t}
-          </text>
-        </g>
+      {yLabels.map(([v]) => (
+        <line key={`yt${v}`} x1={sx(0) - 3} y1={sy(v)} x2={sx(0) + 3} y2={sy(v)} strokeWidth={1} />
       ))}
       {lines.map((l, i) => {
         const seg = clipLine(l, x, y);
@@ -138,6 +146,28 @@ export function Plot({x, y, scale = 18, lines = [], curve, region, dashed = [], 
       {dashed.map(([p, q], i) => (
         <line key={`d${i}`} x1={sx(p[0])} y1={sy(p[1])} x2={sx(q[0])} y2={sy(q[1])} strokeDasharray="4 3" strokeWidth={1} />
       ))}
+      {/* Text last, over the lines. */}
+      <g fill="currentColor" fontSize={FONT - 1} {...HALO}>
+        {xLabels.map(([v, t, side]) => (
+          <text key={`x${v}`} x={sx(v)} y={sy(0) + (side === 'above' ? -6 : 15)} textAnchor="middle">
+            {t}
+          </text>
+        ))}
+        {yLabels.map(([v, t]) => (
+          <text key={`y${v}`} x={sx(0) - 5} y={sy(v) + 4} textAnchor="end">
+            {t}
+          </text>
+        ))}
+        <g fontSize={FONT} fontStyle="italic">
+          <text x={sx(x[1]) - 2} y={sy(0) + 15}>x</text>
+          <text x={sx(0) - 13} y={sy(y[1]) + 2}>y</text>
+          {origin && (
+            <text x={origin === 'below' ? sx(0) + 3 : sx(0) - 11} y={origin === 'below' ? sy(0) + 15 : sy(0) - 4} fontStyle="normal">
+              O
+            </text>
+          )}
+        </g>
+      </g>
     </svg>
   );
 }
@@ -161,6 +191,8 @@ interface GeoProps {
   /** Ellipse around a point (radii in units); dashBack draws the far (upper) half dashed. */
   ellipses?: {c: string; rx: number; ry: number; dashBack?: boolean}[];
   texts?: [P, string][];
+  /** Hatched polygons through single-letter points, e.g. 'SAB' (a section). */
+  hatch?: string[];
   width?: number;
 }
 
@@ -169,7 +201,8 @@ const unit = ([x, y]: P): P => {
   return [x / l, y / l];
 };
 
-export function Geo({pts, segs = [], labels = [], marks = [], ellipses = [], texts = [], width = 220}: GeoProps) {
+export function Geo({pts, segs = [], labels = [], marks = [], ellipses = [], texts = [], hatch = [], width = 220}: GeoProps) {
+  const hatchId = `geo-hatch-${useId().replace(/:/g, '')}`;
   const all = Object.values(pts);
   const extra: P[] = ellipses.flatMap((e) => [
     [pts[e.c][0] - e.rx, pts[e.c][1] - e.ry],
@@ -186,6 +219,9 @@ export function Geo({pts, segs = [], labels = [], marks = [], ellipses = [], tex
   const centre = S([all.reduce((s, q) => s + q[0], 0) / all.length, all.reduce((s, q) => s + q[1], 0) / all.length]);
 
   const items: ReactNode[] = [];
+  hatch.forEach((h, i) => {
+    items.push(<polygon key={`h${i}`} points={[...h].map((n) => p(n).join(',')).join(' ')} fill={`url(#${hatchId})`} stroke="none" opacity={0.75} />);
+  });
   segs.forEach((s, i) => {
     const [a, b, dash] = typeof s === 'string' ? [s[0], s[1], undefined] : [s[0], s[1], s[2]];
     const [P1, P2] = [p(a), p(b)];
@@ -289,6 +325,13 @@ export function Geo({pts, segs = [], labels = [], marks = [], ellipses = [], tex
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-full" fill="none" stroke="currentColor" strokeWidth={1.4}>
+      {hatch.length > 0 && (
+        <defs>
+          <pattern id={hatchId} width="6" height="6" patternUnits="userSpaceOnUse">
+            <path d="M0,3 H6" stroke="currentColor" strokeWidth={0.9} />
+          </pattern>
+        </defs>
+      )}
       {items}
     </svg>
   );

@@ -88,6 +88,9 @@
           "bigText": {
             ".validate": "newData.isBoolean()"
           },
+          "fullCards": {
+            ".validate": "newData.isBoolean()"
+          },
           "$other": {
             ".validate": false
           }

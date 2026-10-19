@@ -1,4 +1,4 @@
-import {ChevronRight, CircleHelp, Clock, Forward, Medal, Settings2, Trophy, Type} from 'lucide-react';
+import {ChevronRight, CircleHelp, Clock, Forward, LayoutList, Medal, Settings2, Trophy, Type} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
@@ -107,7 +107,17 @@ export default function SettingsPage() {
         {toggle('autoNext', 'green', <Forward size={18} />, 'Дараагийн бодлого руу шилжих', 'Хариултаа сонгомогц дараагийн бодлого руу өөрөө гүйлгэнэ.')}
       </Group>
 
-      <Group title="Харагдац">{toggle('bigText', 'violet', <Type size={18} />, 'Том үсэг', 'Сайтын бүх бичгийг томруулж харуулна.')}</Group>
+      <Group title="Харагдац">
+        {toggle('bigText', 'violet', <Type size={18} />, 'Том үсэг', 'Сайтын бүх бичгийг томруулж харуулна.')}
+        {!session.admin &&
+          toggle(
+            'fullCards',
+            'violet',
+            <LayoutList size={18} />,
+            'Нүүр хуудсыг дэлгэрэнгүй харуулах',
+            'Өдрийн дасгал, Алдааны дэвтэр, Асуултууд хэсгийг нэр, тайлбартай нь том картаар харуулна. Унтраалттай үед зөвхөн дүрс нь харагдана.',
+          )}
+      </Group>
 
       {guideRole && (
         <Group title="Тусламж">

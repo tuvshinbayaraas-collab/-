@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
 import {forClass} from '../lib/live';
 import {isDue, useMistakes} from '../lib/mistakes';
+import {usePrefs} from '../lib/prefs';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {doneToday, liveStreak, useStats} from '../lib/stats';
@@ -58,12 +59,52 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const mistakes = useMistakes(uid);
   const questions = useMyQuestions(uid);
   const [hidden, setHidden] = useState(hiddenIds);
+  const prefs = usePrefs();
 
   const notes = (announcements ?? []).filter((a) => forClass(a.classes, classId) && a.at > now - 21 * DAY && !hidden.includes(a.id)).slice(0, 3);
   const tasks = (assignments ?? []).filter((a) => forClass(a.classes, classId) && a.due > now - 3 * DAY && (a.kind === 'test' || topics?.some((t) => t.id === a.ref)));
   const due = (mistakes ?? []).filter((m) => isDue(m, serverNow())).length;
   const replies = (questions ?? []).filter((q) => q.reply && !q.seen).length;
   const streak = liveStreak(stats);
+  const today = doneToday(stats);
+  const cards = [
+    {
+      href: '/daily',
+      icon: Flame,
+      title: 'Өдрийн дасгал',
+      text: today ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх',
+      hot: !today,
+      lit: streak > 0,
+      badge: streak,
+      hotBg: 'bg-orange-500/10 hover:bg-orange-500/15',
+      tone: 'text-orange-300',
+      badgeBg: 'bg-orange-400',
+    },
+    {
+      href: '/mistakes',
+      icon: NotebookPen,
+      title: 'Алдааны дэвтэр',
+      text: due ? `${due} бодлого давтах` : 'Өнөөдөр давтах зүйл алга',
+      hot: due > 0,
+      lit: due > 0,
+      badge: due,
+      hotBg: 'bg-rose-500/10 hover:bg-rose-500/15',
+      tone: 'text-rose-300',
+      badgeBg: 'bg-rose-400',
+    },
+    {
+      href: '/questions',
+      icon: MessageCircleQuestion,
+      title: 'Асуултууд',
+      text: replies ? `Багш ${replies} асуултад хариулсан` : 'Багшаас асуух',
+      hot: replies > 0,
+      lit: replies > 0,
+      badge: replies,
+      hotBg: 'bg-sky-500/10 hover:bg-sky-500/15',
+      tone: 'text-sky-300',
+      badgeBg: 'bg-sky-400',
+    },
+  ];
   const hide = (id: string) => {
     const next = [...hidden, id].slice(-50);
     setHidden(next);
@@ -121,29 +162,35 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
         </section>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/daily" className={`flex items-center gap-3 rounded-2xl p-4 ${doneToday(stats) ? 'bg-neutral-900' : 'bg-orange-500/10 hover:bg-orange-500/15'}`}>
-          <Flame size={22} className={streak ? 'text-orange-300' : 'text-neutral-500'} />
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Өдрийн дасгал</span>
-            <span className="block text-xs text-neutral-400">{doneToday(stats) ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх'}</span>
-          </span>
-        </Link>
-        <Link href="/mistakes" className={`flex items-center gap-3 rounded-2xl p-4 ${due ? 'bg-rose-500/10 hover:bg-rose-500/15' : 'bg-neutral-900'}`}>
-          <NotebookPen size={22} className={due ? 'text-rose-300' : 'text-neutral-500'} />
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Алдааны дэвтэр</span>
-            <span className="block text-xs text-neutral-400">{due ? `${due} бодлого давтах` : 'Өнөөдөр давтах зүйл алга'}</span>
-          </span>
-        </Link>
-        <Link href="/questions" className={`flex items-center gap-3 rounded-2xl p-4 ${replies ? 'bg-sky-500/10 hover:bg-sky-500/15' : 'bg-neutral-900'}`}>
-          <MessageCircleQuestion size={22} className={replies ? 'text-sky-300' : 'text-neutral-500'} />
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Асуултууд</span>
-            <span className="block text-xs text-neutral-400">{replies ? `Багш ${replies} асуултад хариулсан` : 'Багшаас асуух'}</span>
-          </span>
-        </Link>
-      </div>
+      {prefs.fullCards ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {cards.map((c) => (
+            <Link key={c.href} href={c.href} className={`flex items-center gap-3 rounded-2xl p-4 ${c.hot ? c.hotBg : 'bg-neutral-900'}`}>
+              <c.icon size={22} className={c.lit ? c.tone : 'text-neutral-500'} />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{c.title}</span>
+                <span className="block text-xs text-neutral-400">{c.text}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        // Just the icons (a number when there is something to do); "Тохиргоо" can show them with their names.
+        <div className="grid grid-cols-3 gap-3">
+          {cards.map((c) => (
+            <Link
+              key={c.href}
+              href={c.href}
+              title={`${c.title}: ${c.text}`}
+              aria-label={`${c.title}: ${c.text}`}
+              className={`relative flex h-14 items-center justify-center rounded-2xl ${c.hot ? c.hotBg : 'bg-neutral-900 hover:bg-neutral-800'}`}
+            >
+              <c.icon size={24} className={c.lit ? c.tone : 'text-neutral-500'} />
+              {c.badge > 0 && <span className={`absolute right-2 top-1.5 min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold leading-5 text-black ${c.badgeBg}`}>{c.badge}</span>}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

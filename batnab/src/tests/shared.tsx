@@ -78,3 +78,89 @@ export const box = () => (
 export const squareWithDiagonal = (diagonal: string) => (
   <Geo width={120} pts={{A: [0, 0], B: [4, 0], C: [4, 4], D: [0, 4]}} segs={['AB', 'BC', 'CD', 'DA', 'AC']} texts={[[[1.5, 2.6], diagonal]]} />
 );
+
+/** A cone cut through its apex: the hatched section SAB. */
+export const coneSection = () => (
+  <Geo
+    width={170}
+    pts={{S: [0, 5.2], O: [0, 0], A: [-3, 0], B: [3, 0]}}
+    ellipses={[{c: 'O', rx: 3, ry: 0.7, dashBack: true}]}
+    segs={['SA', 'SB', 'SO', 'AB']}
+    hatch={['SAB']}
+    labels={['S', ['A', -10, 2], ['B', 10, 2], ['O', 0, 8]]}
+  />
+);
+
+/** A box with the diagonals of three faces drawn from one corner: left, front and bottom face. */
+export const boxDiagonals = (left: string, front: string, bottom: string) => (
+  <Geo
+    width={220}
+    pts={{a: [0, 0], b: [3.2, 0], c: [3.2, 4.6], d: [0, 4.6], e: [2.2, 1.5], f: [5.4, 1.5], g: [5.4, 6.1], h: [2.2, 6.1]}}
+    segs={[
+      ['a', 'b'],
+      ['b', 'c'],
+      ['c', 'd'],
+      ['d', 'a'],
+      ['d', 'h'],
+      ['h', 'g'],
+      ['g', 'c'],
+      ['b', 'f'],
+      ['f', 'g'],
+      ['a', 'e', 'dash'],
+      ['e', 'f', 'dash'],
+      ['e', 'h', 'dash'],
+      ['a', 'h'],
+      ['a', 'c'],
+      ['a', 'f'],
+    ]}
+    texts={[
+      [[0.62, 3.6], left],
+      [[2.7, 2.6], front],
+      [[2.5, 0.3], bottom],
+    ]}
+  />
+);
+
+/**
+ * y = kx² (or the cap y = k − kx²) with a hatched area, for "which area does ∫ kx² dx give?":
+ * 'under' the curve, 'over' it (up to y = k), or the whole 'box' up to y = k; from x = `from` to x = 1.
+ */
+export const parabolaArea = (k: number, area: 'under' | 'over' | 'box', from: number, {half = false, cap = false} = {}) => {
+  const f = cap ? (x: number) => k - k * x * x : (x: number) => (half && x < 0 ? NaN : k * x * x);
+  const lo = area === 'over' ? f : () => 0;
+  const hi = area === 'under' ? f : () => k;
+  const frame: [[number, number], [number, number]][] = cap
+    ? []
+    : [
+        [
+          [from, k],
+          [1, k],
+        ],
+        [
+          [1, 0],
+          [1, k],
+        ],
+        ...(from < 0
+          ? [
+              [
+                [-1, 0],
+                [-1, k],
+              ] as [[number, number], [number, number]],
+            ]
+          : []),
+      ];
+  const ticks: [number, string][] = Array.from({length: k - 1}, (_, i) => [i + 1, '']);
+  return (
+    <Plot
+      x={[half ? -0.5 : -1.4, 1.4]}
+      y={[cap ? -1 : -0.4, k + 0.6]}
+      scale={k === 2 ? 26 : 21}
+      curve={f}
+      fills={[{from, to: 1, lo, hi}]}
+      dashed={frame}
+      xLabels={from < 0 || cap ? [[-1, n(-1)], [1, '1']] : [[1, '1']]}
+      yLabels={[[k, String(k)], ...ticks]}
+      origin={half ? 'left' : 'below'}
+    />
+  );
+};
