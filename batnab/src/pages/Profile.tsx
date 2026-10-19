@@ -5,6 +5,7 @@ import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import Sheet from '../components/Sheet';
 import {saveNickname, savePhoto} from '../lib/accounts';
+import {useClasses} from '../lib/classes';
 import {PLACES, refreshMine, useMedals, weekLabel} from '../lib/leaderboard';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
@@ -102,6 +103,7 @@ function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; val
 /** Photo, the name the site shows, the login name; tap the photo to change it. */
 function Identity({profile}: {profile: ProfileData}) {
   const [picking, setPicking] = useState(false);
+  const myClass = useClasses()?.find((c) => c.id === profile.class)?.name;
   const [status, setStatus] = useState<Status>(null);
   const name = shownName(profile);
   // Without a connection the change is kept on the device and sent once it's back; the sheet doesn't wait for that.
@@ -125,7 +127,10 @@ function Identity({profile}: {profile: ProfileData}) {
         </span>
       </button>
       <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
-      <p className="text-sm text-neutral-400">@{profile.username}</p>
+      <p className="text-sm text-neutral-400">
+        @{profile.username}
+        {myClass && ` · ${myClass}`}
+      </p>
       {profile.nickname?.trim() && <p className="mt-1 text-sm text-neutral-500">Жинхэнэ нэр: {profile.name}</p>}
       <button onClick={pick} className="mt-4 flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
         <Camera size={16} /> Зураг солих

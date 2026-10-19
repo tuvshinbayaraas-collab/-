@@ -3,6 +3,7 @@ import {useState} from 'react';
 import Avatar from '../../components/Avatar';
 import {formatDuration} from '../../lib/attempt';
 import {deleteResult, deleteStudent, removePhoto, renameStudent, setBlocked} from '../../lib/accounts';
+import {moveToClass, useClasses} from '../../lib/classes';
 import {percent} from '../../lib/keys';
 import {formatDate} from '../../lib/results';
 import {Link, navigate} from '../../lib/router';
@@ -19,6 +20,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
   const [busy, setBusy] = useState(false);
   const settings = useSettings();
   const retakesOff = settings?.retakes === false;
+  const classes = useClasses() ?? [];
 
   if (!student)
     return (
@@ -97,6 +99,24 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
             Nickname: {p.nickname || <span className="text-neutral-500">тавиагүй</span>} • @{p.username}
           </p>
           {p.createdAt && <p className="text-sm text-neutral-500">Бүртгэсэн: {formatDate(p.createdAt)}</p>}
+          {classes.length > 0 && (
+            <label className="mt-1.5 flex items-center gap-2 text-sm text-neutral-400">
+              Анги:
+              <select
+                value={classes.some((c) => c.id === p.class) ? p.class : ''}
+                disabled={busy}
+                onChange={(e) => act(() => moveToClass(uid, e.target.value || null))}
+                className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1 text-neutral-100 outline-none focus:border-blue-500"
+              >
+                <option value="">Ангигүй</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button

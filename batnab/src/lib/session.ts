@@ -25,6 +25,8 @@ export interface Profile {
   photo?: string;
   createdAt?: number;
   disabled?: boolean;
+  /** The class the teacher put the student in (classes/{id}). */
+  class?: string;
   /** The student's own settings (see lib/prefs.ts). */
   prefs?: Partial<Record<PrefKey, boolean>>;
 }

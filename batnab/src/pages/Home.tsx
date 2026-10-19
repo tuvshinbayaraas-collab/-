@@ -1,6 +1,7 @@
-import {ChevronRight, FlaskConical, GraduationCap, Lock, LogIn, Timer} from 'lucide-react';
+import {BookOpen, ChevronRight, FlaskConical, GraduationCap, Lock, LogIn, School, Timer} from 'lucide-react';
 import {InactiveNote, loginHref} from '../components/Notices';
 import {inProgress} from '../lib/attempt';
+import {useClasses} from '../lib/classes';
 import {examState, useExamAnswer, useExams, type Exam} from '../lib/exams';
 import {grade, percent, useKeys, type Grade} from '../lib/keys';
 import {useMyResults} from '../lib/results';
@@ -8,6 +9,7 @@ import {Link} from '../lib/router';
 import {isStudent, shownName, useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {clock, dayLabel, span, useNow} from '../lib/time';
+import {forClassOf, useProgress, useTopics} from '../lib/topics';
 import {weekStart} from '../lib/week';
 import {TESTS, testInfo} from '../tests';
 
@@ -16,6 +18,8 @@ export default function Home() {
   const settings = useSettings();
   const results = useMyResults();
   const student = isStudent(session);
+  const classes = useClasses();
+  const myClass = classes?.find((c) => c.id === session.profile?.class)?.name;
   const keys = useKeys(student && results ? results.map((r) => r.test) : []);
   const groups = [...new Set(TESTS.map((t) => t.group))];
   const owner = session.user?.uid ?? 'guest';
@@ -39,7 +43,14 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-3xl py-6">
       {student ? (
-        <h1 className="text-2xl font-bold sm:text-3xl">Сайн уу, {shownName(session.profile)}!</h1>
+        <>
+          <h1 className="text-2xl font-bold sm:text-3xl">Сайн уу, {shownName(session.profile)}!</h1>
+          {myClass && (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-400">
+              <School size={15} /> {myClass}
+            </p>
+          )}
+        </>
       ) : (
         <>
           <h1 className="text-2xl font-bold sm:text-3xl">Математикийн тест</h1>
@@ -124,8 +135,53 @@ export default function Home() {
             </div>
           </section>
         ))}
+        {student && <TopicsSection classId={session.profile?.class} uid={session.user!.uid} />}
       </div>
     </div>
+  );
+}
+
+/** The newest topics opened for the student's class, with how far they've got. */
+function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
+  const topics = useTopics();
+  const progress = useProgress(uid);
+  const shown = (topics ?? []).filter((t) => forClassOf(t, classId));
+  if (!shown.length) return null;
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Сэдвүүд</h2>
+        {shown.length > 4 && (
+          <Link href="/topics" className="text-sm text-blue-400 hover:underline">
+            Бүгд ({shown.length})
+          </Link>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {shown
+          .slice(-4)
+          .reverse()
+          .map((t) => {
+            const done = t.problems.filter((p) => progress?.[t.id]?.[p.id]).length;
+            return (
+              <Link key={t.id} href={`/topics/${t.id}`} className="flex items-center gap-4 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+                  <BookOpen size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-semibold">{t.title}</p>
+                  <p className="text-sm text-neutral-400">
+                    {t.problems.length} бодлого{done > 0 && ` • ${done} бодсон`}
+                  </p>
+                </div>
+                <span className="flex items-center gap-1 text-sm font-medium text-blue-400">
+                  {done === 0 ? 'Эхлэх' : done < t.problems.length ? 'Үргэлжлүүлэх' : 'Харах'} <ChevronRight size={16} />
+                </span>
+              </Link>
+            );
+          })}
+      </div>
+    </section>
   );
 }
 

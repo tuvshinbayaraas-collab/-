@@ -1,4 +1,4 @@
-import {CircleHelp, Download, GraduationCap, ListChecks, LogIn, LogOut, Settings, Trophy, UserRound} from 'lucide-react';
+import {BookOpen, CircleHelp, Download, GraduationCap, ListChecks, LogIn, LogOut, Settings, Trophy, UserRound} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
@@ -53,6 +53,7 @@ export default function Header() {
                   {profile && !profile.disabled && (
                     <>
                       {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
+                      {item('/topics', <BookOpen size={20} />, 'Сэдвүүд')}
                       {settings?.leaderboard && item('/leaderboard', <Trophy size={20} />, 'Leaderboard')}
                       {item('/profile', <UserRound size={20} />, 'Профайл')}
                       {item('/settings', <Settings size={20} />, 'Тохиргоо')}

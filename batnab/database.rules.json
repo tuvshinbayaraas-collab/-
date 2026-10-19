@@ -26,6 +26,22 @@
         ".validate": false
       }
     },
+    "classes": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$cid": {
+        ".validate": "$cid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['name'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "users": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
@@ -51,6 +67,9 @@
         },
         "disabled": {
           ".validate": "newData.isBoolean()"
+        },
+        "class": {
+          ".validate": "newData.isString() && newData.parent().parent().parent().child('classes').child(newData.val()).exists()"
         },
         "prefs": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists()",
@@ -241,6 +260,66 @@
           },
           "$other": {
             ".validate": false
+          }
+        }
+      }
+    },
+    "topics": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$tid": {
+        ".validate": "$tid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['title', 'published', 'order', 'createdAt'])",
+        "title": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+        },
+        "published": {
+          ".validate": "newData.isBoolean()"
+        },
+        "order": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "topicImages": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$tid": {
+        "$iid": {
+          ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 500000"
+        }
+      }
+    },
+    "topicKeys": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$tid": {
+        "$pid": {
+          ".read": "auth != null && root.child('topicProgress').child(auth.uid).child($tid).child($pid).exists()",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+        }
+      }
+    },
+    "topicProgress": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$tid": {
+          "$pid": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && root.child('topics').child($tid).child('published').val() === true && root.child('topicKeys').child($tid).child($pid).exists()",
+            ".validate": "newData.hasChildren(['a', 'at'])",
+            "a": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+            },
+            "at": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       }

@@ -1,0 +1,105 @@
+import {ArrowLeft, BookOpen, ListChecks, Pencil} from 'lucide-react';
+import {useState} from 'react';
+import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
+import {isPerfect, PerfectTitle, ResultCard} from '../components/Perfect';
+import {ProblemView, Rich, TopicPicture, type Outcome} from '../components/TopicParts';
+import {Link} from '../lib/router';
+import {useSession} from '../lib/session';
+import {forClassOf, useProgress, useTopics} from '../lib/topics';
+
+/** /topics/{id}: the lesson, then the problems one under another. */
+export default function TopicView({id}: {id: string}) {
+  const session = useSession();
+  const topics = useTopics();
+  const progress = useProgress(session.user && !session.admin ? session.user.uid : undefined);
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.user) return <LockedNote text="Сэдвийг үзэхийн тулд нэвтэрнэ үү." />;
+  if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
+  if (!topics || !progress) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+
+  const t = topics.find((x) => x.id === id);
+  if (!t || (!session.admin && !forClassOf(t, session.profile?.class)))
+    return (
+      <CenterNote title="Сэдэв олдсонгүй">
+        <Link href="/topics" className="text-blue-400 hover:underline">
+          Бүх сэдэв
+        </Link>
+      </CenterNote>
+    );
+
+  const mine = progress[t.id] ?? {};
+  const answered = t.problems.filter((p) => mine[p.id]).length;
+  const right = t.problems.filter((p) => outcomes[p.id] && outcomes[p.id].key !== null && outcomes[p.id].a === outcomes[p.id].key).length;
+  const all = !session.admin && t.problems.length > 0 && answered === t.problems.length && t.problems.every((p) => outcomes[p.id]);
+  const grade = {score: right, total: t.problems.length, count: t.problems.length};
+
+  return (
+    <div className="mx-auto max-w-3xl py-4 sm:py-6">
+      <Link href="/topics" className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
+        <ArrowLeft size={16} /> Сэдвүүд
+      </Link>
+      <header className="mt-3">
+        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold">
+          {t.title}
+          {!t.published && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">Ноорог</span>}
+        </h1>
+        {t.intro && <p className="mt-1 text-neutral-400">{t.intro}</p>}
+        {session.admin && (
+          <Link href={`/admin/topic/${t.id}`} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700">
+            <Pencil size={15} /> Засах
+          </Link>
+        )}
+      </header>
+
+      {t.lesson.length > 0 && (
+        <section className="mt-6 rounded-2xl bg-neutral-900 p-4 sm:p-6">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-violet-300">
+            <BookOpen size={16} /> Хичээл
+          </h2>
+          <div className="mt-3 space-y-4">
+            {t.lesson.map((b, i) => (b.t === 'text' ? <Rich key={i} text={b.text} className="text-[15px] text-neutral-100" /> : <TopicPicture key={i} tid={t.id} iid={b.img} className="w-full" />))}
+          </div>
+        </section>
+      )}
+
+      {t.problems.length > 0 && (
+        <section className="mt-6">
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <ListChecks size={18} /> Бодлого
+            </h2>
+            {!session.admin && (
+              <span className="text-sm text-neutral-400">
+                {answered}/{t.problems.length} бодсон{answered > 0 && ` · ${right} зөв`}
+              </span>
+            )}
+          </div>
+          {all && (
+            <ResultCard perfect={isPerfect(grade) ? 'test' : null} id={`topic-${t.id}`} className="mb-4">
+              {isPerfect(grade) && <PerfectTitle kind="test" />}
+              <p className="text-lg font-semibold">Бүх бодлогыг бодлоо!</p>
+              <p className="text-sm text-neutral-400">
+                Эхний оролдлогоор {right}/{t.problems.length} зөв. Алдсан бодлогоо «Дахин бодох»-оор дахин бодож болно.
+              </p>
+            </ResultCard>
+          )}
+          <ol className="space-y-4">
+            {t.problems.map((p, i) => (
+              <ProblemView
+                key={p.id}
+                tid={t.id}
+                p={p}
+                num={i + 1}
+                first={mine[p.id]}
+                teacher={session.admin}
+                onOutcome={(o) => setOutcomes((x) => (x[p.id]?.a === o.a && x[p.id]?.key === o.key ? x : {...x, [p.id]: o}))}
+              />
+            ))}
+          </ol>
+        </section>
+      )}
+      {!t.lesson.length && !t.problems.length && <p className="mt-8 rounded-2xl bg-neutral-900 p-6 text-center text-neutral-400">Энэ сэдэвт одоогоор агуулга алга.</p>}
+    </div>
+  );
+}

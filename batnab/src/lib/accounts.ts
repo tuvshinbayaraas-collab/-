@@ -13,10 +13,10 @@ import {auth, db, emulators, firebaseConfig} from './firebase';
 import {emailFor, USERNAME_RE} from './session';
 
 /**
- * Creates a student's sign-in account and profile. The account is created in a second, throwaway Firebase app so
+ * Creates a student's sign-in account and profile (in `classId`, if given). The account is created in a second, throwaway Firebase app so
  * the teacher stays signed in.
  */
-export async function createStudent(name: string, username: string, password: string) {
+export async function createStudent(name: string, username: string, password: string, classId?: string) {
   name = name.trim().replace(/\s+/g, ' ');
   username = username.trim().toLowerCase();
   if (!name || name.length > 60) throw new Error('Нэрээ оруулна уу (60 хүртэл тэмдэгт).');
@@ -41,7 +41,7 @@ export async function createStudent(name: string, username: string, password: st
       if ((await get(ref(db, `users/${uid}/username`))).exists()) throw e;
     }
     await signOut(a);
-    await set(ref(db, `users/${uid}`), {username, name, createdAt: serverTimestamp()});
+    await set(ref(db, `users/${uid}`), {username, name, createdAt: serverTimestamp(), ...(classId ? {class: classId} : {})});
     return uid;
   } finally {
     await deleteApp(app).catch(() => {});

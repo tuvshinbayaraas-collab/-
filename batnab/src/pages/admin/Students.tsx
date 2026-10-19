@@ -1,10 +1,12 @@
-import {ChevronRight, Copy, Download, RefreshCw, Search, UserPlus} from 'lucide-react';
+import {ChevronRight, Copy, Download, RefreshCw, School, Search, UserPlus} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {createStudent, randomPassword, suggestUsername} from '../../lib/accounts';
+import {useClasses} from '../../lib/classes';
 import {percent} from '../../lib/keys';
 import {Link} from '../../lib/router';
 import {authError} from '../../lib/session';
 import {download, gradeOf, mean, type AdminData} from './data';
+import {ClassHeader} from './Classes';
 import {StudentName} from './Overview';
 
 interface Created {
@@ -15,24 +17,48 @@ interface Created {
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 outline-none focus:border-blue-500';
 
-export default function Students({data}: {data: AdminData}) {
+/** `data` is the picked class's (or everyone's, `picked` ''); `all` is everyone. */
+export default function Students({data, all, picked}: {data: AdminData; all: AdminData; picked: string}) {
+  const classes = useClasses() ?? [];
   const [created, setCreated] = useState<Created[]>([]);
   const [filter, setFilter] = useState('');
-  const [adding, setAdding] = useState(!data.students.length);
+  const [adding, setAdding] = useState(!all.students.length);
+  // New students go into the picked class (or the one chosen in the form).
+  const [chosen, setChosen] = useState('');
+  const classId = picked || (classes.some((c) => c.id === chosen) ? chosen : (classes[0]?.id ?? ''));
   const add = (c: Created) => setCreated((list) => [...list, c]);
+  const info = classes.find((c) => c.id === picked);
+  const nameOf = (id?: string) => classes.find((c) => c.id === id)?.name;
 
   const q = filter.trim().toLowerCase();
   const shown = data.students.filter((s) => !q || [s.profile.name, s.profile.nickname ?? '', s.profile.username].some((x) => x.toLowerCase().includes(q)));
 
   return (
     <div className="space-y-6">
+      {info && <ClassHeader info={info} members={data.students.map((s) => s.uid)} />}
       {adding ? (
         <div className="space-y-3">
+          {classes.length > 0 && (
+            <label className="flex flex-wrap items-center gap-2 text-sm text-neutral-300">
+              <School size={16} className="text-blue-300" /> Шинэ сурагчид орох анги:
+              {picked ? (
+                <b>{info?.name}</b>
+              ) : (
+                <select value={classId} onChange={(e) => setChosen(e.target.value)} className="rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1 outline-none focus:border-blue-500">
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </label>
+          )}
           <div className="grid gap-4 lg:grid-cols-2">
-            <CreateOne onCreated={add} />
-            <CreateMany onCreated={add} />
+            <CreateOne onCreated={add} classId={classId} />
+            <CreateMany onCreated={add} classId={classId} />
           </div>
-          {data.students.length > 0 && (
+          {all.students.length > 0 && (
             <button onClick={() => setAdding(false)} className="text-sm text-neutral-400 hover:text-neutral-200">
               Хаах
             </button>
@@ -47,14 +73,16 @@ export default function Students({data}: {data: AdminData}) {
 
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">Бүх сурагч ({data.students.length})</h2>
+          <h2 className="font-semibold">
+            {info ? `Сурагчид · ${info.name}` : 'Бүх сурагч'} ({data.students.length})
+          </h2>
           <label className="relative w-full sm:w-56">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Нэр, nickname, нэвтрэх нэрээр хайх" className="w-full rounded-full border border-neutral-700 bg-neutral-950 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
           </label>
         </div>
         {!data.students.length ? (
-          <p className="text-sm text-neutral-400">Одоогоор сурагч алга. Дээрх хэсгээс нэмнэ үү.</p>
+          <p className="text-sm text-neutral-400">{info ? 'Энэ ангид сурагч алга. Дээрх хэсгээс нэмэх эсвэл сурагчийн хуудаснаас шилжүүлнэ.' : 'Одоогоор сурагч алга. Дээрх хэсгээс нэмнэ үү.'}</p>
         ) : (
           <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
             {shown.map((s) => {
@@ -67,6 +95,11 @@ export default function Students({data}: {data: AdminData}) {
                     <span className="min-w-0 flex-1">
                       <StudentName student={s} sub={`@${s.profile.username} • ${tests ? `${tests} тест өгсөн` : 'тест өгөөгүй'}`} />
                     </span>
+                    {!picked && classes.length > 0 && (
+                      <span className={`hidden shrink-0 rounded-full px-2 py-0.5 text-xs sm:inline ${nameOf(s.profile.class) ? 'bg-neutral-800 text-neutral-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                        {nameOf(s.profile.class) ?? 'Ангигүй'}
+                      </span>
+                    )}
                     {s.profile.disabled && <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-300">Хаалттай</span>}
                     <span className="w-14 shrink-0 text-right">
                       <span className="block text-sm font-semibold tabular-nums">{avg === null ? '—' : `${Math.round(avg)}%`}</span>
@@ -84,7 +117,7 @@ export default function Students({data}: {data: AdminData}) {
   );
 }
 
-function CreateOne({onCreated}: {onCreated: (c: Created) => void}) {
+function CreateOne({onCreated, classId}: {onCreated: (c: Created) => void; classId: string}) {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [touched, setTouched] = useState(false);
@@ -102,7 +135,7 @@ function CreateOne({onCreated}: {onCreated: (c: Created) => void}) {
     setBusy(true);
     setError('');
     try {
-      await createStudent(name, username, password);
+      await createStudent(name, username, password, classId || undefined);
       onCreated({name: name.trim(), username: username.trim().toLowerCase(), password});
       setName('');
       setUsername('');
@@ -159,7 +192,7 @@ function CreateOne({onCreated}: {onCreated: (c: Created) => void}) {
 }
 
 /** One name per line; login names and passwords are made up and shown afterwards. */
-function CreateMany({onCreated}: {onCreated: (c: Created) => void}) {
+function CreateMany({onCreated, classId}: {onCreated: (c: Created) => void; classId: string}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -177,7 +210,7 @@ function CreateMany({onCreated}: {onCreated: (c: Created) => void}) {
       for (let tries = 0; tries < 4 && !done; tries++) {
         const c = {name, username: suggestUsername(name), password: randomPassword()};
         try {
-          await createStudent(c.name, c.username, c.password);
+          await createStudent(c.name, c.username, c.password, classId || undefined);
           onCreated(c);
           done = true;
         } catch (e) {
