@@ -3,7 +3,7 @@
 //   index, box, next, at}. Solved right, a problem moves up a box and comes back later (tomorrow, in 3 days, in a
 //   week); right in the last box, it is learned and leaves the notebook. Wrong, it starts over tomorrow.
 //   mistakeTests/{uid}/{test} = true keeps a test's key readable for its questions after the weekly reset.
-import {ref, set, update} from 'firebase/database';
+import {get, ref, set, update} from 'firebase/database';
 import {auth, db} from './firebase';
 import {entries, useLive} from './live';
 import {serverNow} from './time';
@@ -50,7 +50,11 @@ export async function addMistakes(items: {s: 'p' | 't'; t: string; q: string}[],
   if (!Object.keys(ops).length) return;
   await update(ref(db), ops);
   // Test questions: keep the test's key readable for the notebook after this week's results are cleared.
-  for (const test of new Set(items.filter((i) => i.s === 't').map((i) => i.t))) await set(ref(db, `mistakeTests/${uid}/${test}`), true).catch(() => {});
+  // Marked once (the rules refuse a second write).
+  for (const test of new Set(items.filter((i) => i.s === 't').map((i) => i.t))) {
+    const mark = ref(db, `mistakeTests/${uid}/${test}`);
+    if (!(await get(mark).then((x) => x.exists(), () => false))) await set(mark, true).catch(() => {});
+  }
 }
 
 /** After solving a notebook problem: up a box (or learned), or back to the start. Returns true when learned. */
