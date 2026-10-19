@@ -1,4 +1,4 @@
-import {Award} from 'lucide-react';
+import {Award, ChevronDown} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {useMyQuestions} from '../lib/classroom';
 import {grade} from '../lib/keys';
@@ -59,29 +59,61 @@ export function useBadgeFacts(uid: string | undefined, results: Result[] | null,
   };
 }
 
-/** The badges: earned ones in colour, the rest grey with what it takes. */
+const OPEN_KEY = 'batnab.badges.open';
+const PREVIEW = 4;
+
+/** The badges, folded by default (the earned ones peek out): earned ones in colour, the rest grey with what it takes. */
 export function BadgeGrid({facts}: {facts: BadgeFacts}) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(OPEN_KEY, open ? '0' : '1');
+    } catch {
+      // storage blocked: folded again next time
+    }
+  };
   const list = badges(facts);
-  const got = list.filter((b) => b.earned).length;
+  const earned = list.filter((b) => b.earned);
   return (
-    <section className="rounded-2xl bg-neutral-900 p-5">
-      <h2 className="flex items-center gap-2 font-semibold">
-        <Award size={18} className="text-amber-300" /> Амжилтууд{' '}
-        <span className="text-sm font-normal text-neutral-500">
-          {got}/{list.length}
-        </span>
-      </h2>
-      <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
-        {list.map((b) => (
-          <li key={b.id} title={b.hint} className={`flex flex-col items-center rounded-xl p-2 text-center ${b.earned ? 'bg-amber-500/10' : 'opacity-45'}`}>
-            <span className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl ${b.earned ? 'bg-amber-500/20' : 'bg-neutral-800 grayscale'}`} aria-hidden>
-              {b.icon}
+    <section className="rounded-2xl bg-neutral-900">
+      <h2>
+        <button onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 rounded-2xl p-5 text-left font-semibold hover:bg-neutral-800/40">
+          <Award size={18} className="shrink-0 text-amber-300" /> Амжилтууд
+          <span className="text-sm font-normal text-neutral-500">
+            {earned.length}/{list.length}
+          </span>
+          <span className="flex-1" />
+          {!open && earned.length > 0 && (
+            <span className="flex items-center gap-0.5 text-lg" aria-hidden>
+              {earned.slice(0, PREVIEW).map((b) => (
+                <span key={b.id}>{b.icon}</span>
+              ))}
+              {earned.length > PREVIEW && <span className="ml-1 text-xs font-normal text-neutral-400">+{earned.length - PREVIEW}</span>}
             </span>
-            <span className="mt-1.5 text-xs font-semibold leading-tight">{b.name}</span>
-            <span className="mt-0.5 text-[10px] leading-tight text-neutral-500">{b.earned ? 'Авсан' : b.hint}</span>
-          </li>
-        ))}
-      </ul>
+          )}
+          <ChevronDown size={18} className={`shrink-0 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </h2>
+      {open && (
+        <ul className="grid grid-cols-3 gap-3 px-5 pb-5 sm:grid-cols-4">
+          {list.map((b) => (
+            <li key={b.id} title={b.hint} className={`flex flex-col items-center rounded-xl p-2 text-center ${b.earned ? 'bg-amber-500/10' : 'opacity-45'}`}>
+              <span className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl ${b.earned ? 'bg-amber-500/20' : 'bg-neutral-800 grayscale'}`} aria-hidden>
+                {b.icon}
+              </span>
+              <span className="mt-1.5 text-xs font-semibold leading-tight">{b.name}</span>
+              <span className="mt-0.5 text-[10px] leading-tight text-neutral-500">{b.earned ? 'Авсан' : b.hint}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

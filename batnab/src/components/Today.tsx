@@ -126,7 +126,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
           <Flame size={22} className={streak ? 'text-orange-300' : 'text-neutral-500'} />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Өдрийн дасгал</span>
-            <span className="block text-xs text-neutral-400">{doneToday(stats) ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : '5 бодлого · цуваа эхлүүлэх'}</span>
+            <span className="block text-xs text-neutral-400">{doneToday(stats) ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх'}</span>
           </span>
         </Link>
         <Link href="/mistakes" className={`flex items-center gap-3 rounded-2xl p-4 ${due ? 'bg-rose-500/10 hover:bg-rose-500/15' : 'bg-neutral-900'}`}>
