@@ -3,7 +3,7 @@ import {useEffect, useState, type ReactNode} from 'react';
 import {choiceAt} from '../lib/keys';
 import {LAST_BOX, reviewed, type Mistake} from '../lib/mistakes';
 import {learnedOne, type Stats} from '../lib/stats';
-import type {Topic} from '../lib/topics';
+import {problemNo, type Topic} from '../lib/topics';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
 import AskButton from './Ask';
@@ -45,7 +45,7 @@ export function mistakeLabel(m: Mistake, topics: Topic[] | null) {
   if (m.s === 't') return `${testInfo(m.t)?.title ?? m.t} · ${Number(m.q) + 1}-р бодлого`;
   const t = topics?.find((x) => x.id === m.t);
   const i = t?.problems.findIndex((p) => p.id === m.q) ?? -1;
-  return t ? `${t.title} · ${i + 1}-р бодлого` : 'Сэдвийн бодлого';
+  return t && i >= 0 ? `${t.title} · ${problemNo(t.problems[i], i)}-р бодлого` : 'Сэдвийн бодлого';
 }
 
 /** Whether the problem a notebook entry points at still exists (a topic or problem may have been deleted). */

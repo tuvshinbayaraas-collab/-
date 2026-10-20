@@ -4,7 +4,7 @@ import {BadgeGrid, useBadgeFacts} from '../../components/Badges';
 import {ProgressChart, useWeeks} from '../../components/Progress';
 import {isDue, useMistakes} from '../../lib/mistakes';
 import {liveStreak, useStats} from '../../lib/stats';
-import {useAllProgress, useTopics} from '../../lib/topics';
+import {useAllMarks, useAllProgress, useTopics} from '../../lib/topics';
 import type {AdminData} from './data';
 import {pctOf, topicScores, useAllTopicKeys} from './WeakTopics';
 
@@ -18,8 +18,9 @@ export default function StudentGrowth({uid, data}: {uid: string; data: AdminData
   const topics = useTopics();
   const progress = useAllProgress();
   const keys = useAllTopicKeys();
+  const marks = useAllMarks();
   const student = data.students.find((s) => s.uid === uid);
-  const scores = student && topics && progress && keys ? topicScores([student], topics, progress, keys).filter((s) => s.answered) : [];
+  const scores = student && topics && progress && keys && marks ? topicScores([student], topics, progress, keys, marks).filter((s) => s.answered) : [];
 
   return (
     <div className="space-y-4">
@@ -40,7 +41,7 @@ export default function StudentGrowth({uid, data}: {uid: string; data: AdminData
                   <li key={s.topic.id} className="flex items-center gap-3">
                     <span className="min-w-0 flex-1 truncate">{s.topic.title}</span>
                     <span className="text-xs text-neutral-500">
-                      {s.answered}/{s.topic.problems.filter((p) => p.k).length} бодсон
+                      {s.answered}/{s.topic.problems.length} бодсон
                     </span>
                     <span className={`w-12 text-right font-semibold tabular-nums ${pct < 50 ? 'text-amber-300' : ''}`}>{pct}%</span>
                   </li>

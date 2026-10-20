@@ -37,7 +37,7 @@ export function assignmentState(a: Assignment, topics: Topic[] | null, progress:
     return {done: at.length > 0, late: at.length > 0 && Math.min(...at) > a.due, count: 0, total: 0};
   }
   const t = topics?.find((x) => x.id === a.ref);
-  const ps = t?.problems.filter((p) => p.k) ?? [];
+  const ps = t?.problems ?? [];
   const mine = progress?.[a.ref] ?? {};
   const answered = ps.filter((p) => mine[p.id]);
   const last = Math.max(0, ...answered.map((p) => mine[p.id].at));

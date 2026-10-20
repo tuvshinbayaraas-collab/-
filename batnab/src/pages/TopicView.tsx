@@ -6,19 +6,20 @@ import {ProblemView, Rich, TopicPicture, type Outcome} from '../components/Topic
 import {addMistakes, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
-import {forClassOf, useProgress, useTopics} from '../lib/topics';
+import {forClassOf, problemNo, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
 
 /** /topics/{id}: the lesson, then the problems one under another. */
 export default function TopicView({id}: {id: string}) {
   const session = useSession();
   const topics = useTopics();
   const progress = useProgress(session.user && !session.admin ? session.user.uid : undefined);
+  const marks = useMarks(session.user && !session.admin ? session.user.uid : undefined);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const mistakes = useMistakes(session.user && !session.admin ? session.user.uid : undefined);
   if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
   if (!session.user) return <LockedNote text="Сэдвийг үзэхийн тулд нэвтэрнэ үү." />;
   if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
-  if (!topics || !progress) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics || !progress || !marks) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
 
   const t = topics.find((x) => x.id === id);
   if (!t || (!session.admin && !forClassOf(t, session.profile?.class)))
@@ -31,11 +32,14 @@ export default function TopicView({id}: {id: string}) {
     );
 
   const mine = progress[t.id] ?? {};
-  // Problems without a right answer are worked out on one's own: they don't count here.
-  const counted = t.problems.filter((p) => p.k || mine[p.id]);
+  const marked = marks[t.id] ?? {};
+  // Every problem counts: one without a right answer is checked by the teacher (until then it waits).
+  const counted = t.problems;
   const answered = counted.filter((p) => mine[p.id]).length;
-  const right = counted.filter((p) => outcomes[p.id] && outcomes[p.id].key !== null && outcomes[p.id].a === outcomes[p.id].key).length;
-  const all = !session.admin && counted.length > 0 && answered === counted.length && counted.every((p) => outcomes[p.id]);
+  const judged = (pid: string) => (outcomes[pid] ? verdict(outcomes[pid].a, outcomes[pid].key, marked[pid]) : null);
+  const right = counted.filter((p) => judged(p.id) === true).length;
+  const waiting = counted.filter((p) => mine[p.id] && outcomes[p.id] && judged(p.id) === null).length;
+  const all = !session.admin && counted.length > 0 && answered === counted.length && counted.every((p) => judged(p.id) !== null);
   const grade = {score: right, total: counted.length, count: counted.length};
 
   return (
@@ -76,6 +80,7 @@ export default function TopicView({id}: {id: string}) {
             {!session.admin && counted.length > 0 && (
               <span className="text-sm text-neutral-400">
                 {answered}/{counted.length} бодсон{answered > 0 && ` · ${right} зөв`}
+                {waiting > 0 && ` · ${waiting} нь багш шалгаж байна`}
               </span>
             )}
           </div>
@@ -94,10 +99,11 @@ export default function TopicView({id}: {id: string}) {
                 key={p.id}
                 tid={t.id}
                 p={p}
-                num={i + 1}
+                num={problemNo(p, i)}
                 first={mine[p.id]}
+                mark={marked[p.id]}
                 teacher={session.admin}
-                ask={`${t.title} · ${i + 1}-р бодлого`}
+                ask={`${t.title} · ${problemNo(p, i)}-р бодлого`}
                 onOutcome={(o) => {
                   setOutcomes((x) => (x[p.id]?.a === o.a && x[p.id]?.key === o.key ? x : {...x, [p.id]: o}));
                   // A wrong first answer goes into the mistakes notebook (once).

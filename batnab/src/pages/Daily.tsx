@@ -9,7 +9,7 @@ import {addMistakes, isDue, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {dayKey, doneToday, liveStreak, practised, useStats} from '../lib/stats';
-import {forClassOf, useProgress, useTopics} from '../lib/topics';
+import {forClassOf, problemNo, useProgress, useTopics} from '../lib/topics';
 
 const SIZE = 5;
 type Saved = {items: string[]; done: string[]};
@@ -153,7 +153,7 @@ export default function Daily() {
               const t = topics.find((x) => x.id === tid);
               const p = t?.problems.find((x) => x.id === pid);
               if (!t || !p) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
-              const label = `${t.title} · ${t.problems.indexOf(p) + 1}-р бодлого`;
+              const label = `${t.title} · ${problemNo(p, t.problems.indexOf(p))}-р бодлого`;
               return kind === 'n' ? (
                 <ol key={item}>
                   <ProblemView

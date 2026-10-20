@@ -36,9 +36,9 @@ export default function Topics() {
       ) : (
         <ul className="mt-6 space-y-3">
           {shown.map((t) => {
-            // Only problems with a right answer can be done (the others are worked out on one's own).
+            // Every problem can be done (one without a right answer goes to the teacher to check).
             const mine = progress?.[t.id] ?? {};
-            const counted = t.problems.filter((p) => p.k || mine[p.id]);
+            const counted = t.problems;
             const done = counted.filter((p) => mine[p.id]).length;
             const total = counted.length;
             const pics = t.lesson.filter((b) => b.t === 'img').length;

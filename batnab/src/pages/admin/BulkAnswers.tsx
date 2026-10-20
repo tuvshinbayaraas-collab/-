@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import Sheet from '../../components/Sheet';
-import {LETTER_CODES, LETTER_LABELS, normalize, type Letter, type Problem} from '../../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, type Letter, type Problem} from '../../lib/topics';
 import {field} from './MathField';
 
 const LETTERS = 'АБВГД';
@@ -15,10 +15,10 @@ const ONE_LETTER = /^[АБВГДабвгдA-Ea-e]$/;
 
 /**
  * The answers typed at once, as in a book's answer key: in order ("ВДВГД…", "В Д - Г", "-" or "?" skips one) or
- * numbered ("1В 2Д 3-А", "18. В 19) Д"; `first` is the number of the topic's first problem). Each problem's answer:
- * a letter for an А–Д problem, the written answer for one to write.
+ * numbered by the problems' numbers ("1В 2Д 3-А", "18. В 19) Д": the book's number, when it was cut from a page).
+ * Each problem's answer: a letter for an А–Д problem, the written answer for one to write.
  */
-export function parseAnswers(text: string, problems: Problem[], first: number) {
+export function parseAnswers(text: string, problems: Problem[]) {
   const found: Record<string, string> = {};
   const wrong: string[] = [];
   const put = (k: number, v: string, label: string) => {
@@ -31,9 +31,18 @@ export function parseAnswers(text: string, problems: Problem[], first: number) {
     } else if (letter && !/^[a-e]$/i.test(v)) wrong.push(`${label}: хариулт бичих бодлого («${v}»)`);
     else found[p.id] = normalize(v);
   };
-  const numbered = [...text.matchAll(/(\d{1,3})\s*(?:[.):–-]\s*([^\s,;]+)|([АБВГДабвгдA-Ea-e])(?!\p{L}))/gu)];
+  const nos = problems.map((p, i) => problemNo(p, i));
+  const numbered = [...text.matchAll(/(\d{1,4})\s*(?:[.):–-]\s*([^\s,;]+)|([АБВГДабвгдA-Ea-e])(?!\p{L}))/gu)];
   if (numbered.length) {
-    for (const m of numbered) put(Number(m[1]) - first, m[2] ?? m[3], `${m[1]}`);
+    let from = 0;
+    for (const m of numbered) {
+      const n = Number(m[1]);
+      // The next problem with this number (one topic can hold two tests, both from 1).
+      let k = nos.indexOf(n, from);
+      if (k < 0) k = nos.indexOf(n);
+      if (k >= 0) from = k + 1;
+      put(k, m[2] ?? m[3], `${n}`);
+    }
     return {found, wrong};
   }
   let k = 0;
@@ -41,10 +50,13 @@ export function parseAnswers(text: string, problems: Problem[], first: number) {
     // Letters run together ("ВДВГД-АБ"): one problem each, "-" skipping one.
     if (/^[АБВГДабвгд\-_?]+$/.test(token) || /^[A-Ea-e\-_?]+$/.test(token))
       for (const ch of token) {
-        if (!/[-_?]/.test(ch)) put(k, ch, `${first + k}`);
+        if (!/[-_?]/.test(ch)) put(k, ch, `${nos[k] ?? k + 1}`);
         k++;
       }
-    else put(k, token, `${first + k++}`);
+    else {
+      put(k, token, `${nos[k] ?? k + 1}`);
+      k++;
+    }
   }
   return {found, wrong};
 }
@@ -52,8 +64,7 @@ export function parseAnswers(text: string, problems: Problem[], first: number) {
 /** "Хариултуудыг нэг дор": many problems' right answers typed at once. */
 export default function BulkAnswers({problems, answers, onApply, onClose}: {problems: Problem[]; answers: Record<string, string>; onApply: (found: Record<string, string>) => void; onClose: () => void}) {
   const [text, setText] = useState('');
-  const [first, setFirst] = useState(1);
-  const {found, wrong} = parseAnswers(text, problems, first);
+  const {found, wrong} = parseAnswers(text, problems);
   const count = Object.keys(found).length;
   const shown = (p: Problem) => {
     const a = found[p.id] ?? answers[p.id];
@@ -72,12 +83,8 @@ export default function BulkAnswers({problems, answers, onApply, onClose}: {prob
             placeholder={'Дарааллаар: ВДВГДАБ…\nЭсвэл дугаартай: 1В 2Д 3А, 4. Г, 5) 12'}
             className={`${field} resize-y font-mono text-sm`}
           />
-          <label className="flex items-center gap-2 text-sm text-neutral-300">
-            Эхний бодлогын дугаар
-            <input type="number" min={1} max={999} value={first} onChange={(e) => setFirst(Math.max(1, Math.min(999, Number(e.target.value) || 1)))} className={`${field} w-24 py-1.5`} />
-          </label>
           <p className="text-xs text-neutral-500">
-            Номын 18-аас эхэлсэн хуудсыг нэмсэн бол 18 гэж бичнэ: «18В» нь 1-р бодлого болно. «-» эсвэл «?» нэг бодлогыг алгасна. А–Д бодлогод үсэг, бичих бодлогод хариултыг бичнэ.
+            Дугаар нь бодлогын дугаар: номын хуудаснаас тасдсан бол номын дугаар («18В» нь 18-р бодлого). «-» эсвэл «?» нэг бодлогыг алгасна. А–Д бодлогод үсэг, бичих бодлогод хариултыг бичнэ.
           </p>
           {wrong.length > 0 && (
             <ul className="space-y-0.5 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-200">
@@ -93,10 +100,7 @@ export default function BulkAnswers({problems, answers, onApply, onClose}: {prob
           <div className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1.5">
             {problems.map((p, i) => (
               <div key={p.id} className={`rounded-lg px-2 py-1.5 text-center text-sm ${found[p.id] ? 'bg-green-500/15 text-green-200 ring-1 ring-green-500/40' : 'bg-neutral-800/60 text-neutral-400'}`}>
-                <span className="block text-[10px] text-neutral-500">
-                  {i + 1}
-                  {first !== 1 && ` (${i + first})`}
-                </span>
+                <span className="block text-[10px] text-neutral-500">{problemNo(p, i)}</span>
                 <span className="font-semibold">{shown(p)}</span>
               </div>
             ))}

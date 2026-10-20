@@ -8,7 +8,7 @@ import {forClass, useLive} from '../../lib/live';
 import {formatDate} from '../../lib/results';
 import {Link} from '../../lib/router';
 import type {Stats} from '../../lib/stats';
-import {useAllProgress, useTopics} from '../../lib/topics';
+import {useAllMarks, useAllProgress, useTopics} from '../../lib/topics';
 import {TESTS} from '../../tests';
 import {gradeOf, mean, type AdminData} from './data';
 import {pctOf, topicScores, useAllTopicKeys} from './WeakTopics';
@@ -21,14 +21,15 @@ export default function Report({data, picked}: {data: AdminData; picked: string}
   const topics = useTopics();
   const progress = useAllProgress();
   const keys = useAllTopicKeys();
+  const marks = useAllMarks();
   const assignments = useAssignments();
   const history = useLive('history', (v) => (v ?? {}) as Record<string, History>);
   const stats = useLive('stats', (v) => (v ?? {}) as Record<string, Partial<Stats>>);
-  if (!topics || !progress || !keys || !assignments || !history || !stats) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics || !progress || !keys || !marks || !assignments || !history || !stats) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
 
   const name = classes?.find((c) => c.id === picked)?.name ?? 'Бүх анги';
   const students = data.students.filter((s) => !s.profile.disabled);
-  const scores = topicScores(students, topics, progress, keys).filter((s) => s.answered);
+  const scores = topicScores(students, topics, progress, keys, marks).filter((s) => s.answered);
   const tasks = assignments.filter((a) => !picked || forClass(a.classes, picked));
   const best = (uid: string, test: string) => {
     const ps = data.results.filter((r) => r.uid === uid && r.test === test).flatMap((r) => (gradeOf(r, data.keys) ? [percent(gradeOf(r, data.keys)!)] : []));

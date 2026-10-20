@@ -1,7 +1,7 @@
 import {AlertTriangle, BookOpen} from 'lucide-react';
 import {Link} from '../../lib/router';
 import {useLive} from '../../lib/live';
-import {useAllProgress, useTopics, type Progress, type Topic} from '../../lib/topics';
+import {useAllMarks, useAllProgress, useTopics, verdict, type Marks, type Progress, type Topic} from '../../lib/topics';
 import type {AdminData, Student} from './data';
 
 export interface TopicScore {
@@ -18,10 +18,10 @@ export interface TopicScore {
 /** Every topic's keys, for the teacher. */
 export const useAllTopicKeys = () => useLive('topicKeys', (v) => (v ?? {}) as Record<string, Record<string, string>>);
 
-/** How the class did in each opened topic, by first answers. */
-export function topicScores(students: Student[], topics: Topic[], progress: Record<string, Progress>, keys: Record<string, Record<string, string>>): TopicScore[] {
+/** How the class did in each opened topic, by first answers: against the key or the teacher's mark (answers the teacher hasn't checked yet left out). */
+export function topicScores(students: Student[], topics: Topic[], progress: Record<string, Progress>, keys: Record<string, Record<string, string>>, marks: Record<string, Marks> = {}): TopicScore[] {
   return topics
-    .filter((t) => t.published && t.problems.some((p) => p.k))
+    .filter((t) => t.published && t.problems.length > 0)
     .map((topic) => {
       const by = new Map<string, [number, number]>();
       let answered = 0;
@@ -32,8 +32,10 @@ export function topicScores(students: Student[], topics: Topic[], progress: Reco
         let r = 0;
         for (const p of topic.problems) {
           if (!mine[p.id]) continue;
+          const v = verdict(mine[p.id].a, keys[topic.id]?.[p.id], marks[s.uid]?.[topic.id]?.[p.id]);
+          if (v === null) continue;
           a++;
-          if (keys[topic.id]?.[p.id] && mine[p.id].a === keys[topic.id][p.id]) r++;
+          if (v) r++;
         }
         if (a) by.set(s.uid, [a, r]);
         answered += a;
@@ -50,8 +52,9 @@ export default function WeakTopics({data}: {data: AdminData}) {
   const topics = useTopics();
   const progress = useAllProgress();
   const keys = useAllTopicKeys();
-  if (!topics || !progress || !keys) return null;
-  const scores = topicScores(data.students, topics, progress, keys)
+  const marks = useAllMarks();
+  if (!topics || !progress || !keys || !marks) return null;
+  const scores = topicScores(data.students, topics, progress, keys, marks)
     .filter((s) => s.answered)
     .sort((a, b) => a.right / a.answered - b.right / b.answered);
   if (!scores.length) return null;

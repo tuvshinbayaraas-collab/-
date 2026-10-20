@@ -4,6 +4,9 @@
 //   topicKeys/{tid}/{pid}     the right answer ("A"…"E", or a short written answer), teacher only
 //   topicProgress/{uid}/{tid}/{pid} = {a, at}   a student's first answer; only after it is written may they read that
 //                             problem's key (the rules check), so the first try is honest and the teacher sees it.
+//                             A problem without a key takes an answer too: it goes to the teacher to check.
+//   topicMarks/{uid}/{tid}/{pid} = {ok, at, note?}   the teacher's word on an answer (right or wrong, a note): for a
+//                             problem without a key, or instead of the key's (a written answer put another way).
 import {get, onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState, useSyncExternalStore} from 'react';
 import {auth, db} from './firebase';
@@ -22,9 +25,14 @@ export interface Problem {
   /** How to solve it, shown after answering. */
   sol?: string;
   solImg?: string;
-  /** Whether the teacher has set the right answer (the answer itself is in topicKeys). */
+  /** Whether the teacher has set the right answer (the answer itself is in topicKeys); without it the teacher checks. */
   k?: boolean;
+  /** Its number in the book ("18." printed on its picture); the problems are still in the topic's order. */
+  no?: number;
 }
+
+/** The number a problem goes by: the book's, or its place in the topic. */
+export const problemNo = (p: Problem, i: number) => p.no ?? i + 1;
 
 export const LETTER_CODES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type Letter = (typeof LETTER_CODES)[number];
@@ -195,6 +203,7 @@ export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]
         sol: clean(p.sol),
         solImg: p.solImg ?? null,
         k: !!keys[p.id],
+        no: typeof p.no === 'number' && p.no > 0 ? Math.round(p.no) : null,
       })),
     },
     [`topicKeys/${t.id}`]: Object.fromEntries(Object.entries(keys).filter(([pid, k]) => k && t.problems.some((p) => p.id === pid))),
@@ -235,7 +244,7 @@ export const deleteTopic = (tid: string) => update(ref(db), {[`topics/${tid}`]: 
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});
 
-export const resetProgress = (uid: string, tid: string) => set(ref(db, `topicProgress/${uid}/${tid}`), null);
+export const resetProgress = (uid: string, tid: string) => update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null});
 
 /** The teacher's copy of a topic's keys; null while loading. */
 export function useTopicKeys(tid: string) {
@@ -287,6 +296,57 @@ export function useAllProgress() {
   );
   return p;
 }
+
+// ---- the teacher's checking ----
+
+export interface Mark {
+  ok: boolean;
+  at: number;
+  note?: string;
+}
+/** tid → pid → mark. */
+export type Marks = Record<string, Record<string, Mark>>;
+
+/** The teacher's marks on a student's answers; null while loading. */
+export function useMarks(uid: string | undefined) {
+  const [m, setM] = useState<Marks | null>(null);
+  useEffect(() => {
+    if (!uid) return;
+    return onValue(
+      ref(db, `topicMarks/${uid}`),
+      (s) => setM((s.val() ?? {}) as Marks),
+      () => setM({}),
+    );
+  }, [uid]);
+  return uid ? m : {};
+}
+
+/** Every student's marks (uid → tid → pid), for the teacher. */
+export function useAllMarks() {
+  const [m, setM] = useState<Record<string, Marks> | null>(null);
+  useEffect(
+    () =>
+      onValue(
+        ref(db, 'topicMarks'),
+        (s) => setM((s.val() ?? {}) as Record<string, Marks>),
+        () => setM({}),
+      ),
+    [],
+  );
+  return m;
+}
+
+/** Marks these students' answers to a problem right or wrong (null takes the mark back), with a note. */
+export function setMarks(uids: string[], tid: string, pid: string, ok: boolean | null, note?: string) {
+  const mark = ok === null ? null : {ok, at: serverTimestamp(), ...(note?.trim() ? {note: note.trim().slice(0, 300)} : {})};
+  return update(ref(db), Object.fromEntries(uids.map((uid) => [`topicMarks/${uid}/${tid}/${pid}`, mark])));
+}
+
+/**
+ * How an answer went: the teacher's mark first, else against the key (an answer sent before the key was given is
+ * compared as written answers are); null while it waits for the teacher.
+ */
+export const verdict = (a: string | undefined, key: string | null | undefined, mark?: Mark | null) => (mark ? mark.ok : key ? a === key || (a !== undefined && normalize(a) === key) : null);
 
 /** Records the student's first answer, then reads the key (allowed only now). */
 export async function answer(tid: string, pid: string, a: string) {

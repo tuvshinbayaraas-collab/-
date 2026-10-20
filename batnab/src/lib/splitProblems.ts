@@ -354,17 +354,6 @@ export function widestGap(rowInk: number[], y0: number, y1: number) {
 /** Choice marks read in the text ("А)", "Б)", "B)"…): two or more and it's an А–Д problem even when the choices' formulas were not read. */
 export const hasChoices = (text: string) => (text.match(/(?:^|[\s|(])[АAаБ6бВBвГTIгДDд]\s?\)/g) ?? []).length >= 2;
 
-/**
- * Whether the read text can stand for the problem: mostly real words and plain numbers. Formulas (fractions, roots,
- * powers) and figures come out as broken bits, and those problems are better kept as the picture.
- */
-export function readsWell(text: string) {
-  const tokens = text.split(/\s+/).filter(Boolean);
-  if (tokens.length < 4) return false;
-  const good = tokens.filter((t) => /^[(«"]?(?:[\p{Script=Cyrillic}]{2,}|\d+(?:[.,]\d+)?|[А-ЯA-Z]\)|[a-zA-Z]|[=+\-:?])[)»".,?!:;]*$/u.test(t)).length;
-  return good / tokens.length >= 0.85;
-}
-
 /** Choices А)–Д) in a problem's read text, when at least four are found in order: the question and the choices. */
 export function parseChoices(text: string): {stem: string; choices: string[]} | null {
   const marks = [/[АAа]/, /[Б6б]/, /[ВBв]/, /[ГTIг]/, /[ДDд]/];

@@ -1,15 +1,19 @@
-import {ArrowDown, ArrowUp, BookOpen, ChevronRight, Plus} from 'lucide-react';
+import {ArrowDown, ArrowUp, BookOpen, ChevronRight, ClipboardCheck, Plus} from 'lucide-react';
 import {useState} from 'react';
 import {useClasses} from '../../lib/classes';
 import {Link, navigate} from '../../lib/router';
-import {createTopic, setTopicOrder, useAllProgress, useTopics} from '../../lib/topics';
+import {createTopic, setTopicOrder, useAllMarks, useAllProgress, useTopics} from '../../lib/topics';
 import type {AdminData} from './data';
+import {waitingIn} from './TopicCheck';
+import {useAllTopicKeys} from './WeakTopics';
 
 /** The teacher's topics: each with its lesson and problems; drafts stay hidden from students. */
 export default function TopicsTab({data}: {data: AdminData}) {
   const topics = useTopics();
   const classes = useClasses() ?? [];
   const progress = useAllProgress();
+  const marks = useAllMarks();
+  const keys = useAllTopicKeys();
   const [busy, setBusy] = useState(false);
   if (!topics) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
 
@@ -24,6 +28,9 @@ export default function TopicsTab({data}: {data: AdminData}) {
   };
   const move = (i: number, d: -1 | 1) => setTopicOrder(topics[i], topics[i + d]).catch((e) => alert(`Алдаа: ${(e as Error).message}`));
   const classNames = (ids: string[]) => ids.map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean).join(', ');
+  // Students' answers to problems without a key, waiting for the teacher to check them.
+  const waiting = new Map(topics.map((t) => [t.id, progress && marks && keys ? waitingIn(t, data.students, progress, marks, keys[t.id] ?? {}) : 0]));
+  const allWaiting = [...waiting.values()].reduce((a, n) => a + n, 0);
 
   return (
     <div className="space-y-4">
@@ -36,6 +43,12 @@ export default function TopicsTab({data}: {data: AdminData}) {
           <Plus size={18} /> Шинэ сэдэв
         </button>
       </div>
+
+      {allWaiting > 0 && (
+        <p className="flex items-center gap-2 rounded-xl bg-violet-500/10 px-4 py-3 text-sm text-violet-100">
+          <ClipboardCheck size={16} className="shrink-0" /> Сурагчдын {allWaiting} хариулт таныг шалгахыг хүлээж байна: сэдвийн хажуудах «шалгах» дээр дарна.
+        </p>
+      )}
 
       {!topics.length ? (
         <div className="rounded-2xl border border-dashed border-neutral-700 p-8 text-center">
@@ -76,6 +89,11 @@ export default function TopicsTab({data}: {data: AdminData}) {
                   </span>
                   <ChevronRight size={16} className="shrink-0 text-neutral-500" />
                 </Link>
+                {(waiting.get(t.id) ?? 0) > 0 && (
+                  <Link href={`/admin/topic/${t.id}?check`} className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-2.5 py-1 text-xs font-semibold text-black hover:bg-violet-400" title="Сурагчдын хариултыг шалгах">
+                    <ClipboardCheck size={13} /> {waiting.get(t.id)} шалгах
+                  </Link>
+                )}
               </li>
             );
           })}
