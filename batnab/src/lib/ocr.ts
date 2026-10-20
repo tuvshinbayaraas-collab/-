@@ -47,6 +47,25 @@ export async function readText(image: string | Blob, onProgress?: (progress: num
   }
 }
 
+/** The lines read in a picture, each with where it is and where its words are. */
+export async function readLines(image: HTMLCanvasElement, onProgress?: (progress: number, stage: string) => void) {
+  report = onProgress ?? null;
+  try {
+    const {data} = await (await getWorker()).recognize(image, {}, {blocks: true, text: false});
+    return (data.blocks ?? []).flatMap((b) =>
+      b.paragraphs.flatMap((p) =>
+        p.lines.map((l) => ({
+          text: l.text.trim(),
+          bbox: l.bbox,
+          words: l.words.map((w) => ({text: w.text, bbox: w.bbox})),
+        })),
+      ),
+    );
+  } finally {
+    report = null;
+  }
+}
+
 export function tidy(text: string) {
   return text
     .replace(/\r/g, '')

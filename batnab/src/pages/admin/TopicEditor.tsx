@@ -1,7 +1,7 @@
-import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, Copy, Eye, ImagePlus, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, X} from 'lucide-react';
-import {useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode} from 'react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, X} from 'lucide-react';
+import {useEffect, useRef, useState, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
-import {Rich, TopicPicture} from '../../components/TopicParts';
+import {TopicPicture} from '../../components/TopicParts';
 import {useClasses} from '../../lib/classes';
 import {chunks} from '../../lib/ocr';
 import {imageFile} from '../../lib/photo';
@@ -27,10 +27,13 @@ import {
   type Topic,
 } from '../../lib/topics';
 import type {AdminData} from './data';
+import BulkAnswers from './BulkAnswers';
+import {field, MathArea} from './MathField';
 import OcrDialog, {type OcrAction} from './OcrDialog';
+import ProblemsDialog from './ProblemsDialog';
 
-const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
+const addButton = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300';
 const icon = 'rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-25';
 
 /** /admin/topic/{id}: write the lesson and the problems, then open the topic to students; see how they did. */
@@ -63,6 +66,10 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, flash] = useSavedNote();
+  // "Зургаас бодлогууд": the photos of book pages being cut into problems; "Хариултуудыг нэг дор".
+  const [pages, setPages] = useState<File[] | null>(null);
+  const [bulk, setBulk] = useState(false);
+  const pagesRef = useRef<HTMLInputElement>(null);
   // Pictures the topic used when opened, and the ones added since: whatever of these the topic no longer uses is
   // deleted when it's saved.
   const known = useRef(imagesOf(topic));
@@ -172,6 +179,11 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
             <h2 className="flex flex-wrap items-center gap-2 font-semibold">
               Бодлого ({draft.problems.length})
               {open > 0 && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-400">{open} нь хариултгүй</span>}
+              {draft.problems.length > 1 && (
+                <button onClick={() => setBulk(true)} className={`${small} ml-auto font-normal`}>
+                  <ListChecks size={15} /> Хариултуудыг нэг дор
+                </button>
+              )}
             </h2>
             {draft.problems.map((p, i) => (
               <ProblemEditor
@@ -193,9 +205,37 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 }}
               />
             ))}
-            <button onClick={() => change((t) => ({...t, problems: [...t.problems, {id: newId(), text: '', kind: 'choice'}]}))} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300">
-              <Plus size={18} /> Бодлого нэмэх
-            </button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button onClick={() => change((t) => ({...t, problems: [...t.problems, {id: newId(), text: '', kind: 'choice'}]}))} className={addButton}>
+                <Plus size={18} /> Бодлого нэмэх
+              </button>
+              <button onClick={() => pagesRef.current?.click()} className={addButton}>
+                <Images size={18} /> Зургаас бодлогууд
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500">«Зургаас бодлогууд»: номын хуудасны зургийг (хэд хэдийг ч болно) оруулбал дугаартай бодлого бүрийг тусад нь тасдаж, томьёо, дүрсийг нь хэвээр нь зураг болгон нэмнэ.</p>
+            <input
+              ref={pagesRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const fs = [...(e.target.files ?? [])].filter((f) => f.type.startsWith('image/'));
+                if (fs.length) setPages(fs);
+                e.target.value = '';
+              }}
+            />
+            {pages && (
+              <ProblemsDialog
+                files={pages}
+                tid={draft.id}
+                onUploaded={uploaded}
+                onAdd={(ps) => change((t) => ({...t, problems: [...t.problems, ...ps]}))}
+                onClose={() => setPages(null)}
+              />
+            )}
+            {bulk && <BulkAnswers problems={draft.problems} answers={answers} onApply={(found) => setAnswers((k) => ({...k, ...found}))} onClose={() => setBulk(false)} />}
           </section>
 
           <div className="flex flex-wrap gap-4">
@@ -401,27 +441,6 @@ function StoredOcr({tid, iid, actions, onClose}: {tid: string; iid: string; acti
 
 /** Text added to a field: on a new line after what's there. */
 const append = (before: string | undefined, text: string) => (before?.trim() ? `${before.trimEnd()}\n${text}` : text);
-
-/** A text box for text with $math$; shows how it will look, and a pasted picture goes to `onImage`. */
-function MathArea({value, onChange, rows = 3, max, placeholder, onImage}: {value: string; onChange: (v: string) => void; rows?: number; max: number; placeholder: string; onImage?: (f: File) => void}) {
-  const paste = (e: ClipboardEvent) => {
-    const f = onImage && imageFile(e.clipboardData?.items, e.clipboardData?.files);
-    if (!f) return;
-    e.preventDefault();
-    onImage!(f);
-  };
-  return (
-    <div>
-      <textarea value={value} maxLength={max} rows={rows} onChange={(e) => onChange(e.target.value)} onPaste={paste} placeholder={placeholder} className={`${field} resize-y`} />
-      {value.includes('$') && (
-        <div className="mt-2 rounded-xl border border-dashed border-neutral-700 p-3">
-          <p className="mb-1 text-[11px] uppercase tracking-wider text-neutral-500">Ингэж харагдана</p>
-          <Rich text={value} className="text-sm" />
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** A picture slot: choose a file, drop one on it, or paste one (Ctrl+V) while it's selected. */
 function ImageSlot(props: {

@@ -1,0 +1,365 @@
+import {Check, Combine, Image as ImageIcon, Loader2, Scissors, Type, X} from 'lucide-react';
+import {useEffect, useRef, useState, type PointerEvent} from 'react';
+import Sheet from '../../components/Sheet';
+import ZoomView from '../../components/ZoomView';
+import {canvasFile, cropProblem, readPage, type Page} from '../../lib/pageSplit';
+import {hasChoices, parseChoices, readsWell, widestGap, type Region} from '../../lib/splitProblems';
+import {LETTER_CODES, newId, uploadTopicImage, type Letter, type Problem} from '../../lib/topics';
+import {MathArea} from './MathField';
+
+type Use = 'img' | 'text' | 'both';
+interface Item {
+  key: number;
+  num: number;
+  guessed?: boolean;
+  regions: Region[];
+  text: string;
+  /** What the problem is made of: its picture cut from the page, the read text, or both. */
+  use: Use;
+  /** Read as formulas or a figure (broken bits of text): kept as the picture. */
+  formula: boolean;
+  kind: Problem['kind'];
+  on: boolean;
+  thumb: string;
+}
+
+const USES: [Use, string][] = [
+  ['img', 'Зураг'],
+  ['text', 'Бичвэр'],
+  ['both', 'Хоёулаа'],
+];
+const pill = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-40';
+
+let keys = 0;
+const thumb = (page: Page, regions: Region[]) => cropProblem(page, regions).toDataURL('image/jpeg', 0.85);
+function itemsOf(page: Page): Item[] {
+  // Nothing numbered found: the whole page as one problem, to cut by hand.
+  const all = [...page.lines]
+    .sort((a, b) => a.col - b.col || a.bbox.y0 - b.bbox.y0)
+    .map((l) => l.text)
+    .filter(Boolean)
+    .join('\n');
+  const found = page.problems.length ? page.problems : [{num: 1, guessed: true, text: all, regions: [{col: -1, x0: 0, y0: 0, x1: page.canvas.width, y1: page.canvas.height}]}];
+  const choice = found.map((f) => hasChoices(f.text) || !!parseChoices(f.text));
+  // A test's page: when most problems show А)–Д), so do the rest (choices written as formulas are not read).
+  const test = choice.filter(Boolean).length >= found.length * 0.6;
+  return found.map((f, i) => {
+    const formula = !readsWell(f.text);
+    return {key: keys++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: formula ? 'img' : 'both', formula, kind: choice[i] || test ? 'choice' : 'answer', on: true, thumb: thumb(page, f.regions)};
+  });
+}
+
+/**
+ * "Зургаас бодлогууд": a photo of a book's page (or several) becomes one problem per numbered problem on it. Each is
+ * cut out as its own picture by default, so formulas and figures stay exactly as printed; the read text can be used
+ * too (or instead) where it reads well. The boxes can be fixed by hand on the page before adding.
+ */
+export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}: {files: File[]; tid: string; onAdd: (ps: Problem[]) => void; onUploaded: (iid: string) => void; onClose: () => void}) {
+  const [at, setAt] = useState(0);
+  const [page, setPage] = useState<Page | null>(null);
+  const [pageUrl, setPageUrl] = useState('');
+  const [items, setItems] = useState<Item[]>([]);
+  const [progress, setProgress] = useState({p: 0, stage: 'Бэлдэж байна'});
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [sel, setSel] = useState<number | null>(null);
+  const [adding, setAdding] = useState<{done: number; total: number} | null>(null);
+  const [zoom, setZoom] = useState<string | null>(null);
+  const overview = useRef<HTMLDivElement>(null);
+  const drag = useRef<{key: number; edge: 'top' | 'bottom'} | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setPage(null);
+    setItems([]);
+    setSel(null);
+    setError('');
+    readPage(files[at], (p, stage) => live && setProgress({p, stage}))
+      .then((pg) => {
+        if (!live) return;
+        setPage(pg);
+        setPageUrl(pg.canvas.toDataURL('image/jpeg', 0.85));
+        setItems(itemsOf(pg));
+      })
+      .catch((e) => live && setError(/fetch|network|load/i.test(String(e?.message ?? e)) ? 'Интернэт холболтоо шалгаад дахин оролдоно уу.' : `Уншиж чадсангүй: ${e?.message ?? e}`));
+    return () => {
+      live = false;
+    };
+  }, [files, at, attempt]);
+
+  const edit = (key: number, f: (it: Item) => Item) => setItems((xs) => xs.map((it) => (it.key === key ? f(it) : it)));
+  const reshape = (key: number, regions: Region[]) => page && edit(key, (it) => ({...it, regions, thumb: thumb(page, regions)}));
+  const chosen = items.filter((it) => it.on);
+  const selected = items.find((it) => it.key === sel);
+  const W = page?.canvas.width ?? 1;
+  const H = page?.canvas.height ?? 1;
+
+  /** Takes the problem into the one before it (it was one problem cut in two). */
+  const merge = (key: number) => {
+    const k = items.findIndex((it) => it.key === key);
+    if (k < 1 || !page) return;
+    const a = items[k - 1];
+    const b = items[k];
+    const last = a.regions[a.regions.length - 1];
+    const [first, ...rest] = b.regions;
+    const regions =
+      last.col === first.col
+        ? [...a.regions.slice(0, -1), {col: last.col, x0: Math.min(last.x0, first.x0), x1: Math.max(last.x1, first.x1), y0: Math.min(last.y0, first.y0), y1: Math.max(last.y1, first.y1)}, ...rest]
+        : [...a.regions, ...b.regions];
+    const text = [a.text, b.text].filter(Boolean).join('\n');
+    const formula = a.formula || b.formula;
+    setItems([...items.slice(0, k - 1), {...a, regions, text, formula, use: formula ? 'img' : a.use, thumb: thumb(page, regions)}, ...items.slice(k + 1)]);
+    setSel(a.key);
+  };
+  /** Cuts the box in two at its widest blank (it held two problems). */
+  const split = (key: number) => {
+    const k = items.findIndex((it) => it.key === key);
+    if (k < 0 || !page) return;
+    const it = items[k];
+    let a: Region[];
+    let b: Region[];
+    if (it.regions.length > 1) [a, b] = [it.regions.slice(0, 1), it.regions.slice(1)];
+    else {
+      const r = it.regions[0];
+      const y = r.col >= 0 ? widestGap(page.rowInk[r.col], Math.round(r.y0), Math.round(r.y1)) : Math.round((r.y0 + r.y1) / 2);
+      [a, b] = [[{...r, y1: y}], [{...r, y0: y}]];
+    }
+    const second: Item = {...it, key: keys++, num: it.num + 1, guessed: true, regions: b, text: '', use: 'img', formula: true, thumb: thumb(page, b)};
+    setItems([...items.slice(0, k), {...it, regions: a, thumb: thumb(page, a)}, second, ...items.slice(k + 1)]);
+  };
+
+  const yAt = (clientY: number) => {
+    const r = overview.current!.getBoundingClientRect();
+    return Math.min(H, Math.max(0, ((clientY - r.top) / r.height) * H));
+  };
+  const down = (e: PointerEvent, key: number, edge: 'top' | 'bottom') => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = {key, edge};
+  };
+  const move = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const y = yAt(e.clientY);
+    setItems((xs) =>
+      xs.map((it) => {
+        if (it.key !== d.key) return it;
+        const regions = [...it.regions];
+        const i = d.edge === 'top' ? 0 : regions.length - 1;
+        const r = regions[i];
+        regions[i] = d.edge === 'top' ? {...r, y0: Math.min(y, r.y1 - 16)} : {...r, y1: Math.max(y, r.y0 + 16)};
+        return {...it, regions};
+      }),
+    );
+  };
+  const up = () => {
+    const d = drag.current;
+    drag.current = null;
+    const it = d && items.find((x) => x.key === d.key);
+    if (it) reshape(it.key, it.regions);
+  };
+
+  const add = async () => {
+    if (!page || !chosen.length) return;
+    setAdding({done: 0, total: chosen.length});
+    setError('');
+    try {
+      const out: Problem[] = [];
+      for (const it of chosen) {
+        let img: string | undefined;
+        if (it.use !== 'text') {
+          img = await uploadTopicImage(tid, await canvasFile(cropProblem(page, it.regions), `bodlogo-${it.num}.png`));
+          onUploaded(img);
+        }
+        let text = it.use === 'img' ? '' : it.text.trim();
+        let choices: Partial<Record<Letter, string>> | undefined;
+        const parsed = it.use !== 'img' && it.kind === 'choice' ? parseChoices(text) : null;
+        if (parsed) {
+          text = parsed.stem;
+          choices = Object.fromEntries(parsed.choices.slice(0, 5).map((c, j) => [LETTER_CODES[j], c.slice(0, 200)]));
+        }
+        out.push({id: newId(), text: text.slice(0, 2000), ...(img ? {img} : {}), kind: it.kind, ...(choices ? {choices} : {})});
+        setAdding({done: out.length, total: chosen.length});
+      }
+      onAdd(out);
+      if (at + 1 < files.length) setAt(at + 1);
+      else onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const setAll = (use: Use) => setItems((xs) => xs.map((it) => ({...it, use})));
+  const many = files.length > 1 ? ` · ${at + 1}/${files.length}-р хуудас` : '';
+
+  return (
+    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь тасдаж нэмнэ. Томьёо, дүрс зурагтаа яг хэвээрээ үлдэнэ." onClose={onClose} wide>
+      {error ? (
+        <div className="rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
+          {error}
+          {!page && (
+            <button onClick={() => setAttempt((n) => n + 1)} className="mt-3 block rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
+              Дахин оролдох
+            </button>
+          )}
+        </div>
+      ) : null}
+      {!page && !error && (
+        <div className="rounded-xl bg-neutral-800/50 p-4" role="status">
+          <p className="flex items-center gap-2 text-sm text-neutral-300">
+            <Loader2 size={16} className="animate-spin" /> {progress.stage}… {Math.round(progress.p * 100)}%
+          </p>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+            <div className="h-full rounded-full bg-violet-400 transition-[width]" style={{width: `${Math.round(progress.p * 100)}%`}} />
+          </div>
+          <p className="mt-3 text-xs text-neutral-500">Зургийг тэгшилж, цайруулаад багана бүрийг уншина (хуудас бүрт 10–30 секунд). Анх удаа хэлний өгөгдлийг (≈4 MB) татна.</p>
+        </div>
+      )}
+
+      {page && (
+        <div className="grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+          <div className="md:sticky md:top-0 md:self-start">
+            {/* On a wide screen the whole page stays in view, with room for the box's tools under it. */}
+            <div ref={overview} className="relative touch-pan-y select-none overflow-hidden rounded-xl bg-white md:mx-auto md:w-fit" onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+              <img src={pageUrl} alt="Хуудас" draggable={false} className="block w-full md:max-h-[50dvh] md:w-auto md:max-w-full" />
+              {items.map((it) =>
+                it.regions.map((r, j) => (
+                  <button
+                    key={`${it.key}-${j}`}
+                    type="button"
+                    onClick={() => setSel(sel === it.key ? null : it.key)}
+                    aria-label={`${it.num}-р бодлогын хүрээ`}
+                    aria-pressed={sel === it.key}
+                    className={`absolute rounded-sm border-2 text-left ${sel === it.key ? 'z-10 border-blue-500 bg-blue-500/15' : it.on ? 'border-emerald-500/80 hover:bg-emerald-500/10' : 'border-dashed border-neutral-400 bg-neutral-900/30'}`}
+                    style={{left: `${(r.x0 / W) * 100}%`, top: `${(r.y0 / H) * 100}%`, width: `${((r.x1 - r.x0) / W) * 100}%`, height: `${((r.y1 - r.y0) / H) * 100}%`}}
+                  >
+                    {j === 0 && <span className={`absolute left-0 top-0 rounded-br px-1 text-[10px] font-bold leading-4 text-white ${sel === it.key ? 'bg-blue-500' : it.on ? 'bg-emerald-600' : 'bg-neutral-500'}`}>{it.num}</span>}
+                  </button>
+                )),
+              )}
+              {selected &&
+                (['top', 'bottom'] as const).map((edge) => {
+                  const r = edge === 'top' ? selected.regions[0] : selected.regions[selected.regions.length - 1];
+                  const y = edge === 'top' ? r.y0 : r.y1;
+                  return (
+                    <div
+                      key={edge}
+                      role="slider"
+                      aria-label={edge === 'top' ? 'Дээд хүрээ' : 'Доод хүрээ'}
+                      aria-valuenow={Math.round(y)}
+                      aria-valuemin={0}
+                      aria-valuemax={H}
+                      tabIndex={0}
+                      onPointerDown={(e) => down(e, selected.key, edge)}
+                      onKeyDown={(e) => {
+                        const d = e.key === 'ArrowUp' ? -8 : e.key === 'ArrowDown' ? 8 : 0;
+                        if (!d) return;
+                        e.preventDefault();
+                        const regions = [...selected.regions];
+                        const i = edge === 'top' ? 0 : regions.length - 1;
+                        regions[i] = edge === 'top' ? {...regions[i], y0: Math.min(regions[i].y0 + d, regions[i].y1 - 16)} : {...regions[i], y1: Math.max(regions[i].y1 + d, regions[i].y0 + 16)};
+                        reshape(selected.key, regions);
+                      }}
+                      className="absolute z-20 flex h-7 -translate-y-1/2 cursor-ns-resize touch-none items-center justify-center outline-none"
+                      style={{left: `${(r.x0 / W) * 100}%`, width: `${((r.x1 - r.x0) / W) * 100}%`, top: `${(y / H) * 100}%`}}
+                    >
+                      <span className="h-1.5 w-14 rounded-full bg-blue-500 shadow ring-2 ring-white" />
+                    </div>
+                  );
+                })}
+            </div>
+            {selected ? (
+              <div className="mt-2 rounded-xl bg-neutral-800/60 p-3">
+                <p className="text-sm font-semibold">
+                  {selected.num}-р бодлого <span className="font-normal text-neutral-400">· хөх зураасыг чирж дээд, доод хүрээг тохируулна</span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => merge(selected.key)} disabled={items[0]?.key === selected.key} className={pill}>
+                    <Combine size={15} /> Өмнөхтэй нэгтгэх
+                  </button>
+                  <button type="button" onClick={() => split(selected.key)} className={pill}>
+                    <Scissors size={15} /> Хоёр хуваах
+                  </button>
+                  <button type="button" onClick={() => edit(selected.key, (it) => ({...it, on: !it.on}))} className={pill}>
+                    {selected.on ? <X size={15} /> : <Check size={15} />} {selected.on ? 'Нэмэхгүй' : 'Нэмэх'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-neutral-500">Хүрээн дээр дарж сонгоод хэмжээг нь засах, нэгтгэх, хуваах боломжтой.</p>
+            )}
+          </div>
+
+          <div className="min-w-0 space-y-3">
+            {page.problems.length === 0 && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">Дугаартай бодлого олдсонгүй. Бүх хуудсыг нэг бодлого болгосон: хүрээг нь тохируулж эсвэл «Хоёр хуваах»-аар хуваана уу.</p>}
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-neutral-400">Бүгдийг:</span>
+              <button type="button" onClick={() => setAll('img')} className={pill}>
+                <ImageIcon size={15} /> Зургаар
+              </button>
+              <button type="button" onClick={() => setAll('text')} className={pill}>
+                <Type size={15} /> Бичвэрээр
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500">Томьёо, дүрстэй бодлогыг зургаар нь үлдээх нь хамгийн найдвартай. Бичвэр сонговол уншсан бичвэрийг зурагтай тулгаж засаад, томьёог «Томьёо» товчоор оруулна.</p>
+            {items.map((it) => (
+              <div key={it.key} className={`rounded-2xl border p-3 ${sel === it.key ? 'border-blue-500/70 bg-blue-500/5' : 'border-neutral-800 bg-neutral-900'} ${it.on ? '' : 'opacity-50'}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 font-semibold">
+                    <input type="checkbox" checked={it.on} onChange={() => edit(it.key, (x) => ({...x, on: !x.on}))} className="h-4 w-4 accent-blue-500" />
+                    {it.num}-р бодлого
+                  </label>
+                  {it.guessed && (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-200" title="Дугаарыг нь уншиж чадаагүй тул байрлалаар нь таамагласан">
+                      шалгана уу
+                    </span>
+                  )}
+                  {it.formula && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-400">томьёо/дүрстэй</span>}
+                  <button type="button" onClick={() => edit(it.key, (x) => ({...x, kind: x.kind === 'choice' ? 'answer' : 'choice'}))} className="ml-auto rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700" title="Хариултын төрөл">
+                    {it.kind === 'choice' ? 'А–Д сонголт' : 'Хариулт бичих'}
+                  </button>
+                </div>
+                <button type="button" onClick={() => setSel(it.key)} onDoubleClick={() => setZoom(it.thumb)} className="mt-2 block w-full overflow-hidden rounded-lg bg-white" aria-label={`${it.num}-р бодлогыг хуудсан дээр сонгох`}>
+                  <img src={it.thumb} alt="" className="mx-auto max-h-48 w-auto max-w-full" />
+                </button>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="flex rounded-full bg-neutral-800 p-0.5 text-xs" role="radiogroup" aria-label="Юугаар нэмэх">
+                    {USES.map(([u, label]) => (
+                      <button key={u} type="button" role="radio" aria-checked={it.use === u} onClick={() => edit(it.key, (x) => ({...x, use: u}))} className={`rounded-full px-3 py-1 font-medium ${it.use === u ? 'bg-neutral-600 text-white' : 'text-neutral-400'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={() => setZoom(it.thumb)} className="text-xs text-neutral-400 hover:underline">
+                    Томоор харах
+                  </button>
+                </div>
+                {it.use !== 'img' && (
+                  <div className="mt-2">
+                    <MathArea value={it.text} onChange={(text) => edit(it.key, (x) => ({...x, text}))} max={2000} rows={4} label={`${it.num}-р бодлогын бичвэр`} placeholder="Бодлогын бичвэр (томьёо $…$ дотор)" />
+                    {it.kind === 'choice' && <p className="mt-1 text-xs text-neutral-500">А) … Д) сонголтуудыг бичвэрээс өөрөө салгана.</p>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Down over the panel's bottom padding too, so the list doesn't show beneath it. */}
+      <div className="sticky -bottom-[max(1.25rem,env(safe-area-inset-bottom))] -mx-5 -mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-800 bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+        {page && <span className="mr-auto text-sm text-neutral-400">{chosen.length}/{items.length} сонгосон</span>}
+        <button onClick={onClose} className="rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
+          Болих
+        </button>
+        <button onClick={add} disabled={!page || !chosen.length || !!adding} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+          {adding ? `Нэмж байна ${adding.done}/${adding.total}…` : `${chosen.length} бодлого нэмэх`}
+        </button>
+      </div>
+      {zoom && <ZoomView url={zoom} onClose={() => setZoom(null)} />}
+    </Sheet>
+  );
+}
