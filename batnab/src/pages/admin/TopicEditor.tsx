@@ -1,8 +1,9 @@
-import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, Copy, Eye, ImagePlus, Pencil, Plus, RotateCcw, School, Trash2, Type, X} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, Copy, Eye, ImagePlus, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, X} from 'lucide-react';
 import {useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {Rich, TopicPicture} from '../../components/TopicParts';
 import {useClasses} from '../../lib/classes';
+import {chunks} from '../../lib/ocr';
 import {imageFile} from '../../lib/photo';
 import {Link, navigate} from '../../lib/router';
 import {
@@ -17,6 +18,7 @@ import {
   saveTopic,
   uploadTopicImage,
   useAllProgress,
+  useTopicImage,
   useTopicKeys,
   useTopics,
   type Block,
@@ -25,6 +27,7 @@ import {
   type Topic,
 } from '../../lib/topics';
 import type {AdminData} from './data';
+import OcrDialog, {type OcrAction} from './OcrDialog';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
@@ -104,7 +107,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
     navigate('/admin?tab=topics');
   };
   const leave = (href: string) => (!dirty || confirm('Хадгалаагүй өөрчлөлт алга болно. Гарах уу?')) && navigate(href);
-  const missing = draft.problems.filter((p) => !answers[p.id]).length;
+  const open = draft.problems.filter((p) => !answers[p.id]).length;
 
   return (
     <div className="space-y-5 pb-24">
@@ -168,7 +171,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
           <section className="space-y-3">
             <h2 className="flex flex-wrap items-center gap-2 font-semibold">
               Бодлого ({draft.problems.length})
-              {missing > 0 && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">{missing} бодлогод зөв хариулт сонгоогүй</span>}
+              {open > 0 && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-400">{open} нь хариултгүй</span>}
             </h2>
             {draft.problems.map((p, i) => (
               <ProblemEditor
@@ -268,6 +271,9 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
   const set = (i: number, b: Block) => onChange(blocks.map((x, j) => (j === i ? b : x)));
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
+  // "Зургаас бичвэр": a new picture to read, or the lesson picture at this place.
+  const [reading, setReading] = useState<File | number | null>(null);
+  const paragraphs = (text: string): Block[] => chunks(text, LESSON_MAX).map((t) => ({t: 'text', text: t}));
   const addImage = async (file: File | null) => {
     if (!file) return;
     setAdding(true);
@@ -283,6 +289,8 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
     }
   };
   const fileRef = useRef<HTMLInputElement>(null);
+  const readRef = useRef<HTMLInputElement>(null);
+  const block = typeof reading === 'number' ? blocks[reading] : null;
   return (
     <section className="space-y-3">
       <div>
@@ -306,9 +314,14 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
             </span>
           </div>
           {b.t === 'text' ? (
-            <MathArea value={b.text} onChange={(text) => set(i, {t: 'text', text})} rows={4} max={5000} placeholder="Хичээлийн бичвэр…" />
+            <MathArea value={b.text} onChange={(text) => set(i, {t: 'text', text})} rows={4} max={LESSON_MAX} placeholder="Хичээлийн бичвэр…" />
           ) : (
-            <TopicPicture tid={topic.id} iid={b.img} className="w-full" />
+            <>
+              <TopicPicture tid={topic.id} iid={b.img} className="w-full" />
+              <button onClick={() => setReading(i)} className={`${small} mt-2`}>
+                <ScanText size={15} /> Зургаас бичвэр гаргах
+              </button>
+            </>
           )}
         </div>
       ))}
@@ -319,6 +332,20 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
         <button onClick={() => fileRef.current?.click()} disabled={adding} className={small}>
           <ImagePlus size={15} /> {adding ? 'Зураг хуулж байна…' : 'Зураг нэмэх'}
         </button>
+        <button onClick={() => readRef.current?.click()} disabled={adding} className={small} title="Номын хуудас, бодолтын зургийн бичвэрийг уншиж бичвэр болгоно">
+          <ScanText size={15} /> Зургаас бичвэр
+        </button>
+        <input
+          ref={readRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setReading(f);
+            e.target.value = '';
+          }}
+        />
         <input
           ref={fileRef}
           type="file"
@@ -331,9 +358,49 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
         />
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
+      {reading instanceof File && (
+        <OcrDialog
+          image={reading}
+          onClose={() => setReading(null)}
+          actions={[
+            {
+              label: 'Зурагтай нь нэмэх',
+              run: async (text) => {
+                const iid = await uploadTopicImage(topic.id, reading);
+                onUploaded(iid);
+                onChange([...blocks, {t: 'img', img: iid}, ...paragraphs(text)]);
+              },
+            },
+            {label: 'Бичвэр болгож нэмэх', primary: true, run: (text) => onChange([...blocks, ...paragraphs(text)])},
+          ]}
+        />
+      )}
+      {typeof reading === 'number' && block?.t === 'img' && (
+        <StoredOcr
+          tid={topic.id}
+          iid={block.img}
+          onClose={() => setReading(null)}
+          actions={[
+            {label: 'Зургийг бичвэрээр солих', run: (text) => onChange([...blocks.slice(0, reading), ...paragraphs(text), ...blocks.slice(reading + 1)])},
+            {label: 'Зургийн доор нэмэх', primary: true, run: (text) => onChange([...blocks.slice(0, reading + 1), ...paragraphs(text), ...blocks.slice(reading + 1)])},
+          ]}
+        />
+      )}
     </section>
   );
 }
+
+const LESSON_MAX = 5000;
+
+/** "Зургаас бичвэр гаргах" for a picture already in the topic. */
+function StoredOcr({tid, iid, actions, onClose}: {tid: string; iid: string; actions: OcrAction[]; onClose: () => void}) {
+  const url = useTopicImage(tid, iid);
+  if (!url) return null;
+  return <OcrDialog image={url} actions={actions} onClose={onClose} />;
+}
+
+/** Text added to a field: on a new line after what's there. */
+const append = (before: string | undefined, text: string) => (before?.trim() ? `${before.trimEnd()}\n${text}` : text);
 
 /** A text box for text with $math$; shows how it will look, and a pasted picture goes to `onImage`. */
 function MathArea({value, onChange, rows = 3, max, placeholder, onImage}: {value: string; onChange: (v: string) => void; rows?: number; max: number; placeholder: string; onImage?: (f: File) => void}) {
@@ -357,7 +424,17 @@ function MathArea({value, onChange, rows = 3, max, placeholder, onImage}: {value
 }
 
 /** A picture slot: choose a file, drop one on it, or paste one (Ctrl+V) while it's selected. */
-function ImageSlot({tid, iid, label, onChange, onUploaded}: {tid: string; iid?: string; label: string; onChange: (iid?: string) => void; onUploaded: (iid: string) => void}) {
+function ImageSlot(props: {
+  tid: string;
+  iid?: string;
+  label: string;
+  onChange: (iid?: string) => void;
+  onUploaded: (iid: string) => void;
+  /** "Зургаас бичвэр гаргах": where the text goes (e.g. "Бодлогын өгүүлбэрт нэмэх"), and adding it (with the picture kept, or not). */
+  text?: {label: string; add: (text: string, dropPicture: boolean) => void};
+}) {
+  const {tid, iid, label, onChange, onUploaded, text} = props;
+  const [reading, setReading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -397,16 +474,32 @@ function ImageSlot({tid, iid, label, onChange, onUploaded}: {tid: string; iid?: 
     return (
       <div className="space-y-2">
         <TopicPicture tid={tid} iid={iid} className="w-full" />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className={small}>
             <ImagePlus size={15} /> {busy ? 'Хуулж байна…' : 'Солих'}
           </button>
           <button type="button" onClick={() => onChange(undefined)} className={small}>
             <X size={15} /> Зураг авах
           </button>
+          {text && (
+            <button type="button" onClick={() => setReading(true)} className={small}>
+              <ScanText size={15} /> Зургаас бичвэр гаргах
+            </button>
+          )}
         </div>
         {input}
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {reading && text && (
+          <StoredOcr
+            tid={tid}
+            iid={iid}
+            onClose={() => setReading(false)}
+            actions={[
+              {label: 'Нэмээд зургийг авах', run: (t) => text.add(t, true)},
+              {label: text.label, primary: true, run: (t) => text.add(t, false)},
+            ]}
+          />
+        )}
       </div>
     );
   return (
@@ -472,9 +565,10 @@ function ProblemEditor(props: {
     onAnswer('');
   };
   return (
-    <div className={`rounded-2xl bg-neutral-900 p-4 sm:p-5 ${!answer ? 'ring-1 ring-amber-500/30' : ''}`}>
+    <div className="rounded-2xl bg-neutral-900 p-4 sm:p-5">
       <div className="flex items-center gap-1">
         <span className="font-semibold">{num}-р бодлого</span>
+        {!answer && <span className="ml-2 rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-400">хариултгүй</span>}
         <span className="ml-auto flex">
           <button onClick={() => onMove(-1)} disabled={num === 1} aria-label="Дээш" className={icon}>
             <ArrowUp size={15} />
@@ -493,7 +587,14 @@ function ProblemEditor(props: {
       <div className="mt-3 space-y-3">
         <MathArea value={p.text} onChange={(text) => onChange({...p, text})} max={2000} placeholder="Бодлогын өгүүлбэр (томьёо $…$ дотор). Зургийн дэлгэцийн агшныг энд шууд Ctrl+V хийж болно." onImage={pasteImage} />
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <ImageSlot tid={tid} iid={p.img} label="Бодлогын зураг (заавал биш)" onChange={(img) => onChange({...p, img})} onUploaded={onUploaded} />
+        <ImageSlot
+          tid={tid}
+          iid={p.img}
+          label="Бодлогын зураг (заавал биш)"
+          onChange={(img) => onChange({...p, img})}
+          onUploaded={onUploaded}
+          text={{label: 'Бодлогын өгүүлбэрт нэмэх', add: (t, drop) => onChange({...p, text: append(p.text, t), img: drop ? undefined : p.img})}}
+        />
 
         <div>
           <div className="flex rounded-full bg-neutral-800 p-1 text-sm" role="radiogroup" aria-label="Хариултын төрөл">
@@ -510,7 +611,9 @@ function ProblemEditor(props: {
           </div>
           {p.kind === 'choice' ? (
             <div className="mt-3 space-y-2">
-              <p className="text-xs text-neutral-500">Зөв хариултын үсэг дээр дарна. Сонголтын бичвэр заавал биш (зурган дээр байвал хоосон орхино).</p>
+              <p className="text-xs text-neutral-500">
+                Зөв хариултын үсэг дээр дарна (заавал биш: сонгоогүй бол сурагч өөрөө бодоод бодолтыг харна). Сонголтын бичвэр заавал биш (зурган дээр байвал хоосон орхино).
+              </p>
               {LETTER_CODES.map((l) => (
                 <div key={l} className="flex items-center gap-2">
                   <button
@@ -534,18 +637,27 @@ function ProblemEditor(props: {
             </div>
           ) : (
             <label className="mt-3 block">
-              <span className="text-sm text-neutral-300">Зөв хариулт</span>
+              <span className="text-sm text-neutral-300">Зөв хариулт (заавал биш)</span>
               <input value={answer} maxLength={40} onChange={(e) => onAnswer(normalize(e.target.value))} placeholder="Жишээ: 12, -3.5, 2/3" className={`${field} mt-1 sm:w-64`} />
-              <span className="mt-1 block text-xs text-neutral-500">Хоосон зай, том жижиг үсэг, таслал ба цэгийг ялгахгүй харьцуулна.</span>
+              <span className="mt-1 block text-xs text-neutral-500">Хоосон зай, том жижиг үсэг, таслал ба цэгийг ялгахгүй харьцуулна. Хоосон бол сурагч өөрөө бодоод бодолтыг харна.</span>
             </label>
           )}
         </div>
 
         <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg)}>
-          <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт (заавал биш) — сурагч хариулсны дараа харагдана</summary>
+          <summary className="cursor-pointer text-sm font-medium text-neutral-300">
+            Бодолт (заавал биш) — {answer ? 'сурагч хариулсны дараа харагдана' : 'сурагч «Бодолт харах»-аар харна'}
+          </summary>
           <div className="mt-3 space-y-3">
             <MathArea value={p.sol ?? ''} onChange={(sol) => onChange({...p, sol})} max={3000} placeholder="Хэрхэн бодох вэ…" />
-            <ImageSlot tid={tid} iid={p.solImg} label="Бодолтын зураг" onChange={(solImg) => onChange({...p, solImg})} onUploaded={onUploaded} />
+            <ImageSlot
+              tid={tid}
+              iid={p.solImg}
+              label="Бодолтын зураг"
+              onChange={(solImg) => onChange({...p, solImg})}
+              onUploaded={onUploaded}
+              text={{label: 'Бодолтод нэмэх', add: (t, drop) => onChange({...p, sol: append(p.sol, t), solImg: drop ? undefined : p.solImg})}}
+            />
           </div>
         </details>
       </div>
@@ -567,6 +679,8 @@ function Results({topic, data}: {topic: Topic; data: AdminData}) {
     .sort((a, b) => b.right - a.right || b.done - a.done || a.s.profile.name.localeCompare(b.s.profile.name, 'mn'));
   const started = rows.filter((r) => r.done).length;
   const n = topic.problems.length;
+  // Problems without a right answer can't be done (students work them out and look at the solution).
+  const counted = topic.problems.filter((p) => keys[p.id]).length;
 
   return (
     <div className="space-y-5">
@@ -603,7 +717,7 @@ function Results({topic, data}: {topic: Topic; data: AdminData}) {
                     <span className="w-8 shrink-0 font-semibold">{i + 1}.</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-neutral-400">{p.text || (p.img ? 'Зурагтай бодлого' : '—')}</span>
                     <span className={`shrink-0 text-sm font-semibold tabular-nums ${pct === null ? 'text-neutral-500' : pct >= 70 ? 'text-green-400' : pct >= 40 ? 'text-amber-300' : 'text-red-400'}`}>
-                      {pct === null ? '—' : `${pct}% зөв`}
+                      {pct === null ? (keys[p.id] ? '—' : 'хариултгүй') : `${pct}% зөв`}
                     </span>
                     <span className="w-14 shrink-0 text-right text-xs text-neutral-500">{got.length} бодсон</span>
                   </div>
@@ -636,7 +750,7 @@ function Results({topic, data}: {topic: Topic; data: AdminData}) {
                 </Link>
                 <span className="text-sm tabular-nums text-neutral-300">{r.done ? `${r.right}/${n} зөв` : <span className="text-neutral-500">эхлээгүй</span>}</span>
                 <span className="w-16 text-right text-xs text-neutral-500">
-                  {r.done}/{n} бодсон
+                  {r.done}/{counted} бодсон
                 </span>
                 <button
                   onClick={() => confirm(`${r.s.profile.name}-ийн энэ сэдвийн хариултыг устгаж, дахин эхнээс нь бодуулах уу?`) && resetProgress(r.s.uid, topic.id).catch((e) => alert(`Алдаа: ${(e as Error).message}`))}

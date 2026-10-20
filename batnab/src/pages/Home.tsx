@@ -165,6 +165,8 @@ function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
           .reverse()
           .map((t) => {
             const done = t.problems.filter((p) => progress?.[t.id]?.[p.id]).length;
+            // Problems without a right answer can't be done (they're worked out on one's own).
+            const total = t.problems.filter((p) => p.k || progress?.[t.id]?.[p.id]).length;
             return (
               <Link key={t.id} href={`/topics/${t.id}`} className="flex items-center gap-4 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
@@ -177,7 +179,7 @@ function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
                   </p>
                 </div>
                 <span className="flex items-center gap-1 text-sm font-medium text-blue-400">
-                  {done === 0 ? 'Эхлэх' : done < t.problems.length ? 'Үргэлжлүүлэх' : 'Харах'} <ChevronRight size={16} />
+                  {done === 0 ? 'Эхлэх' : done < total ? 'Үргэлжлүүлэх' : 'Харах'} <ChevronRight size={16} />
                 </span>
               </Link>
             );

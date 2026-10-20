@@ -1,5 +1,5 @@
 import {initializeApp} from 'firebase/app';
-import {connectAuthEmulator, getAuth} from 'firebase/auth';
+import {browserLocalPersistence, browserSessionPersistence, connectAuthEmulator, indexedDBLocalPersistence, initializeAuth} from 'firebase/auth';
 import {connectDatabaseEmulator, getDatabase} from 'firebase/database';
 
 export const firebaseConfig = {
@@ -14,7 +14,9 @@ export const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+// What getAuth() sets up, minus the Google sign-in popup/redirect helper: nobody signs in that way here, and on phones
+// (and in the Android app) it would load apis.google.com and a hidden iframe on every visit.
+export const auth = initializeAuth(app, {persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]});
 export const db = getDatabase(app);
 
 // `VITE_FIREBASE_EMULATORS=true npm run dev` talks to local emulators (`npx firebase-tools emulators:start --only auth,database`).

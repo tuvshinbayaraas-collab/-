@@ -31,10 +31,12 @@ export default function TopicView({id}: {id: string}) {
     );
 
   const mine = progress[t.id] ?? {};
-  const answered = t.problems.filter((p) => mine[p.id]).length;
-  const right = t.problems.filter((p) => outcomes[p.id] && outcomes[p.id].key !== null && outcomes[p.id].a === outcomes[p.id].key).length;
-  const all = !session.admin && t.problems.length > 0 && answered === t.problems.length && t.problems.every((p) => outcomes[p.id]);
-  const grade = {score: right, total: t.problems.length, count: t.problems.length};
+  // Problems without a right answer are worked out on one's own: they don't count here.
+  const counted = t.problems.filter((p) => p.k || mine[p.id]);
+  const answered = counted.filter((p) => mine[p.id]).length;
+  const right = counted.filter((p) => outcomes[p.id] && outcomes[p.id].key !== null && outcomes[p.id].a === outcomes[p.id].key).length;
+  const all = !session.admin && counted.length > 0 && answered === counted.length && counted.every((p) => outcomes[p.id]);
+  const grade = {score: right, total: counted.length, count: counted.length};
 
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">
@@ -71,9 +73,9 @@ export default function TopicView({id}: {id: string}) {
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <ListChecks size={18} /> Бодлого
             </h2>
-            {!session.admin && (
+            {!session.admin && counted.length > 0 && (
               <span className="text-sm text-neutral-400">
-                {answered}/{t.problems.length} бодсон{answered > 0 && ` · ${right} зөв`}
+                {answered}/{counted.length} бодсон{answered > 0 && ` · ${right} зөв`}
               </span>
             )}
           </div>
@@ -82,7 +84,7 @@ export default function TopicView({id}: {id: string}) {
               {isPerfect(grade) && <PerfectTitle kind="test" />}
               <p className="text-lg font-semibold">Бүх бодлогыг бодлоо!</p>
               <p className="text-sm text-neutral-400">
-                Эхний оролдлогоор {right}/{t.problems.length} зөв. Алдсан бодлогоо «Дахин бодох»-оор дахин бодож болно.
+                Эхний оролдлогоор {right}/{counted.length} зөв. Алдсан бодлогоо «Дахин бодох»-оор дахин бодож болно.
               </p>
             </ResultCard>
           )}

@@ -36,8 +36,11 @@ export default function Topics() {
       ) : (
         <ul className="mt-6 space-y-3">
           {shown.map((t) => {
-            const done = Object.keys(progress?.[t.id] ?? {}).filter((pid) => t.problems.some((p) => p.id === pid)).length;
-            const total = t.problems.length;
+            // Only problems with a right answer can be done (the others are worked out on one's own).
+            const mine = progress?.[t.id] ?? {};
+            const counted = t.problems.filter((p) => p.k || mine[p.id]);
+            const done = counted.filter((p) => mine[p.id]).length;
+            const total = counted.length;
             const pics = t.lesson.filter((b) => b.t === 'img').length;
             return (
               <li key={t.id}>
@@ -56,7 +59,7 @@ export default function Topics() {
                         </span>
                       )}
                       <span className="flex items-center gap-1">
-                        <ListChecks size={13} /> {total} бодлого
+                        <ListChecks size={13} /> {t.problems.length} бодлого
                       </span>
                       {pics === 0 && t.problems.some((p) => p.img) && (
                         <span className="flex items-center gap-1">

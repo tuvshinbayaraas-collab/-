@@ -48,7 +48,6 @@ export default function TopicsTab({data}: {data: AdminData}) {
           {topics.map((t, i) => {
             const solved = data.students.filter((s) => Object.keys(progress?.[s.uid]?.[t.id] ?? {}).length > 0).length;
             const ids = Object.keys(t.classes ?? {});
-            const missing = t.problems.filter((p) => !p.k).length;
             return (
               <li key={t.id} className="flex items-center gap-2 pr-2">
                 <div className="flex flex-col py-1 pl-2">
@@ -67,7 +66,6 @@ export default function TopicsTab({data}: {data: AdminData}) {
                     </span>
                     <span className="mt-0.5 block text-sm text-neutral-400">
                       {t.lesson.length ? 'Хичээлтэй' : 'Хичээлгүй'} · {t.problems.length} бодлого · {ids.length ? classNames(ids) : 'Бүх анги'}
-                      {missing > 0 && <span className="text-amber-300"> · {missing} бодлогод хариулт алга</span>}
                     </span>
                   </span>
                   <span className="w-16 shrink-0 text-right">

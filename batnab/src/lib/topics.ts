@@ -129,7 +129,8 @@ export function useTopicImage(tid: string, iid: string | undefined) {
 async function compress(file: File) {
   const img = await loadImage(file);
   try {
-    let scale = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+    // As sharp as fits (up to 2000 px), so a page of text can still be read when zoomed in.
+    let scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
     for (let i = 0; i < 7; i++) {
       const c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(img.naturalWidth * scale));

@@ -40,7 +40,7 @@ export default function StudentGrowth({uid, data}: {uid: string; data: AdminData
                   <li key={s.topic.id} className="flex items-center gap-3">
                     <span className="min-w-0 flex-1 truncate">{s.topic.title}</span>
                     <span className="text-xs text-neutral-500">
-                      {s.answered}/{s.topic.problems.length} бодсон
+                      {s.answered}/{s.topic.problems.filter((p) => p.k).length} бодсон
                     </span>
                     <span className={`w-12 text-right font-semibold tabular-nums ${pct < 50 ? 'text-amber-300' : ''}`}>{pct}%</span>
                   </li>
