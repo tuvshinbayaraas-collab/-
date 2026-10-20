@@ -144,8 +144,10 @@ export function splitProblems(lines: OcrLine[], cols: {x0: number; x1: number}[]
   // 2. The numbers the run skipped (read as "3 0,008", "Т." or "~. 3"): the expected number at the margin, between its
   // neighbours; and before the first / after the last.
   type Start = {i: number; n: number; guessed?: boolean};
+  // A line that is only a number ("16", the page's number at its foot) does not start a problem.
+  const bare = (l: OcrLine) => l.words.length < 2 && !/[.,)]/.test(l.text);
   const find = (n: number, from: number, to: number) => {
-    for (let i = from; i < to; i++) if (atMargin(ordered[i]) && startsWith(text(ordered[i]), n)) return i;
+    for (let i = from; i < to; i++) if (atMargin(ordered[i]) && !bare(ordered[i]) && startsWith(text(ordered[i]), n)) return i;
     return -1;
   };
   // Numbers not read at all: at the widest gaps above a line at the margin between two found ones (more so a line

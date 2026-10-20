@@ -193,10 +193,12 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
   };
 
   const setAll = (use: Use) => setItems((xs) => xs.map((it) => ({...it, use})));
+  // Not closed halfway through adding (what was added so far would come in after all).
+  const close = () => !adding && onClose();
   const many = files.length > 1 ? ` · ${at + 1}/${files.length}-р хуудас` : '';
 
   return (
-    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь тасдаж нэмнэ. Томьёо, дүрс зурагтаа яг хэвээрээ үлдэнэ." onClose={onClose} wide>
+    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь тасдаж нэмнэ. Томьёо, дүрс зурагтаа яг хэвээрээ үлдэнэ." onClose={close} wide>
       {error ? (
         <div className="rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
           {error}
@@ -352,7 +354,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
       {/* Down over the panel's bottom padding too, so the list doesn't show beneath it. */}
       <div className="sticky -bottom-[max(1.25rem,env(safe-area-inset-bottom))] -mx-5 -mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-800 bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
         {page && <span className="mr-auto text-sm text-neutral-400">{chosen.length}/{items.length} сонгосон</span>}
-        <button onClick={onClose} className="rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
+        <button onClick={close} disabled={!!adding} className="rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50">
           Болих
         </button>
         <button onClick={add} disabled={!page || !chosen.length || !!adding} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">

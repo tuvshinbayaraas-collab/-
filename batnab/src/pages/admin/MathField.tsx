@@ -33,7 +33,7 @@ const PIECES: {label: string; tex: string; title: string}[] = [
   {label: 'α', tex: '\\alpha', title: 'Альфа'},
 ];
 
-const OPEN_KEY = 'batnab:formulaBar';
+const OPEN_KEY = 'batnab.formulaBar';
 const readOpen = () => {
   try {
     return localStorage.getItem(OPEN_KEY) === '1';
