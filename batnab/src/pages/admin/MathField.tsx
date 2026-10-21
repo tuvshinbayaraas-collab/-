@@ -68,11 +68,16 @@ export function MathArea({value, onChange, rows = 3, max, placeholder, onImage, 
   };
   const put = (tex: string) => {
     const el = area.current;
-    const from = el?.selectionStart ?? value.length;
     const to = el?.selectionEnd ?? value.length;
-    const before = value.slice(0, from);
-    const picked = value.slice(from, to);
-    const wrap = inMath(before) ? '' : '$';
+    // Picked text that goes in or out of $…$ is not put inside the piece (that would break the pairs): after it.
+    const from = Math.min(el?.selectionStart ?? value.length, to);
+    const cut = value.slice(from, to).includes('$') ? to : from;
+    const picked = value.slice(cut, to);
+    const wrap = inMath(value.slice(0, cut)) ? '' : '$';
+    // Not "$a$$…$" right after other math: a space between.
+    const before = value.slice(0, cut) + (wrap && value.slice(0, cut).endsWith('$') ? ' ' : '');
+    // A command ending in a letter ("\pi") is kept apart from what is typed next ("\pi x", not "\pix").
+    if (/\\[a-z]+$/i.test(tex)) tex += ' ';
     const [first, ...rest] = tex.split('#');
     const piece = first + (rest.length ? picked + rest.join('') : '');
     // The caret goes to the first place to type: after the picked text, in the next place.

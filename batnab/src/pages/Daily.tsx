@@ -9,7 +9,7 @@ import {addMistakes, isDue, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {dayKey, doneToday, liveStreak, practised, useStats} from '../lib/stats';
-import {forClassOf, problemNo, useProgress, useTopics} from '../lib/topics';
+import {forClassOf, problemNo, useProgress, useTopics, verdict} from '../lib/topics';
 
 const SIZE = 5;
 type Saved = {items: string[]; done: string[]};
@@ -146,13 +146,14 @@ export default function Daily() {
               const [kind, rest] = [item[0], item.slice(2)];
               if (kind === 'm') {
                 const m = find(rest);
-                if (!m) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
+                if (!m || !mistakeExists(m, topics)) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
                 return <MistakeItem key={item} m={m} topics={topics} testKey={m.s === 't' ? keys[m.t] : undefined} stats={stats} onDone={() => markDone(item)} />;
               }
               const [tid, pid] = rest.split('/');
               const t = topics.find((x) => x.id === tid);
               const p = t?.problems.find((x) => x.id === pid);
-              if (!t || !p) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
+              // Gone, or (solving again) its right answer taken off since: can't be checked, so it can be skipped.
+              if (!t || !p || (kind === 'a' && !p.k)) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
               const label = `${t.title} · ${problemNo(p, t.problems.indexOf(p))}-р бодлого`;
               return kind === 'n' ? (
                 <ol key={item}>
@@ -165,7 +166,7 @@ export default function Daily() {
                     ask={label}
                     onOutcome={(o) => {
                       markDone(item);
-                      if (o.key !== null && o.a !== o.key) addMistakes([{s: 'p', t: tid, q: pid}], mistakes).catch(() => {});
+                      if (verdict(o.a, o.key, null) === false) addMistakes([{s: 'p', t: tid, q: pid}], mistakes).catch(() => {});
                     }}
                   />
                 </ol>

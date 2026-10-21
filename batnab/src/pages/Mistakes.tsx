@@ -9,7 +9,7 @@ import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {useStats} from '../lib/stats';
 import {serverNow} from '../lib/time';
-import {forClassOf, readKey, useProgress, useTopics} from '../lib/topics';
+import {forClassOf, readKey, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
 
 const DAY = 86_400_000;
 const PAGE = 10;
@@ -152,11 +152,12 @@ function useBackfill(uid: string | undefined, mistakes: Mistake[] | null) {
   const results = useMyResults();
   const topics = useTopics();
   const progress = useProgress(uid);
+  const marks = useMarks(uid);
   const session = useSession();
   const keys = useKeys(results ? results.map((r) => r.test) : []);
   const done = useRef(false);
   useEffect(() => {
-    if (done.current || !uid || !mistakes || !results || !topics || !progress) return;
+    if (done.current || !uid || !mistakes || !results || !topics || !progress || !marks) return;
     if (results.some((r) => keys[r.test] === undefined)) return;
     done.current = true;
     (async () => {
@@ -175,10 +176,10 @@ function useBackfill(uid: string | undefined, mistakes: Mistake[] | null) {
           const mine = progress[t.id]?.[p.id];
           if (!mine) continue;
           const key = await readKey(t.id, p.id).catch(() => null);
-          if (key !== null && mine.a !== key) items.push({s: 'p', t: t.id, q: p.id});
+          if (verdict(mine.a, key, marks[t.id]?.[p.id]) === false) items.push({s: 'p', t: t.id, q: p.id});
         }
       }
       await addMistakes(items, mistakes);
     })().catch(() => {});
-  }, [uid, mistakes, results, topics, progress, keys, session.profile?.class]);
+  }, [uid, mistakes, results, topics, progress, marks, keys, session.profile?.class]);
 }

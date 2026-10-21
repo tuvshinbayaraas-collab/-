@@ -7,7 +7,8 @@ export default function Sheet({title, sub, onClose, children, wide}: {title: str
   const id = useId();
   const backdrop = useBackdrop(onClose);
   useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    // Not when something in the panel took the Escape for itself.
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose();
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [onClose]);

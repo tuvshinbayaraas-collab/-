@@ -32,8 +32,14 @@ export function parseAnswers(text: string, problems: Problem[]) {
     else found[p.id] = normalize(v);
   };
   const nos = problems.map((p, i) => problemNo(p, i));
-  const numbered = [...text.matchAll(/(\d{1,4})\s*(?:[.):–-]\s*([^\s,;]+)|([АБВГДабвгдA-Ea-e])(?!\p{L}))/gu)];
-  if (numbered.length) {
+  // "12. В", "12В", "12) 2,5", "12-3": a number, then its answer (a number with a decimal comma kept whole). "3 -2"
+  // is two answers, the second negative.
+  const numbered = [...text.matchAll(/(\d{1,4})(?:(?:\s*[.):]|[–-])\s*(-?\d+(?:[.,]\d+)?(?=[\s,;]|$)|[^\s,;]+)|\s*([АБВГДабвгдA-Ea-e])(?!\p{L}))/gu)];
+  // Numbered when most of it is ("Хариу: 1В 2Д"), not for one answer that happens to be a number before a letter
+  // ("В Д 12 Г": in order).
+  const rest = numbered.reduceRight((t, m) => t.slice(0, m.index) + ' ' + t.slice(m.index! + m[0].length), text);
+  const others = rest.split(/[\s,;]+/).filter((t) => /[\p{L}\d]/u.test(t)).length;
+  if (numbered.length > others) {
     let from = 0;
     for (const m of numbered) {
       const n = Number(m[1]);
@@ -46,7 +52,13 @@ export function parseAnswers(text: string, problems: Problem[]) {
     return {found, wrong};
   }
   let k = 0;
-  for (const token of text.split(/[\s,;]+/).filter(Boolean)) {
+  // "2,5" is one answer (a decimal comma), "2, 5" or "2;5" two.
+  const tokens = text
+    .replace(/(\d),(\d)/g, '$1\u0001$2')
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .map((t) => t.replace(/\u0001/g, ','));
+  for (const token of tokens) {
     // Letters run together ("ВДВГД-АБ"): one problem each, "-" skipping one.
     if (/^[АБВГДабвгд\-_?]+$/.test(token) || /^[A-Ea-e\-_?]+$/.test(token))
       for (const ch of token) {

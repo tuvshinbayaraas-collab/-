@@ -106,8 +106,8 @@ export default function TopicView({id}: {id: string}) {
                 ask={`${t.title} · ${problemNo(p, i)}-р бодлого`}
                 onOutcome={(o) => {
                   setOutcomes((x) => (x[p.id]?.a === o.a && x[p.id]?.key === o.key ? x : {...x, [p.id]: o}));
-                  // A wrong first answer goes into the mistakes notebook (once).
-                  if (!session.admin && mistakes && o.key !== null && o.a !== o.key) addMistakes([{s: 'p', t: t.id, q: p.id}], mistakes).catch(() => {});
+                  // A wrong first answer goes into the mistakes notebook (once): wrong by the teacher's mark, else the key.
+                  if (!session.admin && mistakes && o.key !== null && verdict(o.a, o.key, marked[p.id]) === false) addMistakes([{s: 'p', t: t.id, q: p.id}], mistakes).catch(() => {});
                 }}
               />
             ))}

@@ -29,7 +29,7 @@ export default function Report({data, picked}: {data: AdminData; picked: string}
 
   const name = classes?.find((c) => c.id === picked)?.name ?? 'Бүх анги';
   const students = data.students.filter((s) => !s.profile.disabled);
-  const scores = topicScores(students, topics, progress, keys, marks).filter((s) => s.answered);
+  const scores = topicScores(students, topics, progress, keys, marks).filter((s) => s.judged);
   const tasks = assignments.filter((a) => !picked || forClass(a.classes, picked));
   const best = (uid: string, test: string) => {
     const ps = data.results.filter((r) => r.uid === uid && r.test === test).flatMap((r) => (gradeOf(r, data.keys) ? [percent(gradeOf(r, data.keys)!)] : []));
@@ -110,12 +110,12 @@ export default function Report({data, picked}: {data: AdminData; picked: string}
           <h3 className="mb-1 font-semibold">Сэдвүүд (ангийн эхний хариултын зөв хувь)</h3>
           <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
             {[...scores]
-              .sort((a, b) => a.right / a.answered - b.right / b.answered)
+              .sort((a, b) => a.right / a.judged - b.right / b.judged)
               .map((t) => (
                 <li key={t.topic.id} className="flex justify-between gap-3 border-b border-neutral-800 py-1 print:border-neutral-300">
                   <span>{t.topic.title}</span>
                   <span className="tabular-nums">
-                    {pctOf(t.right, t.answered)}% · {t.started} бодсон
+                    {pctOf(t.right, t.judged)}% · {t.started} бодсон
                   </span>
                 </li>
               ))}

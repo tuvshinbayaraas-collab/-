@@ -87,8 +87,9 @@ export function ProblemView(props: {
     return () => {
       live = false;
     };
+    // Again when the teacher gives the right answer (or takes it back) while the page is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tid, p.id, first?.a]);
+  }, [tid, p.id, first?.a, p.k]);
 
   const value = p.kind === 'choice' ? pick : byTeacher ? pick.trim().slice(0, 300) : normalize(pick);
   const check = async (e?: FormEvent) => {
@@ -102,7 +103,7 @@ export function ProblemView(props: {
         setOutcome({a: value, key});
         if (review && !reported && key !== null) {
           setReported(true);
-          review(value === key);
+          review(verdict(value, key, null) === true);
         }
       } else {
         const key = await answer(tid, p.id, value);

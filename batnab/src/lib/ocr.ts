@@ -13,6 +13,21 @@ const STAGES: Record<string, string> = {
 
 let worker: Promise<Worker> | null = null;
 let report: ((progress: number, stage: string) => void) | null = null;
+let jobs: Promise<unknown> = Promise.resolve();
+
+/** One reading at a time (the worker reads one picture after another anyway), so each shows its own progress. */
+function job<T>(onProgress: ((progress: number, stage: string) => void) | undefined, run: (w: Worker) => Promise<T>) {
+  const out = jobs.then(async () => {
+    report = onProgress ?? null;
+    try {
+      return await run(await getWorker());
+    } finally {
+      report = null;
+    }
+  });
+  jobs = out.catch(() => {});
+  return out;
+}
 
 function getWorker() {
   // Absolute addresses: the worker runs from a blob: URL, against which /ocr/… would not resolve.
@@ -37,21 +52,17 @@ function getWorker() {
  * The picture's text, tidied: a word broken over two lines is joined, the lines of a paragraph become one (so a long
  * sentence reads as one), blank lines stay between paragraphs.
  */
-export async function readText(image: string | Blob, onProgress?: (progress: number, stage: string) => void) {
-  report = onProgress ?? null;
-  try {
-    const {data} = await (await getWorker()).recognize(image);
-    return tidy(data.text);
-  } finally {
-    report = null;
-  }
+export function readText(image: string | Blob, onProgress?: (progress: number, stage: string) => void) {
+  return job(onProgress, async (w) => tidy((await w.recognize(image)).data.text));
 }
 
 /** The lines read in a picture, each with where it is and where its words are. */
 export async function readLines(image: HTMLCanvasElement, onProgress?: (progress: number, stage: string) => void) {
-  report = onProgress ?? null;
-  try {
-    const {data} = await (await getWorker()).recognize(image, {}, {blocks: true, text: false});
+  // As a file: a canvas the browser can't turn into one (out of memory on a phone) fails here instead of never
+  // finishing in the worker.
+  const file = await new Promise<Blob>((resolve, reject) => image.toBlob((b) => (b ? resolve(b) : reject(new Error('Зураг хэт том байна.'))), 'image/png'));
+  return job(onProgress, async (w) => {
+    const {data} = await w.recognize(file, {}, {blocks: true, text: false});
     return (data.blocks ?? []).flatMap((b) =>
       b.paragraphs.flatMap((p) =>
         p.lines.map((l) => ({
@@ -61,9 +72,7 @@ export async function readLines(image: HTMLCanvasElement, onProgress?: (progress
         })),
       ),
     );
-  } finally {
-    report = null;
-  }
+  });
 }
 
 export function tidy(text: string) {

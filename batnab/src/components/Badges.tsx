@@ -6,7 +6,7 @@ import {useHistory} from '../lib/history';
 import {useMedals} from '../lib/leaderboard';
 import type {Result} from '../lib/results';
 import {badges, useStats, type BadgeFacts} from '../lib/stats';
-import {readKey, useProgress, useTopics} from '../lib/topics';
+import {readKey, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
 import {testInfo} from '../tests';
 import {isPerfect} from './Perfect';
 
@@ -16,22 +16,24 @@ export function useBadgeFacts(uid: string | undefined, results: Result[] | null,
   const stats = useStats(uid);
   const progress = useProgress(uid);
   const topics = useTopics();
+  const marks = useMarks(uid);
   const medals = useMedals(uid, true);
   const questions = useMyQuestions(uid);
   const [master, setMaster] = useState(false);
 
-  const done = (topics ?? []).filter((t) => {
-    const ps = t.problems.filter((p) => p.k);
-    return ps.length > 0 && ps.every((p) => progress?.[t.id]?.[p.id]);
-  });
+  // Every problem answered (those the teacher checks too).
+  const done = (topics ?? []).filter((t) => t.problems.length > 0 && t.problems.every((p) => progress?.[t.id]?.[p.id]));
   const doneSig = done.map((t) => t.id).join(',');
-  // "Сэдвийн мастер": every first answer right in a finished topic (the keys are readable once answered).
+  // "Сэдвийн мастер": every first answer right in a finished topic, by the key (readable once answered) or the
+  // teacher's mark.
   useEffect(() => {
+    if (!marks) return;
     let live = true;
     (async () => {
       for (const t of done) {
-        const ps = t.problems.filter((p) => p.k);
-        const ok = await Promise.all(ps.map(async (p) => (await readKey(t.id, p.id).catch(() => null)) === progress?.[t.id]?.[p.id]?.a));
+        const ok = await Promise.all(
+          t.problems.map(async (p) => verdict(progress?.[t.id]?.[p.id]?.a, p.k ? await readKey(t.id, p.id).catch(() => null) : null, marks[t.id]?.[p.id]) === true),
+        );
         if (ok.every(Boolean)) return live && setMaster(true);
       }
     })();
@@ -39,9 +41,9 @@ export function useBadgeFacts(uid: string | undefined, results: Result[] | null,
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doneSig]);
+  }, [doneSig, marks]);
 
-  if (!history || !stats || !progress || !topics || !results) return null;
+  if (!history || !stats || !progress || !topics || !results || !marks) return null;
   const weeks = Object.keys(history).length + (results.length ? 1 : 0);
   const perfect =
     results.some((r) => isPerfect(grade(r.answers, keys[r.test], testInfo(r.test)?.count ?? 30))) ||

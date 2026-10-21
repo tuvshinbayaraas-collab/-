@@ -91,14 +91,16 @@ export function useLeaveCounter(active: boolean, onLeave: (why: LeaveWhy) => voi
       clearTimeout(blurTimer);
       blurTimer = setTimeout(() => !document.hasFocus() && document.visibilityState === 'visible' && leaveRef.current('w'), 2000);
     };
-    // Closing or reloading: the page is hidden first, then this; the leave already counted is a closing one.
-    const hide = () => {
+    // Closing or reloading (the page is hidden just before or after this): the leave counted is a closing one. Kept
+    // for coming back (another site opened in this tab), it stays one to another tab or app.
+    const hide = (e: PageTransitionEvent) => {
+      const why = e.persisted ? 't' : 'c';
       const out = since.current;
-      if (!out) return leaveRef.current('c');
-      if (out.why !== 'c' && Date.now() - out.at < 1500) {
-        since.current = {...out, why: 'c'};
+      if (!out) return leaveRef.current(why);
+      if (out.why !== why && Date.now() - out.at < 1500) {
+        since.current = {...out, why};
         if (store) writeOut(store, since.current);
-        handlers.current.onWhy?.('c');
+        handlers.current.onWhy?.(why);
       }
     };
     // Back from the browser's back/forward cache.
@@ -118,11 +120,12 @@ export function useLeaveCounter(active: boolean, onLeave: (why: LeaveWhy) => voi
     };
   }, [active, store]);
 
-  // Gone while still active: another page of the site was opened. Away until this page is opened again.
-  useEffect(
-    () => () => {
-      if (live.current) leaveRef.current('n');
-    },
-    [],
-  );
+  // Gone while still active, to another page of the site: away until this page is opened again. Gone without the
+  // address changing (signed out, the exam moved by the teacher, an error shown) is not leaving.
+  useEffect(() => {
+    const here = location.pathname + location.search;
+    return () => {
+      if (live.current && location.pathname + location.search !== here) leaveRef.current('n');
+    };
+  }, []);
 }

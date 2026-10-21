@@ -49,7 +49,8 @@ export function mistakeLabel(m: Mistake, topics: Topic[] | null) {
 }
 
 /** Whether the problem a notebook entry points at still exists (a topic or problem may have been deleted). */
-export const mistakeExists = (m: Mistake, topics: Topic[]) => m.s === 't' ? !!testInfo(m.t) && Number(m.q) < testInfo(m.t)!.count : !!topics.find((t) => t.id === m.t)?.problems.some((p) => p.id === m.q);
+/** Whether a notebook problem can still be solved again: it's there, and (a topic's) still has a right answer to check against. */
+export const mistakeExists = (m: Mistake, topics: Topic[]) => m.s === 't' ? !!testInfo(m.t) && Number(m.q) < testInfo(m.t)!.count : !!topics.find((t) => t.id === m.t)?.problems.some((p) => p.id === m.q && p.k);
 
 /**
  * One notebook problem solved again: a topic problem shows its answer and solution afterwards; a test question only

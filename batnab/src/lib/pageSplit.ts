@@ -133,7 +133,17 @@ function whiten(canvas: HTMLCanvasElement) {
 }
 
 /** Reads the page: straightens and whitens it, finds its columns, reads them and places the problems. */
-export async function readPage(file: File, onProgress: (progress: number, stage: string) => void): Promise<Page> {
+/** Lets a phone have the page's memory back at once (its browser allows only so much for pictures). */
+export function releasePage(page: Page) {
+  for (const c of [page.canvas, ...page.cols]) c.width = c.height = 0;
+}
+
+/** Reads the page; `signal` stops it between steps (the dialog was closed, or went on to another page). */
+export async function readPage(file: File, onProgress: (progress: number, stage: string) => void, signal?: AbortSignal): Promise<Page> {
+  const step = async () => {
+    await breathe();
+    if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
+  };
   onProgress(0, 'Зургийг тэгшилж байна');
   const img = await loadImage(file);
   let page: HTMLCanvasElement;
@@ -146,15 +156,19 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
   } finally {
     URL.revokeObjectURL(img.src);
   }
-  await breathe();
+  await step();
   // Level lines read better and cut apart cleanly.
   const m = darkMap(page);
   const angle = Math.atan(findSkew(m.dark, m.w, m.h));
-  if (Math.abs(angle) > 0.002) page = rotate(page, -angle);
-  await breathe();
+  if (Math.abs(angle) > 0.002) {
+    const turned = rotate(page, -angle);
+    page.width = page.height = 0;
+    page = turned;
+  }
+  await step();
   whiten(page);
   onProgress(0.04, 'Багануудыг хайж байна');
-  await breathe();
+  await step();
 
   // Two columns: each read on its own (the other one painted out), split along the gutter, a little slanted if need be.
   const W = page.width;
@@ -187,6 +201,7 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
 
   const lines: OcrLine[] = [];
   for (let i = 0; i < cols.length; i++) {
+    await step();
     const read = await readLines(cols[i], (p, stage) => onProgress(0.05 + (0.93 * (i + p)) / cols.length, cols.length > 1 ? `${stage} (${i + 1}/${cols.length} багана)` : stage));
     lines.push(...read.map((l) => ({...l, col: i})));
   }
@@ -212,7 +227,7 @@ function trimEdges<R extends {x0: number; y0: number; x1: number; y1: number}>(s
   const w = r.x1 - r.x0;
   const h = r.y1 - r.y0;
   const band = Math.min(Math.round(w * 0.06), Math.max(8, Math.round(src.width * 0.015)));
-  if (w < band * 4 || h < 8) return r;
+  if (band < 1 || w < band * 4 || h < 8) return r;
   const g = src.getContext('2d', {willReadFrequently: true})!;
   // How much of each of the outer columns of pixels, top to bottom, is dark.
   const dark = (x0: number) => {

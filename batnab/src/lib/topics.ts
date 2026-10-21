@@ -182,9 +182,22 @@ export async function createTopic(order: number) {
   return id;
 }
 
+const clean = (s?: string) => (s?.trim() ? s.trim() : null);
+/** A problem as stored: every field set (null for none; the database refuses undefined). */
+const stored = (p: Problem, keyed: boolean) => ({
+  id: p.id,
+  text: p.text.trim(),
+  img: p.img ?? null,
+  kind: p.kind,
+  choices: p.kind === 'choice' && p.choices && Object.values(p.choices).some((c) => c?.trim()) ? Object.fromEntries(Object.entries(p.choices).filter(([, c]) => c?.trim())) : null,
+  sol: clean(p.sol),
+  solImg: p.solImg ?? null,
+  k: keyed,
+  no: typeof p.no === 'number' && p.no > 0 ? Math.round(p.no) : null,
+});
+
 /** The topic, its keys, and the pictures no longer used (gone) in one write. */
 export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]) {
-  const clean = (s?: string) => (s?.trim() ? s.trim() : null);
   return update(ref(db), {
     [`topics/${t.id}`]: {
       title: t.title.trim().slice(0, 80) || 'Нэргүй сэдэв',
@@ -194,17 +207,7 @@ export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]
       order: t.order,
       createdAt: t.createdAt,
       lesson: t.lesson.filter((b) => (b.t === 'text' ? b.text.trim() : b.img)).map((b) => (b.t === 'text' ? {t: 'text', text: b.text.trim()} : b)),
-      problems: t.problems.map((p) => ({
-        id: p.id,
-        text: p.text.trim(),
-        img: p.img ?? null,
-        kind: p.kind,
-        choices: p.kind === 'choice' && p.choices && Object.values(p.choices).some((c) => c?.trim()) ? Object.fromEntries(Object.entries(p.choices).filter(([, c]) => c?.trim())) : null,
-        sol: clean(p.sol),
-        solImg: p.solImg ?? null,
-        k: !!keys[p.id],
-        no: typeof p.no === 'number' && p.no > 0 ? Math.round(p.no) : null,
-      })),
+      problems: t.problems.map((p) => stored(p, !!keys[p.id])),
     },
     [`topicKeys/${t.id}`]: Object.fromEntries(Object.entries(keys).filter(([pid, k]) => k && t.problems.some((p) => p.id === pid))),
     ...Object.fromEntries(gone.map((iid) => [`topicImages/${t.id}/${iid}`, null])),
@@ -233,7 +236,7 @@ export async function copyTopic(t: Topic, keys: Record<string, string>, order: n
     order,
     createdAt: serverTimestamp(),
     lesson: t.lesson.flatMap((b): Block[] => (b.t === 'text' ? [b] : img(b.img) ? [{t: 'img', img: img(b.img)!}] : [])),
-    problems: t.problems.map((p) => ({...p, id: pids.get(p.id)!, img: img(p.img), solImg: img(p.solImg), choices: p.choices ?? null, sol: p.sol ?? null})),
+    problems: t.problems.map((p) => ({...stored(p, !!keys[p.id]), id: pids.get(p.id)!, img: img(p.img), solImg: img(p.solImg)})),
   };
   ops[`topicKeys/${id}`] = Object.fromEntries(Object.entries(keys).flatMap(([pid, k]) => (pids.has(pid) && k ? [[pids.get(pid)!, k]] : [])));
   await update(ref(db), ops);
@@ -336,10 +339,23 @@ export function useAllMarks() {
   return m;
 }
 
-/** Marks these students' answers to a problem right or wrong (null takes the mark back), with a note. */
+/**
+ * Marks these students' answers to a problem right or wrong (null takes the mark back). A note given (empty to take it
+ * off) replaces each one's; none given (a whole group marked at once) keeps the notes they have.
+ */
 export function setMarks(uids: string[], tid: string, pid: string, ok: boolean | null, note?: string) {
-  const mark = ok === null ? null : {ok, at: serverTimestamp(), ...(note?.trim() ? {note: note.trim().slice(0, 300)} : {})};
-  return update(ref(db), Object.fromEntries(uids.map((uid) => [`topicMarks/${uid}/${tid}/${pid}`, mark])));
+  const ops: Record<string, unknown> = {};
+  for (const uid of uids) {
+    const at = `topicMarks/${uid}/${tid}/${pid}`;
+    if (ok === null) {
+      ops[at] = null;
+      continue;
+    }
+    ops[`${at}/ok`] = ok;
+    ops[`${at}/at`] = serverTimestamp();
+    if (note !== undefined) ops[`${at}/note`] = note.trim() ? note.trim().slice(0, 300) : null;
+  }
+  return update(ref(db), ops);
 }
 
 /**
@@ -363,6 +379,7 @@ export async function readKey(tid: string, pid: string) {
   if (keyCache.has(k)) return keyCache.get(k)!;
   const v = (await get(ref(db, `topicKeys/${k}`))).val();
   const key = typeof v === 'string' ? v : null;
-  keyCache.set(k, key);
+  // "No key" isn't kept: the teacher may give one while the page is open.
+  if (key !== null) keyCache.set(k, key);
   return key;
 }

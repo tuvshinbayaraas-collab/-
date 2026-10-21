@@ -141,9 +141,10 @@ const rest = emulators ? `http://127.0.0.1:9000` : firebaseConfig.databaseURL;
 const ns = emulators ? `ns=${new URL(firebaseConfig.databaseURL).hostname.split('.')[0]}&` : '';
 
 /**
- * Records leaving or coming back. Sent with sendBeacon: it still goes out as the page hides or closes, when the
+ * Records leaving or coming back. While the page hides or closes, sent with sendBeacon: it still goes out when the
  * database connection of a phone in the background has already stopped (the teacher sees it at once, not when the
- * student returns); the database's own write is the fallback.
+ * student returns). Otherwise (and when there's no beacon) the database's own write, which waits for the connection
+ * and a fresh sign-in token after a long time away, where a beacon would be refused unseen.
  */
 export function examEvent(test: string, e: {k: 'o' | 'b'; w?: LeaveWhy; ms?: number}) {
   const uid = auth.currentUser?.uid;
@@ -151,7 +152,7 @@ export function examEvent(test: string, e: {k: 'o' | 'b'; w?: LeaveWhy; ms?: num
   const data = {k: e.k, ...(e.w ? {w: e.w} : {}), ...(e.ms !== undefined ? {ms: Math.round(Math.min(e.ms, 86_400_000))} : {})};
   try {
     const url = `${rest}/examEvents/${test}/${uid}.json?${ns}auth=${token}`;
-    if (token && navigator.sendBeacon?.(url, new Blob([JSON.stringify({...data, at: {'.sv': 'timestamp'}})], {type: 'text/plain'}))) return;
+    if (document.visibilityState === 'hidden' && token && navigator.sendBeacon?.(url, new Blob([JSON.stringify({...data, at: {'.sv': 'timestamp'}})], {type: 'text/plain'}))) return;
   } catch {
     // no beacon here: the database writes it
   }
@@ -188,6 +189,17 @@ export interface Away {
   at: number;
   why: LeaveWhy;
   ms?: number;
+}
+
+/**
+ * How often and for how long a student was away in an exam: the saved counts, or the events when they show more (a
+ * time away not come back from counts until `until`: handed in, the exam's end, or now).
+ */
+export function awayTotal(answer: {leaves: number; away: number} | null | undefined, times: Away[], until: number) {
+  const last = times[times.length - 1];
+  const open = !!last && last.ms === undefined;
+  const ms = times.reduce((a, t) => a + (t.ms ?? 0), 0) + (open ? Math.max(0, until - last.at) : 0);
+  return {open, leaves: Math.max(answer?.leaves ?? 0, times.length), ms: Math.max(answer?.away ?? 0, ms)};
 }
 
 /** The times away from the events: a leave starts one (a second one while away only tells why), a return ends it. */

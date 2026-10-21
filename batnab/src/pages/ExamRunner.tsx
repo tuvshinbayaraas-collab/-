@@ -127,10 +127,12 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   }, [active]);
 
   // Leaving the page (another tab or app, another window, closing it, another page of the site) is counted, sent to
-  // the teacher as it happens, and told to the student on coming back.
+  // the teacher as it happens, and told to the student on coming back. Not once handed in (unless that failed: the
+  // exam is still on for them then).
+  const counting = active && (!submitted || status === 'error');
   const [notice, setNotice] = useState<{n: number; ms: number} | null>(null);
   useLeaveCounter(
-    active,
+    counting,
     (why) => {
       change((a) => ({...a, leaves: a.leaves + 1}), true);
       examEvent(id, {k: 'o', w: why});
@@ -149,7 +151,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   }, [notice]);
   // Going to another page of the site, closing or reloading this one: asked first (and counted if so).
   useEffect(() => {
-    if (!active) return;
+    if (!counting) return;
     setNavGuard(() => ask('Шалгалт дуусаагүй байна. Шалгалтын хуудаснаас гарвал «хуудаснаас гарсан» гэж бүртгэгдэж багшид харагдана. Гарах уу?'));
     const unload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -160,7 +162,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
       setNavGuard(null);
       window.removeEventListener('beforeunload', unload);
     };
-  }, [active]);
+  }, [counting]);
 
   // Time is up: hand in whatever is answered.
   const handedIn = useRef(false);

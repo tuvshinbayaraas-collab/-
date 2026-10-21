@@ -34,16 +34,19 @@ export default function StudentGrowth({uid, data}: {uid: string; data: AdminData
           <h3 className="mb-2 font-semibold">Сэдвүүд (эхний хариултаар)</h3>
           <ul className="space-y-1.5 text-sm">
             {scores
-              .sort((a, b) => a.right / a.answered - b.right / b.answered)
+              // Waiting for the teacher's check: last, without a percent yet.
+              .sort((a, b) => (a.judged ? a.right / a.judged : 2) - (b.judged ? b.right / b.judged : 2))
               .map((s) => {
-                const pct = pctOf(s.right, s.answered)!;
+                const pct = pctOf(s.right, s.judged);
                 return (
                   <li key={s.topic.id} className="flex items-center gap-3">
                     <span className="min-w-0 flex-1 truncate">{s.topic.title}</span>
                     <span className="text-xs text-neutral-500">
                       {s.answered}/{s.topic.problems.length} бодсон
                     </span>
-                    <span className={`w-12 text-right font-semibold tabular-nums ${pct < 50 ? 'text-amber-300' : ''}`}>{pct}%</span>
+                    <span className={`w-12 text-right font-semibold tabular-nums ${pct !== null && pct < 50 ? 'text-amber-300' : ''}`} title={pct === null ? 'Багш шалгаагүй' : undefined}>
+                      {pct === null ? '—' : `${pct}%`}
+                    </span>
                   </li>
                 );
               })}

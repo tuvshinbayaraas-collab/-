@@ -1,7 +1,7 @@
 import {AlertTriangle, ArrowLeft, CalendarClock, ChevronDown, ChevronRight, Download, EyeOff, KeyRound, Trash2} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {formatDuration} from '../../lib/attempt';
-import {asResult, awayTimes, cancelExam, examState, scheduleExam, useExamEvents, type Exam, type ExamAnswer, type ExamState} from '../../lib/exams';
+import {asResult, awayTimes, awayTotal, cancelExam, examState, scheduleExam, useExamEvents, type Exam, type ExamAnswer, type ExamState} from '../../lib/exams';
 import {WHY_LABEL} from '../../lib/leaves';
 import AwayList from '../../components/AwayList';
 import {grade, percent} from '../../lib/keys';
@@ -173,12 +173,11 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
     rows.map((r) => {
       const times = awayTimes(events?.[r.uid] ?? []);
       const last = times[times.length - 1];
-      const open = !!last && last.ms === undefined;
-      const out = state === 'active' && !!r.answer && !r.answer.done && open;
+      const out = state === 'active' && !!r.answer && !r.answer.done && !!last && last.ms === undefined;
       // Away when the exam ended (or when handed in): never came back.
       const until = out ? undefined : r.answer?.done ? r.answer.at : Math.min(now, exam.end);
-      const ms = times.reduce((a, t) => a + (t.ms ?? 0), 0) + (open ? (until ?? now) - last.at : 0);
-      return [r.uid, {times, out, until, leaves: Math.max(r.answer?.leaves ?? 0, times.length), ms: Math.max(r.answer?.away ?? 0, ms)}];
+      const {leaves, ms} = awayTotal(r.answer, times, until ?? now);
+      return [r.uid, {times, out, until, leaves, ms}];
     }),
   );
   const left = started.filter((r) => away.get(r.uid)!.leaves > 0);

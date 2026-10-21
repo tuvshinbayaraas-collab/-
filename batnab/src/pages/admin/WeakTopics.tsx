@@ -6,42 +6,49 @@ import type {AdminData, Student} from './data';
 
 export interface TopicScore {
   topic: Topic;
-  /** First answers given / right, over the class. */
+  /** First answers given; of them, the ones judged (by the key or the teacher's mark) and right; over the class. */
   answered: number;
+  judged: number;
   right: number;
   /** Students who answered at least one problem. */
   started: number;
-  /** Per student: [answered, right]. */
+  /** Per student: [judged, right]. */
   by: Map<string, [number, number]>;
 }
 
 /** Every topic's keys, for the teacher. */
 export const useAllTopicKeys = () => useLive('topicKeys', (v) => (v ?? {}) as Record<string, Record<string, string>>);
 
-/** How the class did in each opened topic, by first answers: against the key or the teacher's mark (answers the teacher hasn't checked yet left out). */
+/** How the class did in each opened topic, by first answers: against the key or the teacher's mark (answers the teacher hasn't checked yet only counted as answered). */
 export function topicScores(students: Student[], topics: Topic[], progress: Record<string, Progress>, keys: Record<string, Record<string, string>>, marks: Record<string, Marks> = {}): TopicScore[] {
   return topics
     .filter((t) => t.published && t.problems.length > 0)
     .map((topic) => {
       const by = new Map<string, [number, number]>();
       let answered = 0;
+      let judged = 0;
       let right = 0;
+      let started = 0;
       for (const s of students) {
         const mine = progress[s.uid]?.[topic.id] ?? {};
-        let a = 0;
+        let n = 0;
+        let j = 0;
         let r = 0;
         for (const p of topic.problems) {
           if (!mine[p.id]) continue;
+          n++;
           const v = verdict(mine[p.id].a, keys[topic.id]?.[p.id], marks[s.uid]?.[topic.id]?.[p.id]);
           if (v === null) continue;
-          a++;
+          j++;
           if (v) r++;
         }
-        if (a) by.set(s.uid, [a, r]);
-        answered += a;
+        if (n) started++;
+        if (j) by.set(s.uid, [j, r]);
+        answered += n;
+        judged += j;
         right += r;
       }
-      return {topic, answered, right, started: by.size, by};
+      return {topic, answered, judged, right, started, by};
     });
 }
 
@@ -55,8 +62,8 @@ export default function WeakTopics({data}: {data: AdminData}) {
   const marks = useAllMarks();
   if (!topics || !progress || !keys || !marks) return null;
   const scores = topicScores(data.students, topics, progress, keys, marks)
-    .filter((s) => s.answered)
-    .sort((a, b) => a.right / a.answered - b.right / b.answered);
+    .filter((s) => s.judged)
+    .sort((a, b) => a.right / a.judged - b.right / b.judged);
   if (!scores.length) return null;
   const names = new Map(data.students.map((s) => [s.uid, s.profile.name]));
   return (
@@ -66,7 +73,7 @@ export default function WeakTopics({data}: {data: AdminData}) {
       </h2>
       <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
         {scores.map((s) => {
-          const pct = pctOf(s.right, s.answered)!;
+          const pct = pctOf(s.right, s.judged)!;
           const weak = [...s.by].filter(([, [a, r]]) => a >= 2 && r / a < 0.5).map(([uid]) => names.get(uid)).filter(Boolean);
           return (
             <li key={s.topic.id} className="px-4 py-3">

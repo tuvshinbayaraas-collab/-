@@ -95,15 +95,20 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
 
   const change = (f: (t: Topic) => Topic) => setDraft((t) => f(structuredClone(t)));
   const uploaded = (iid: string) => known.current.add(iid);
+  // Deleted: nothing is saved after that (it would bring the topic back without its pictures).
+  const deleted = useRef(false);
   /** Saves the draft; whether it went. */
   const save = async (manual = false) => {
+    if (deleted.current) return false;
     setBusy(true);
     setError('');
     const at = snapshot(draft, answers);
     try {
       const used = imagesOf(draft);
-      await saveTopic(draft, answers, [...known.current].filter((i) => !used.has(i)));
-      known.current = used;
+      const gone = [...known.current].filter((i) => !used.has(i));
+      await saveTopic(draft, answers, gone);
+      // Not the pictures added while it saved: they are still to be cleaned up if left out.
+      for (const i of gone) known.current.delete(i);
       setSaved(at);
       if (manual) flash();
       return true;
@@ -123,6 +128,11 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
     // `save` is this render's, with the draft just changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now, dirty, busy]);
+  // Left another way than the editor's own buttons (a tab of the teacher's page, the browser's Back) within that
+  // moment: the last change is saved on the way out.
+  const flush = useRef<(() => void) | null>(null);
+  flush.current = dirty && draft.title.trim() && failed.current !== now ? () => void save() : null;
+  useEffect(() => () => flush.current?.(), []);
   const copy = async () => {
     if (dirty) await save();
     try {
@@ -134,8 +144,13 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   };
   const remove = async () => {
     if (!confirm(`«${draft.title}» сэдвийг хичээл, бодлого, зураг, сурагчдын хариултын хамт устгах уу?`)) return;
-    await deleteTopic(draft.id).catch((e) => alert(`Алдаа: ${(e as Error).message}`));
-    navigate('/admin?tab=topics');
+    deleted.current = true;
+    const ok = await deleteTopic(draft.id).then(
+      () => true,
+      (e) => alert(`Алдаа: ${(e as Error).message}`),
+    );
+    if (!ok) deleted.current = false;
+    else navigate('/admin?tab=topics');
   };
   const leave = async (href: string) => {
     if (dirty && !((draft.title.trim() && (await save())) || confirm('Өөрчлөлтийг хадгалж чадсангүй, алга болно. Гарах уу?'))) return;
@@ -218,7 +233,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
             </div>
           </Card>
 
-          <Lesson topic={draft} onChange={(lesson) => change((t) => ({...t, lesson}))} onUploaded={uploaded} />
+          <Lesson topic={draft} onChange={(lesson) => change((t) => ({...t, lesson}))} onAdd={(bs) => change((t) => ({...t, lesson: [...t.lesson, ...bs]}))} onUploaded={uploaded} />
 
           <section className="space-y-3">
             <h2 className="flex flex-wrap items-center gap-2 font-semibold">
@@ -249,7 +264,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 onToggle={() => toggle(p.id)}
                 answer={answers[p.id] ?? ''}
                 onUploaded={uploaded}
-                onChange={(q) => change((t) => ({...t, problems: t.problems.map((x) => (x.id === p.id ? q : x))}))}
+                onChange={(f) => change((t) => ({...t, problems: t.problems.map((x) => (x.id === p.id ? f(x) : x))}))}
                 onAnswer={(a) => setAnswers((k) => ({...k, [p.id]: a}))}
                 onMove={(to) => change((t) => ({...t, problems: moveTo(t.problems, i, to)}))}
                 onRemove={() => confirm(`${problemNo(p, i)}-р бодлогыг устгах уу?`) && change((t) => ({...t, problems: t.problems.filter((x) => x.id !== p.id)}))}
@@ -387,7 +402,7 @@ function ClassPicker({value, onChange}: {value?: Record<string, true>; onChange:
 }
 
 /** The lesson: paragraphs of text (with $math$) and pictures, in order. */
-function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Block[]) => void; onUploaded: (iid: string) => void}) {
+function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (b: Block[]) => void; onAdd: (b: Block[]) => void; onUploaded: (iid: string) => void}) {
   const blocks = topic.lesson;
   const set = (i: number, b: Block) => onChange(blocks.map((x, j) => (j === i ? b : x)));
   const [adding, setAdding] = useState(false);
@@ -402,7 +417,8 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
     try {
       const iid = await uploadTopicImage(topic.id, file);
       onUploaded(iid);
-      onChange([...blocks, {t: 'img', img: iid}]);
+      // At the end of the lesson as it is now (it may have changed while the picture went up).
+      onAdd([{t: 'img', img: iid}]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -489,10 +505,10 @@ function Lesson({topic, onChange, onUploaded}: {topic: Topic; onChange: (b: Bloc
               run: async (text) => {
                 const iid = await uploadTopicImage(topic.id, reading);
                 onUploaded(iid);
-                onChange([...blocks, {t: 'img', img: iid}, ...paragraphs(text)]);
+                onAdd([{t: 'img', img: iid}, ...paragraphs(text)]);
               },
             },
-            {label: 'Бичвэр болгож нэмэх', primary: true, run: (text) => onChange([...blocks, ...paragraphs(text)])},
+            {label: 'Бичвэр болгож нэмэх', primary: true, run: (text) => onAdd(paragraphs(text))},
           ]}
         />
       )}
@@ -690,7 +706,8 @@ function ProblemEditor(props: {
   open: boolean;
   onToggle: () => void;
   answer: string;
-  onChange: (p: Problem) => void;
+  /** From the problem as it is by then (a picture may come in after more typing). */
+  onChange: (f: (p: Problem) => Problem) => void;
   onAnswer: (a: string) => void;
   onMove: (to: number) => void;
   onRemove: () => void;
@@ -705,14 +722,14 @@ function ProblemEditor(props: {
     try {
       const iid = await uploadTopicImage(tid, f);
       onUploaded(iid);
-      onChange({...p, img: iid});
+      onChange((x) => ({...x, img: iid}));
     } catch (e) {
       setError((e as Error).message);
     }
   };
   const kind = (k: Problem['kind']) => {
     if (k === p.kind) return;
-    onChange({...p, kind: k});
+    onChange((x) => ({...x, kind: k}));
     onAnswer('');
   };
   const no = problemNo(p, num - 1);
@@ -757,15 +774,15 @@ function ProblemEditor(props: {
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          <MathArea value={p.text} onChange={(text) => onChange({...p, text})} max={2000} placeholder="Бодлогын өгүүлбэр (томьёо $…$ дотор). Зургийн дэлгэцийн агшныг энд шууд Ctrl+V хийж болно." onImage={pasteImage} />
+          <MathArea value={p.text} onChange={(text) => onChange((x) => ({...x, text}))} max={2000} placeholder="Бодлогын өгүүлбэр (томьёо $…$ дотор). Зургийн дэлгэцийн агшныг энд шууд Ctrl+V хийж болно." onImage={pasteImage} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <ImageSlot
             tid={tid}
             iid={p.img}
             label="Бодлогын зураг (заавал биш)"
-            onChange={(img) => onChange({...p, img})}
+            onChange={(img) => onChange((x) => ({...x, img}))}
             onUploaded={onUploaded}
-            text={{label: 'Бодлогын өгүүлбэрт нэмэх', add: (t, drop) => onChange({...p, text: append(p.text, t), img: drop ? undefined : p.img})}}
+            text={{label: 'Бодлогын өгүүлбэрт нэмэх', add: (t, drop) => onChange((x) => ({...x, text: append(x.text, t), img: drop ? undefined : x.img}))}}
           />
 
           <div className="space-y-2">
@@ -783,7 +800,10 @@ function ProblemEditor(props: {
                       <input
                         value={p.choices?.[l] ?? ''}
                         maxLength={200}
-                        onChange={(e) => onChange({...p, choices: {...p.choices, [l]: e.target.value} as Partial<Record<Letter, string>>})}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          onChange((x) => ({...x, choices: {...x.choices, [l]: v} as Partial<Record<Letter, string>>}));
+                        }}
                         placeholder={`${LETTER_LABELS[l]} сонголт`}
                         className={`${field} py-2 text-sm`}
                       />
@@ -804,7 +824,10 @@ function ProblemEditor(props: {
               min={1}
               max={9999}
               value={p.no ?? ''}
-              onChange={(e) => onChange({...p, no: e.target.value ? Math.max(1, Math.round(Number(e.target.value))) : undefined})}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange((x) => ({...x, no: v ? Math.max(1, Math.round(Number(v))) : undefined}));
+              }}
               placeholder={String(num)}
               aria-label="Номын дугаар"
               className={`${field} w-24 py-1.5`}
@@ -815,14 +838,14 @@ function ProblemEditor(props: {
           <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg)}>
             <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт (заавал биш) — сурагч хариулсны дараа харагдана</summary>
             <div className="mt-3 space-y-3">
-              <MathArea value={p.sol ?? ''} onChange={(sol) => onChange({...p, sol})} max={3000} placeholder="Хэрхэн бодох вэ…" />
+              <MathArea value={p.sol ?? ''} onChange={(sol) => onChange((x) => ({...x, sol}))} max={3000} placeholder="Хэрхэн бодох вэ…" />
               <ImageSlot
                 tid={tid}
                 iid={p.solImg}
                 label="Бодолтын зураг"
-                onChange={(solImg) => onChange({...p, solImg})}
+                onChange={(solImg) => onChange((x) => ({...x, solImg}))}
                 onUploaded={onUploaded}
-                text={{label: 'Бодолтод нэмэх', add: (t, drop) => onChange({...p, sol: append(p.sol, t), solImg: drop ? undefined : p.solImg})}}
+                text={{label: 'Бодолтод нэмэх', add: (t, drop) => onChange((x) => ({...x, sol: append(x.sol, t), solImg: drop ? undefined : x.solImg}))}}
               />
             </div>
           </details>

@@ -2,7 +2,7 @@ import {AlertTriangle, Check, Combine, ListOrdered, Loader2, Scissors, X} from '
 import {useEffect, useRef, useState, type PointerEvent} from 'react';
 import Sheet from '../../components/Sheet';
 import ZoomView from '../../components/ZoomView';
-import {canvasFile, cropProblem, readPage, type Page} from '../../lib/pageSplit';
+import {canvasFile, cropProblem, readPage, releasePage, type Page} from '../../lib/pageSplit';
 import {hasChoices, parseChoices, widestGap, type Region} from '../../lib/splitProblems';
 import {LETTER_CODES, newId, uploadTopicImage, type Letter, type Problem} from '../../lib/topics';
 import AnswerPicker from './AnswerPicker';
@@ -32,7 +32,12 @@ const USES: [Use, string][] = [
 const pill = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-40';
 
 let ids = 0;
-const thumb = (page: Page, regions: Region[]) => cropProblem(page, regions).toDataURL('image/jpeg', 0.85);
+const thumb = (page: Page, regions: Region[]) => {
+  const c = cropProblem(page, regions);
+  const url = c.toDataURL('image/jpeg', 0.85);
+  c.width = c.height = 0;
+  return url;
+};
 function itemsOf(page: Page): Item[] {
   // Nothing numbered found: the whole page as one problem, to cut by hand.
   const all = [...page.lines]
@@ -68,7 +73,15 @@ function Num({value, onChange}: {value: number; onChange: (n: number) => void}) 
         value={v}
         onChange={(e) => setV(e.target.value)}
         onBlur={done}
-        onKeyDown={(e) => (e.key === 'Enter' ? done() : e.key === 'Escape' && setV(null))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') done();
+          else if (e.key === 'Escape') {
+            // Only the box: not the whole panel (and the boxes and answers set on this page) as well.
+            e.preventDefault();
+            e.stopPropagation();
+            setV(null);
+          }
+        }}
         aria-label="Бодлогын дугаар"
         className="w-16 rounded-lg border border-blue-500 bg-neutral-950 px-2 py-0.5 font-semibold outline-none"
       />
@@ -100,23 +113,29 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
   const drag = useRef<{id: number; edge: 'top' | 'bottom'} | null>(null);
 
   useEffect(() => {
-    let live = true;
+    const stop = new AbortController();
+    const live = () => !stop.signal.aborted;
     setPage(null);
     setItems([]);
     setSel(null);
     setError('');
-    readPage(files[at], (p, stage) => live && setProgress({p, stage}))
+    readPage(files[at], (p, stage) => live() && setProgress({p, stage}), stop.signal)
       .then((pg) => {
-        if (!live) return;
+        if (!live()) return releasePage(pg);
         setPage(pg);
         setPageUrl(pg.canvas.toDataURL('image/jpeg', 0.85));
         setItems(itemsOf(pg));
       })
-      .catch((e) => live && setError(/fetch|network|load/i.test(String(e?.message ?? e)) ? 'Интернэт холболтоо шалгаад дахин оролдоно уу.' : `Уншиж чадсангүй: ${e?.message ?? e}`));
-    return () => {
-      live = false;
-    };
+      .catch((e) => live() && setError(/fetch|network|load/i.test(String(e?.message ?? e)) ? 'Интернэт холболтоо шалгаад дахин оролдоно уу.' : `Уншиж чадсангүй: ${e?.message ?? e}`));
+    return () => stop.abort();
   }, [files, at, attempt]);
+  // Done with a page (the next one, or closed): its memory back for the next.
+  useEffect(
+    () => () => {
+      if (page) releasePage(page);
+    },
+    [page],
+  );
 
   const edit = (id: number, f: (it: Item) => Item) => setItems((xs) => xs.map((it) => (it.id === id ? f(it) : it)));
   const reshape = (id: number, regions: Region[]) => page && edit(id, (it) => ({...it, regions, thumb: thumb(page, regions)}));
@@ -189,8 +208,8 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
   const up = () => {
     const d = drag.current;
     drag.current = null;
-    const it = d && items.find((x) => x.id === d.id);
-    if (it) reshape(it.id, it.regions);
+    // From the latest boxes: the last move may not be drawn yet.
+    if (d && page) edit(d.id, (it) => ({...it, thumb: thumb(page, it.regions)}));
   };
 
   const add = async () => {
@@ -203,7 +222,9 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
       for (const it of chosen) {
         let img: string | undefined;
         if (it.use !== 'text') {
-          img = await uploadTopicImage(tid, await canvasFile(cropProblem(page, it.regions), `bodlogo-${it.num}.png`));
+          const c = cropProblem(page, it.regions);
+          const file = await canvasFile(c, `bodlogo-${it.num}.png`).finally(() => (c.width = c.height = 0));
+          img = await uploadTopicImage(tid, file);
           onUploaded(img);
         }
         let text = it.use === 'img' ? '' : it.text.trim();
@@ -228,8 +249,9 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
     }
   };
 
-  // Not closed halfway through adding (what was added so far would come in after all).
-  const close = () => !adding && onClose();
+  // Not closed halfway through adding (what was added so far would come in after all), nor by a stray tap once the page
+  // is read (reading it again takes a while).
+  const close = () => !adding && (!items.length || confirm('Энэ хуудасны бодлогуудыг нэмэлгүй хаах уу?')) && onClose();
   const many = files.length > 1 ? ` · ${at + 1}/${files.length}-р хуудас` : '';
   const answered = chosen.filter((it) => it.key).length;
 
@@ -239,9 +261,16 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
         <div className="rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
           {error}
           {!page && (
-            <button onClick={() => setAttempt((n) => n + 1)} className="mt-3 block rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
-              Дахин оролдох
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => setAttempt((n) => n + 1)} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
+                Дахин оролдох
+              </button>
+              {at + 1 < files.length && (
+                <button onClick={() => setAt(at + 1)} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
+                  Энэ хуудсыг алгасах
+                </button>
+              )}
+            </div>
           )}
         </div>
       ) : null}
@@ -298,7 +327,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
                         e.preventDefault();
                         const regions = [...selected.regions];
                         const i = edge === 'top' ? 0 : regions.length - 1;
-                        regions[i] = edge === 'top' ? {...regions[i], y0: Math.min(regions[i].y0 + d, regions[i].y1 - 16)} : {...regions[i], y1: Math.max(regions[i].y1 + d, regions[i].y0 + 16)};
+                        regions[i] = edge === 'top' ? {...regions[i], y0: Math.max(0, Math.min(regions[i].y0 + d, regions[i].y1 - 16))} : {...regions[i], y1: Math.min(H, Math.max(regions[i].y1 + d, regions[i].y0 + 16))};
                         reshape(selected.id, regions);
                       }}
                       className="absolute z-20 flex h-7 -translate-y-1/2 cursor-ns-resize touch-none items-center justify-center outline-none"

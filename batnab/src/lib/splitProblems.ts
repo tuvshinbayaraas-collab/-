@@ -32,14 +32,17 @@ const JUNK = /^[\s|!¦[\](){}~:;'"`.,·•_\-–—]*$/;
 const real = (l: OcrLine) => l.words.filter((w) => !JUNK.test(w.text));
 
 /**
- * The number a line starts with: "12." (also "12," "12)", which count for less; "418." or "4.18." read for ".18."
- * give 18), or null.
+ * The number a line starts with: "12." (also "12," "12)", which count for less; "4.18." read for ".18." gives 18),
+ * or null. Three digits are a problem from 100 on, or a speck before two ("418." for ".18."): `alt` is that reading.
  */
-export function leadNumber(text: string): {n: number; sure: boolean} | null {
+export function leadNumber(text: string): {n: number; sure: boolean; alt?: number} | null {
   const m = /^[^\p{L}\d]{0,4}(?:\d[.,])?(\d{1,3})\s?([.,)])/u.exec(text);
   if (!m) return null;
-  const n = Number(m[1].length === 3 ? m[1].slice(-2) : m[1]);
-  return n >= 1 && n <= 99 ? {n, sure: m[2] === '.'} : null;
+  const sure = m[2] === '.';
+  const n = Number(m[1]);
+  const two = Number(m[1].slice(-2));
+  if (n >= 100) return two >= 1 ? {n, sure, alt: two} : {n, sure};
+  return n >= 1 ? {n, sure} : null;
 }
 
 /** Letters a digit is misread as, at the start of a line ("Т." for "7."). */
@@ -55,7 +58,7 @@ function startsWith(text: string, n: number) {
   const m = /^[^\p{L}\d]{0,4}([\p{L}\d]{1,2})([.,)])/u.exec(text);
   if (!m) return false;
   const read = [...m[1]].map((ch) => LOOKALIKE[ch] ?? ch).join('');
-  return read === String(n) || (n >= 10 && m[2] === '.' && read === String(n % 10));
+  return read === String(n) || (n >= 10 && n < 100 && m[2] === '.' && read === String(n % 10));
 }
 
 /** The line without its number: "12. …", "3 …", "Т. …" (for 7); a guessed problem's misread number ("8," for 6) too. */
@@ -124,16 +127,19 @@ export function splitProblems(lines: OcrLine[], cols: {x0: number; x1: number}[]
   };
 
   // 1. Lines that clearly start a problem; the longest run of them whose numbers go up (by 1–3), "12." before "12,".
+  // Three digits both ways ("101." or a speck and "01."): the full number when both make as long a run.
   const cand = ordered.flatMap((l, i) => {
     const n = atMargin(l) ? leadNumber(text(l)) : null;
-    return n === null ? [] : [{i, n: n.n, w: n.sure ? 3 : 2}];
+    if (n === null) return [];
+    const w = n.sure ? 3 : 2;
+    return n.alt ? [{i, n: n.n, w: w + 0.1}, {i, n: n.alt, w}] : [{i, n: n.n, w}];
   });
   if (!cand.length) return [];
   const best: number[] = cand.map((c) => c.w);
   const prev: number[] = cand.map(() => -1);
   for (let a = 0; a < cand.length; a++)
     for (let b = 0; b < a; b++)
-      if (cand[a].n > cand[b].n && cand[a].n - cand[b].n <= 3 && best[b] + cand[a].w > best[a]) {
+      if (cand[a].i > cand[b].i && cand[a].n > cand[b].n && cand[a].n - cand[b].n <= 3 && best[b] + cand[a].w > best[a]) {
         best[a] = best[b] + cand[a].w;
         prev[a] = b;
       }
@@ -270,6 +276,8 @@ export function findSkew(dark: Uint8Array, w: number, h: number) {
       xs.push((i % w) - w / 2);
       ys.push(Math.floor(i / w));
     }
+  // A blank page: every angle alike, so none.
+  if (!xs.length) return 0;
   const off = Math.round(h / 2);
   const rows = new Float64Array(h * 2);
   let best = 0;
@@ -351,18 +359,39 @@ export function widestGap(rowInk: number[], y0: number, y1: number) {
   return best.at;
 }
 
-/** Choice marks read in the text ("А)", "Б)", "B)"…): two or more and it's an А–Д problem even when the choices' formulas were not read. */
-export const hasChoices = (text: string) => (text.match(/(?:^|[\s|(])[АAаБ6бВBвГTIгДDд]\s?\)/g) ?? []).length >= 2;
+/**
+ * Each choice's mark as written, then as also read ("6)" for "Б)", "T)" for "Г)"), then in small letters too (as a
+ * sub-question's "а)", so only for choices in order).
+ */
+const MARKS = ['АA', 'Б', 'ВB', 'Г', 'ДD'];
+const LOOKALIKE_MARKS = ['АA', 'Б6', 'ВB', 'ГTI', 'ДD'];
+const ANY_MARKS = LOOKALIKE_MARKS.map((cs) => cs + cs[0].toLowerCase());
+
+/**
+ * Choice marks read in the text ("А)", "Б)", "B)"…): two different ones and it's an А–Д problem even when the
+ * choices' formulas were not read ("(x + 6) … (2x + 6)" is not two).
+ */
+export function hasChoices(text: string) {
+  const seen = new Set<number>();
+  for (const m of text.matchAll(/(?:^|[\s|(])(\S)\s?\)/g)) {
+    const k = LOOKALIKE_MARKS.findIndex((cs) => cs.includes(m[1]));
+    if (k >= 0) seen.add(k);
+  }
+  return seen.size >= 2;
+}
 
 /** Choices А)–Д) in a problem's read text, when at least four are found in order: the question and the choices. */
 export function parseChoices(text: string): {stem: string; choices: string[]} | null {
-  const marks = [/[АAа]/, /[Б6б]/, /[ВBв]/, /[ГTIг]/, /[ДDд]/];
-  const found: {k: number; at: number; len: number}[] = [];
-  const re = /(^|[\s|])([^\s|])\s?\)/g;
-  for (let m = re.exec(text); m; m = re.exec(text)) {
-    const k = found.length;
-    if (k < 5 && marks[k].test(m[2])) found.push({k, at: m.index + m[1].length, len: m[0].length - m[1].length});
-  }
+  // The marks as written first: a "6)" in a formula ("2(x + 6)") is taken for "Б)" only when they were misread.
+  const find = (marks: string[]) => {
+    const found: {at: number; len: number}[] = [];
+    const re = /(^|[\s|])([^\s|])\s?\)/g;
+    for (let m = re.exec(text); m && found.length < 5; m = re.exec(text))
+      if (marks[found.length].includes(m[2])) found.push({at: m.index + m[1].length, len: m[0].length - m[1].length});
+    return found;
+  };
+  let found = find(MARKS);
+  if (found.length < 4) found = find(ANY_MARKS);
   if (found.length < 4) return null;
   const choices = found.map((f, j) => text.slice(f.at + f.len, j + 1 < found.length ? found[j + 1].at : undefined).replace(/\s+/g, ' ').trim());
   return {stem: text.slice(0, found[0].at).trim(), choices};

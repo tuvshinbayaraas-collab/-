@@ -7,7 +7,7 @@ import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
 import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
-import {asResult, awayTimes, useExamAnswer, useExamEvents, useExams} from '../lib/exams';
+import {asResult, awayTimes, awayTotal, useExamAnswer, useExamEvents, useExams} from '../lib/exams';
 import AwayList from '../components/AwayList';
 import {formatDate, useResult} from '../lib/results';
 import {Link} from '../lib/router';
@@ -52,6 +52,9 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const key = keys[testId];
   const g = grade(result.answers, key, test.questions.length);
   const back = other ? `/admin/student/${other}` : '/results';
+  // Handed in, the exam over, or still on: until then a time away not come back from counts.
+  const until = examAnswer?.done ? examAnswer.at : exam && now > exam.end ? exam.end : undefined;
+  const away = awayTotal(examAnswer, times, until ?? now);
   // Only the teacher sees the right answers; a student sees which questions they missed.
   const reveal = session.admin;
   const correctAt = (i: number) => (g ? choiceAt(key, i) : null);
@@ -69,14 +72,14 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         </h1>
         <p className="text-sm text-neutral-400">
           {formatDate(result.at)} • {formatDuration(result.seconds)}
-          {!!examAnswer?.leaves && ` • хуудаснаас ${Math.max(examAnswer.leaves, times.length)} удаа гарсан (нийт ${formatDuration(examAnswer.away / 1000)})`}
+          {isExam && away.leaves > 0 && ` • хуудаснаас ${away.leaves} удаа гарсан (нийт ${formatDuration(away.ms / 1000)})`}
           {!isExam && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан`}
         </p>
         {times.length > 0 && (
           <details className="mt-2 rounded-xl bg-neutral-800/50 px-3 py-2 text-sm">
             <summary className="cursor-pointer text-neutral-300">Хэзээ, хэр удаан гарсан</summary>
             <div className="mt-2">
-              <AwayList times={times} now={now} until={examAnswer?.done ? examAnswer.at : exam && now > exam.end ? exam.end : undefined} />
+              <AwayList times={times} now={now} until={until} />
             </div>
           </details>
         )}
