@@ -1,0 +1,73 @@
+# Builds batnab/ and deploys it to Firebase (Hosting + Realtime Database rules)
+# on every push that touches the site, then runs scripts/setup.mjs (sign-in
+# provider, teacher account, default settings). Repository secrets:
+#   FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F — the JSON key of a Google Cloud
+#   service account with the "Firebase Admin" and "Service Usage Consumer" roles.
+#   BATNAB_ADMIN_PASSWORD — the first password of the teacher account Admin
+#   (only used to create it, or when the workflow is run by hand with
+#   "reset_admin_password" ticked).
+name: Deploy Batnab
+
+on:
+  push:
+    branches: [main, claude/youtube-site-batnab-jfgjry]
+    paths: ['batnab/**', '.github/workflows/batnab-deploy.yml']
+  workflow_dispatch:
+    inputs:
+      reset_admin_password:
+        description: Set the Admin password back to the BATNAB_ADMIN_PASSWORD secret
+        type: boolean
+        default: false
+
+concurrency:
+  group: batnab-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: batnab
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/package-lock.json
+
+      - name: Check the deploy key is set
+        id: key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::Deploy skipped: repository secret FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F is not set yet (see batnab/README.md, Автомат байршуулалт)."
+            echo "### Deploy skipped — add the FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F secret" >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+      - name: Deploy to Firebase
+        if: steps.key.outputs.present == 'true'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ADMIN_PASSWORD: ${{ secrets.BATNAB_ADMIN_PASSWORD }}
+          RESET_ADMIN_PASSWORD: ${{ inputs.reset_admin_password }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@15 deploy --only hosting,database --project rgtbn-bb94f --non-interactive
+          node scripts/setup.mjs
+          echo "### Deployed to https://batnab.web.app" >> "$GITHUB_STEP_SUMMARY"
