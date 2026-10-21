@@ -39,10 +39,20 @@ export function archiveOps(uid: string, results: Result[], keys: Record<string, 
   return ops;
 }
 
+// One move at a time per student: every list of the student's results (the home page has two) asks for it at once,
+// and a second one writing the same summary would be refused.
+const moving = new Map<string, Promise<void>>();
+
 /** On the student's device: last weeks' results become history, then go. */
-export async function archiveMine(uid: string, results: Result[]) {
+export function archiveMine(uid: string, results: Result[]) {
   const old = results.filter((r) => !inThisWeek(r.at));
-  if (!old.length) return;
+  if (!old.length || moving.has(uid)) return moving.get(uid) ?? Promise.resolve();
+  const run = moveOld(uid, old).finally(() => moving.delete(uid));
+  moving.set(uid, run);
+  return run;
+}
+
+async function moveOld(uid: string, old: Result[]) {
   const keys: Record<string, string | null | undefined> = {};
   for (const test of new Set(old.map((r) => r.test)))
     keys[test] = await get(ref(db, `keys/${test}`)).then(
