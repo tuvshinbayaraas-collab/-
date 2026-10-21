@@ -2,9 +2,14 @@
 // once; their answers are saved as they go to examAnswers/{testId}/{uid} and marked `done` when handed in (or left
 // as they are when time runs out). The rules only accept these writes between start and end (+1 min), block
 // practising that test until the exam is over, and keep its answer key closed until then.
-import {onValue, ref, serverTimestamp, set, update} from 'firebase/database';
+// Each time a student leaves the exam's page and comes back is also written as it happens to
+// examEvents/{testId}/{uid}/{id} = {k: 'o' (out) | 'b' (back), w?: why, ms?: time away, at}: the teacher sees who is
+// away right now, and when and for how long each student was.
+import {onIdTokenChanged} from 'firebase/auth';
+import {onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState, useSyncExternalStore} from 'react';
-import {auth, db} from './firebase';
+import {auth, db, emulators, firebaseConfig} from './firebase';
+import type {LeaveWhy} from './leaves';
 import type {Result} from './results';
 
 export interface Exam {
@@ -61,9 +66,9 @@ export const useExams = () => useSyncExternalStore(subscribe, () => exams);
 
 /** Schedules (or reschedules) a test's exam; the answers of an earlier exam of that test are removed. */
 export const scheduleExam = (test: string, start: number, end: number) =>
-  update(ref(db), {[`exams/${test}`]: {start, end, createdAt: serverTimestamp()}, [`examAnswers/${test}`]: null});
+  update(ref(db), {[`exams/${test}`]: {start, end, createdAt: serverTimestamp()}, [`examAnswers/${test}`]: null, [`examEvents/${test}`]: null});
 
-export const cancelExam = (test: string) => update(ref(db), {[`exams/${test}`]: null, [`examAnswers/${test}`]: null});
+export const cancelExam = (test: string) => update(ref(db), {[`exams/${test}`]: null, [`examAnswers/${test}`]: null, [`examEvents/${test}`]: null});
 
 const parse = (v: Partial<ExamAnswer> | null): ExamAnswer | null =>
   v && typeof v.answers === 'string'
@@ -114,3 +119,88 @@ export function saveExam(test: string, a: Omit<ExamAnswer, 'at' | 'startedAt'>, 
 }
 
 export const parseExamAnswer = parse;
+
+// ---- leaving the exam's page ----
+
+export interface ExamEvent {
+  k: 'o' | 'b';
+  w?: LeaveWhy;
+  ms?: number;
+  at: number;
+}
+
+// The student's sign-in token, at hand for a request sent while the page hides (there's no waiting then).
+let token: string | null = null;
+onIdTokenChanged(auth, (u) => {
+  token = null;
+  u?.getIdToken()
+    .then((t) => (token = t))
+    .catch(() => {});
+});
+const rest = emulators ? `http://127.0.0.1:9000` : firebaseConfig.databaseURL;
+const ns = emulators ? `ns=${new URL(firebaseConfig.databaseURL).hostname.split('.')[0]}&` : '';
+
+/**
+ * Records leaving or coming back. Sent with sendBeacon: it still goes out as the page hides or closes, when the
+ * database connection of a phone in the background has already stopped (the teacher sees it at once, not when the
+ * student returns); the database's own write is the fallback.
+ */
+export function examEvent(test: string, e: {k: 'o' | 'b'; w?: LeaveWhy; ms?: number}) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  const data = {k: e.k, ...(e.w ? {w: e.w} : {}), ...(e.ms !== undefined ? {ms: Math.round(Math.min(e.ms, 86_400_000))} : {})};
+  try {
+    const url = `${rest}/examEvents/${test}/${uid}.json?${ns}auth=${token}`;
+    if (token && navigator.sendBeacon?.(url, new Blob([JSON.stringify({...data, at: {'.sv': 'timestamp'}})], {type: 'text/plain'}))) return;
+  } catch {
+    // no beacon here: the database writes it
+  }
+  push(ref(db, `examEvents/${test}/${uid}`), {...data, at: serverTimestamp()}).catch(() => {});
+}
+
+/** The comings and goings in an exam: uid → events (oldest first). One student's when `uid` is given; none for null. */
+export function useExamEvents(test: string | null, uid?: string) {
+  const [state, setState] = useState<{key: string; value: Record<string, ExamEvent[]>} | null>(null);
+  const key = `${test}/${uid ?? ''}`;
+  useEffect(
+    () =>
+      test === null
+        ? undefined
+        : onValue(
+        ref(db, uid ? `examEvents/${test}/${uid}` : `examEvents/${test}`),
+        (s) => {
+          const v = (s.val() ?? {}) as Record<string, unknown>;
+          const list = (x: unknown) =>
+            Object.values((x ?? {}) as Record<string, ExamEvent>)
+              .filter((e) => (e?.k === 'o' || e?.k === 'b') && typeof e.at === 'number')
+              .sort((a, b) => a.at - b.at);
+          setState({key, value: uid ? {[uid]: list(v)} : Object.fromEntries(Object.entries(v).map(([u, x]) => [u, list(x)]))});
+        },
+        () => setState({key, value: {}}),
+      ),
+    [test, uid, key],
+  );
+  return state?.key === key ? state.value : null;
+}
+
+/** A time away: since when, why, and for how long (undefined while still away). */
+export interface Away {
+  at: number;
+  why: LeaveWhy;
+  ms?: number;
+}
+
+/** The times away from the events: a leave starts one (a second one while away only tells why), a return ends it. */
+export function awayTimes(events: ExamEvent[]): Away[] {
+  const out: Away[] = [];
+  for (const e of events) {
+    const last = out[out.length - 1];
+    const open = last && last.ms === undefined;
+    if (e.k === 'o') {
+      if (open) last.why = e.w ?? last.why;
+      else out.push({at: e.at, why: e.w ?? 't'});
+    } else if (open) last.ms = e.ms ?? Math.max(0, e.at - last.at);
+  }
+  return out;
+}
+

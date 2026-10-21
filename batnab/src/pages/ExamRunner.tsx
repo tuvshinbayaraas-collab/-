@@ -1,14 +1,14 @@
-import {AlertTriangle, Check, CloudOff, Timer} from 'lucide-react';
+import {AlertTriangle, Check, CloudOff, Timer, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import {formatDuration, formatTime} from '../lib/attempt';
-import {examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
+import {examEvent, examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {ask, useLeaveCounter} from '../lib/leaves';
 import {usePrefs} from '../lib/prefs';
-import {Link} from '../lib/router';
+import {Link, setNavGuard} from '../lib/router';
 import {clock, serverNow, useNow} from '../lib/time';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
@@ -126,11 +126,41 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  // Leaving the page (another tab or app, another window, closing it, another page of the site) is counted, sent to
+  // the teacher as it happens, and told to the student on coming back.
+  const [notice, setNotice] = useState<{n: number; ms: number} | null>(null);
   useLeaveCounter(
     active,
-    () => change((a) => ({...a, leaves: a.leaves + 1}), true),
-    (ms) => change((a) => ({...a, away: a.away + ms}), true),
+    (why) => {
+      change((a) => ({...a, leaves: a.leaves + 1}), true);
+      examEvent(id, {k: 'o', w: why});
+    },
+    (ms) => {
+      change((a) => ({...a, away: a.away + ms}), true);
+      examEvent(id, {k: 'b', ms});
+      setNotice({n: latest.current?.leaves ?? 1, ms});
+    },
+    {store: `${key}.out`, onWhy: (why) => examEvent(id, {k: 'o', w: why})},
   );
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 12_000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  // Going to another page of the site, closing or reloading this one: asked first (and counted if so).
+  useEffect(() => {
+    if (!active) return;
+    setNavGuard(() => ask('Шалгалт дуусаагүй байна. Шалгалтын хуудаснаас гарвал «хуудаснаас гарсан» гэж бүртгэгдэж багшид харагдана. Гарах уу?'));
+    const unload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', unload);
+    return () => {
+      setNavGuard(null);
+      window.removeEventListener('beforeunload', unload);
+    };
+  }, [active]);
 
   // Time is up: hand in whatever is answered.
   const handedIn = useRef(false);
@@ -232,6 +262,18 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
         </div>
       </div>
 
+      {notice && !finished && (
+        <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/15 px-4 py-3 text-sm text-red-100">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-300" />
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">Та шалгалтын хуудаснаас гарлаа</span> ({notice.n} дахь удаа, {formatDuration(notice.ms / 1000)} гадуур). Энэ нь багшид шууд харагдаж байна.
+          </p>
+          <button onClick={() => setNotice(null)} aria-label="Хаах" className="rounded-full p-1 text-red-200 hover:bg-red-500/20">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {!finished && (
         <div className={`mt-4 rounded-xl px-4 py-3 text-sm ${leaves ? 'bg-red-500/10 text-red-200' : 'bg-neutral-900 text-neutral-300'}`}>
           {leaves ? (
@@ -240,8 +282,8 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
             </p>
           ) : (
             <p>
-              Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб эсвэл апп руу шилжвэл
-              тоологдож багшид харагдана.
+              Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл
+              сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
             </p>
           )}
         </div>
@@ -356,7 +398,7 @@ export function ExamWait({id, exam, now}: {id: string; exam: Exam; now: number})
         {clock(exam.start)}–{clock(exam.end)}. Эхлэхэд үлдсэн хугацаа:
       </p>
       <p className="mt-2 text-4xl font-bold tabular-nums">{formatTime((exam.start - now) / 1000)}</p>
-      <p className="mt-4 text-sm text-neutral-500">Цаг болоход бодлогууд энд автоматаар гарч ирнэ. Шалгалтын үеэр өөр таб эсвэл апп руу шилжвэл тоологдоно.</p>
+      <p className="mt-4 text-sm text-neutral-500">Цаг болоход бодлогууд энд автоматаар гарч ирнэ. Шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож багшид шууд харагдана.</p>
     </div>
   );
 }

@@ -7,7 +7,8 @@ import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
 import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
-import {asResult, useExamAnswer, useExams} from '../lib/exams';
+import {asResult, awayTimes, useExamAnswer, useExamEvents, useExams} from '../lib/exams';
+import AwayList from '../components/AwayList';
 import {formatDate, useResult} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
@@ -27,6 +28,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const practice = useResult(!isExam ? uid : undefined, testId, id);
   const examAnswer = useExamAnswer(testId, isExam ? uid : undefined);
   const exam = useExams()?.[testId];
+  const events = useExamEvents(isExam && uid ? testId : null, uid);
+  const times = uid ? awayTimes(events?.[uid] ?? []) : [];
   const now = useNow(isExam ? 5000 : 0);
   const result = isExam ? (examAnswer === undefined ? undefined : examAnswer && uid ? asResult(testId, uid, examAnswer) : null) : practice;
   // A practice result's key is readable for whoever handed it in; an exam's only once the exam is over.
@@ -66,9 +69,17 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         </h1>
         <p className="text-sm text-neutral-400">
           {formatDate(result.at)} • {formatDuration(result.seconds)}
-          {!!examAnswer?.leaves && ` • хуудаснаас ${examAnswer.leaves} удаа гарсан`}
+          {!!examAnswer?.leaves && ` • хуудаснаас ${Math.max(examAnswer.leaves, times.length)} удаа гарсан (нийт ${formatDuration(examAnswer.away / 1000)})`}
           {!isExam && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан`}
         </p>
+        {times.length > 0 && (
+          <details className="mt-2 rounded-xl bg-neutral-800/50 px-3 py-2 text-sm">
+            <summary className="cursor-pointer text-neutral-300">Хэзээ, хэр удаан гарсан</summary>
+            <div className="mt-2">
+              <AwayList times={times} now={now} until={examAnswer?.done ? examAnswer.at : exam && now > exam.end ? exam.end : undefined} />
+            </div>
+          </details>
+        )}
         {key === undefined ? (
           <p className="mt-2 text-neutral-400">Ачаалж байна…</p>
         ) : g && isPerfect(g) ? (

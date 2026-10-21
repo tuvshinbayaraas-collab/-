@@ -2,8 +2,16 @@ import {useEffect, useState, type AnchorHTMLAttributes, type MouseEvent} from 'r
 
 const NAV_EVENT = 'batnab:navigate';
 
+let guard: ((to: string) => boolean) | null = null;
+
+/** While set, asked before going to another page of the site (an exam is on); false stays. */
+export function setNavGuard(g: ((to: string) => boolean) | null) {
+  guard = g;
+}
+
 export function navigate(to: string) {
   if (to === location.pathname + location.search) return;
+  if (guard && !guard(to)) return;
   history.pushState(null, '', to);
   window.dispatchEvent(new Event(NAV_EVENT));
   window.scrollTo(0, 0);

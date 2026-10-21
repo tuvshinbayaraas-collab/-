@@ -1,7 +1,9 @@
-import {AlertTriangle, ArrowLeft, CalendarClock, ChevronRight, Download, KeyRound, Trash2} from 'lucide-react';
+import {AlertTriangle, ArrowLeft, CalendarClock, ChevronDown, ChevronRight, Download, EyeOff, KeyRound, Trash2} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {formatDuration} from '../../lib/attempt';
-import {asResult, cancelExam, examState, scheduleExam, type Exam, type ExamAnswer, type ExamState} from '../../lib/exams';
+import {asResult, awayTimes, cancelExam, examState, scheduleExam, useExamEvents, type Exam, type ExamAnswer, type ExamState} from '../../lib/exams';
+import {WHY_LABEL} from '../../lib/leaves';
+import AwayList from '../../components/AwayList';
 import {grade, percent} from '../../lib/keys';
 import {Link, navigate} from '../../lib/router';
 import {clock, dayLabel, span, useNow} from '../../lib/time';
@@ -165,7 +167,23 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
   const rows: Row[] = active.map((s) => ({uid: s.uid, answer: byTest[s.uid]}));
   const started = rows.filter((r) => r.answer);
   const done = started.filter((r) => r.answer!.done);
-  const left = started.filter((r) => r.answer!.leaves > 0);
+  // Leaving and coming back as it happens: who is away now, when and for how long each one was.
+  const events = useExamEvents(test);
+  const away = new Map(
+    rows.map((r) => {
+      const times = awayTimes(events?.[r.uid] ?? []);
+      const last = times[times.length - 1];
+      const open = !!last && last.ms === undefined;
+      const out = state === 'active' && !!r.answer && !r.answer.done && open;
+      // Away when the exam ended (or when handed in): never came back.
+      const until = out ? undefined : r.answer?.done ? r.answer.at : Math.min(now, exam.end);
+      const ms = times.reduce((a, t) => a + (t.ms ?? 0), 0) + (open ? (until ?? now) - last.at : 0);
+      return [r.uid, {times, out, until, leaves: Math.max(r.answer?.leaves ?? 0, times.length), ms: Math.max(r.answer?.away ?? 0, ms)}];
+    }),
+  );
+  const left = started.filter((r) => away.get(r.uid)!.leaves > 0);
+  const outNow = rows.filter((r) => away.get(r.uid)!.out);
+  const [open, setOpen] = useState<string | null>(null);
   const key = data.keys[test];
   const g = (a: ExamAnswer) => grade(a.answers, key, info.count);
   const scores = started.flatMap((r) => (g(r.answer!) ? [percent(g(r.answer!)!)] : []));
@@ -231,56 +249,75 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
         <Stat label="Эхэлсэн" value={`${started.length}/${active.length}`} sub="сурагч" />
         <Stat label="Дуусгасан" value={done.length} />
         <Stat label="Дундаж оноо" value={pct(mean(scores))} />
-        <Stat label="Хуудаснаас гарсан" value={left.length} sub="сурагч" />
+        <Stat label="Хуудаснаас гарсан" value={left.length} sub={state === 'active' && outNow.length ? `сурагч · ${outNow.length} нь одоо гадуур` : 'сурагч'} />
       </div>
 
       <section>
         <h3 className="mb-2 font-semibold">Сурагчид {state === 'active' && <span className="text-sm font-normal text-neutral-400">(шууд шинэчлэгдэнэ)</span>}</h3>
         <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
           {[...rows]
-            .sort((a, b) => (b.answer ? 1 : 0) - (a.answer ? 1 : 0) || (b.answer?.leaves ?? 0) - (a.answer?.leaves ?? 0))
+            .sort((a, b) => Number(away.get(b.uid)!.out) - Number(away.get(a.uid)!.out) || (b.answer ? 1 : 0) - (a.answer ? 1 : 0) || away.get(b.uid)!.leaves - away.get(a.uid)!.leaves)
             .map(({uid, answer: a}) => {
               const s = byUid.get(uid)!;
               const grd = a ? g(a) : null;
               const answered = a ? [...a.answers].filter((c) => c !== '-').length : 0;
+              const w = away.get(uid)!;
+              const last = w.times[w.times.length - 1];
               return (
-                <li key={uid} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="min-w-0 flex-1">
-                    <StudentName
-                      student={s}
-                      sub={
-                        <>
-                          {a && a.leaves > 0 && (
-                            <span className="text-neutral-200 sm:hidden">
-                              <AlertTriangle size={12} color={WARNING} className="-mt-0.5 inline" /> {a.leaves} удаа гарсан •{' '}
-                            </span>
-                          )}
-                          {status(a)}
-                          {a && ` • ${answered}/${info.count} хариулсан`}
-                          {a && a.done && ` • ${formatDuration(a.seconds)}`}
-                        </>
-                      }
-                    />
-                  </span>
-                  {a && a.leaves > 0 && (
-                    <span className="hidden shrink-0 items-center gap-1 text-xs text-neutral-200 sm:flex" title={`Нийт ${formatDuration(a.away / 1000)} гадуур байсан`}>
-                      <AlertTriangle size={13} color={WARNING} /> {a.leaves} удаа гарсан
+                <li key={uid} className={w.out ? 'bg-red-500/[0.07]' : ''}>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <StudentName
+                        student={s}
+                        sub={
+                          <>
+                            {w.out && (
+                              <span className="font-semibold text-red-300">
+                                <EyeOff size={12} className="-mt-0.5 inline" /> Одоо гадуур ({WHY_LABEL[last.why]}) · {formatDuration((now - last.at) / 1000)} •{' '}
+                              </span>
+                            )}
+                            {status(a)}
+                            {a && ` • ${answered}/${info.count} хариулсан`}
+                            {a && a.done && ` • ${formatDuration(a.seconds)}`}
+                          </>
+                        }
+                      />
                     </span>
-                  )}
-                  {a ? (
-                    <Link href={`/review/${test}/exam?u=${uid}`} className="w-16 shrink-0 rounded-lg px-1 py-1 text-right hover:bg-neutral-800">
-                      <span className="block font-semibold tabular-nums">{grd ? `${grd.score}/${grd.total}` : '—'}</span>
-                      <span className="block text-xs text-neutral-500">{grd ? `${percent(grd)}%` : 'харах'}</span>
-                    </Link>
-                  ) : (
-                    <span className="w-16 shrink-0" />
+                    {w.leaves > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setOpen(open === uid ? null : uid)}
+                        aria-expanded={open === uid}
+                        title={`Нийт ${formatDuration(w.ms / 1000)} гадуур байсан`}
+                        className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-800"
+                      >
+                        <AlertTriangle size={13} color={WARNING} /> {w.leaves} удаа гарсан
+                        <span className="hidden text-neutral-400 sm:inline">· {formatDuration(w.ms / 1000)}</span>
+                        <ChevronDown size={13} className={`transition-transform ${open === uid ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                    {a ? (
+                      <Link href={`/review/${test}/exam?u=${uid}`} className="w-16 shrink-0 rounded-lg px-1 py-1 text-right hover:bg-neutral-800">
+                        <span className="block font-semibold tabular-nums">{grd ? `${grd.score}/${grd.total}` : '—'}</span>
+                        <span className="block text-xs text-neutral-500">{grd ? `${percent(grd)}%` : 'харах'}</span>
+                      </Link>
+                    ) : (
+                      <span className="w-16 shrink-0" />
+                    )}
+                  </div>
+                  {open === uid && (
+                    <div className="px-4 pb-3 pl-14">
+                      {w.times.length ? <AwayList times={w.times} now={now} until={w.until} /> : <p className="text-xs text-neutral-500">Хэзээ гарсан нь бүртгэгдээгүй (хуучин хувилбараар өгсөн).</p>}
+                      <p className="mt-1 text-xs text-neutral-500">Нийт {formatDuration(w.ms / 1000)} гадуур.</p>
+                    </div>
                   )}
                 </li>
               );
             })}
         </ul>
         <p className="mt-2 text-xs text-neutral-500">
-          «Хуудаснаас гарсан»: шалгалтын үеэр өөр таб, апп эсвэл цонх руу шилжсэн тоо (дээр нь хулганаа барьвал гадуур байсан хугацаа харагдана). Хуудсаа дахин ачаалах ч тоологдоно.
+          «Хуудаснаас гарсан»: шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжсэн, хуудсаа хаасан эсвэл дахин ачаалсан тоо. Дээр нь дарж хэзээ, юу
+          хийж, хэр удаан гадуур байсныг харна. Одоо гадуур байгаа сурагч улаанаар хамгийн дээр гарна.
         </p>
       </section>
 

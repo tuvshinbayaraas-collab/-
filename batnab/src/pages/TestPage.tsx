@@ -137,18 +137,23 @@ function Runner(props: {
 
   const finished = !!attempt?.finished;
 
-  // Leaving the page (another tab or app) while answering is counted and shown to the teacher.
-  const bump = (f: (a: Attempt) => Attempt) =>
-    setAttempt((prev) => {
-      if (!prev) return prev;
-      const next = f(prev);
-      saveAttempt(owner, id, next);
-      return next;
-    });
+  // Leaving the page (another tab or app, another window, closing it, another page of the site) while answering is
+  // counted and shown to the teacher. Stored at once: the page may be closing, or already gone to another page.
+  const latest = useRef(attempt);
+  latest.current = attempt;
+  const bump = (f: (a: Attempt) => Attempt) => {
+    const prev = latest.current;
+    if (!prev) return;
+    const next = f(prev);
+    latest.current = next;
+    saveAttempt(owner, id, next);
+    setAttempt(next);
+  };
   useLeaveCounter(
     !!attempt && !finished && mode !== 'preview',
     () => bump((a) => ({...a, leaves: (a.leaves ?? 0) + 1})),
     (ms) => bump((a) => ({...a, away: (a.away ?? 0) + ms})),
+    {store: attempt ? `batnab.away.${owner}.${id}.${attempt.started}` : undefined},
   );
   useEffect(() => {
     if (finished) return;
@@ -260,7 +265,7 @@ function Runner(props: {
             </span>
           )}
           {mode !== 'preview' && !!attempt.leaves && (
-            <span className="flex items-center gap-1 text-sm text-amber-300" title="Тест өгөх үеэр өөр таб эсвэл апп руу шилжсэн тоо. Багш харна.">
+            <span className="flex items-center gap-1 text-sm text-amber-300" title="Тест өгөх үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжсэн, хуудсаа хаасан тоо. Багш харна.">
               <AlertTriangle size={14} /> {attempt.leaves} удаа гарсан
             </span>
           )}
