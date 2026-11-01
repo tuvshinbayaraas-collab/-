@@ -1,4 +1,4 @@
-import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, Printer, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {Rich, TopicPicture} from '../../components/TopicParts';
@@ -202,6 +202,11 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
         <button onClick={() => leave(`/topics/${draft.id}`)} className={`${small} ml-auto`}>
           <Eye size={15} /> Сурагчаар харах
         </button>
+        {draft.problems.length > 0 && (
+          <button onClick={() => leave(`/print/topic/${draft.id}`)} className={small} title="Бодлогуудыг цаасан дасгалын хуудас болгож хэвлэх (PDF)">
+            <Printer size={15} /> Хэвлэх
+          </button>
+        )}
         {draft.problems.some((p) => answers[p.id]) && (
           <button onClick={() => leave(`/live?topic=${draft.id}`)} className={`${small} text-pink-200`} title="Энэ сэдвийн бодлогоор ангид шууд тэмцээн">
             <Zap size={15} /> Тэмцээн

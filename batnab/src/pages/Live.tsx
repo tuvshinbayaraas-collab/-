@@ -6,7 +6,7 @@ import {Rich} from '../components/TopicParts';
 import ZoomView from '../components/ZoomView';
 import {useClasses} from '../lib/classes';
 import {publicName} from '../lib/leaderboard';
-import {forClass} from '../lib/live';
+import {forClass, useLive} from '../lib/live';
 import {
   answerLive,
   closeLive,
@@ -16,8 +16,13 @@ import {
   liveOn,
   openQuestion,
   quizzable,
+  makeTeams,
   ranking,
   revealQuestion,
+  setTeams,
+  TEAM_COLORS,
+  teamRanking,
+  teamsFor,
   secondsLeft,
   startLive,
   useLiveAnswers,
@@ -90,6 +95,12 @@ function Setup() {
   const [off, setOff] = useState<Set<string>>(new Set());
   const [dur, setDur] = useState(60);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  // Teams: none, so many of even size, or one per class.
+  const [teamBy, setTeamBy] = useState<'none' | 'count' | 'class'>('none');
+  const [teamCount, setTeamCount] = useState(2);
+  // By class only while there are classes to make teams of (not one class alone).
+  const byClass = (classes?.length ?? 0) > 1 && chosen.size !== 1;
+  const teamMode = teamBy === 'class' && !byClass ? 'none' : teamBy;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   if (!topics) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
@@ -102,7 +113,9 @@ function Setup() {
     setBusy(true);
     setError('');
     try {
-      await startLive(t, pids, dur, chosen.size ? Object.fromEntries([...chosen].map((c) => [c, true as const])) : undefined);
+      const teamClasses = (classes ?? []).filter((c) => !chosen.size || chosen.has(c.id));
+      const teams = teamMode === 'none' ? undefined : {by: teamMode, list: makeTeams(teamMode, teamCount, teamClasses)};
+      await startLive(t, pids, dur, chosen.size ? Object.fromEntries([...chosen].map((c) => [c, true as const])) : undefined, teams);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -214,6 +227,32 @@ function Setup() {
               </div>
             </div>
           )}
+          <div>
+            <p className="text-sm font-medium">Баг</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {(
+                [
+                  ['none', 'Ганцаараа'],
+                  ['count', 'Багаар'],
+                  ...(byClass ? [['class', 'Ангиар'] as const] : []),
+                ] as const
+              ).map(([v, label]) => (
+                <button key={v} type="button" aria-pressed={teamMode === v} onClick={() => setTeamBy(v)} className={`rounded-full px-3 py-1.5 text-sm ${teamMode === v ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300'}`}>
+                  {label}
+                </button>
+              ))}
+              {teamMode === 'count' && (
+                <select value={teamCount} onChange={(e) => setTeamCount(Number(e.target.value))} aria-label="Багийн тоо" className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-sm">
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {n} баг
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {teamMode !== 'none' && <p className="mt-1 text-xs text-neutral-500">{teamMode === 'class' ? 'Анги бүр нэг баг.' : 'Нэгдэх дарааллаар тэнцүү хуваана.'} Багийн оноо нь гишүүдийн дундаж оноо (цөөн хүнтэй баг хохирохгүй).</p>}
+          </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button onClick={start} disabled={!t || !pids.length || busy} className="flex items-center gap-2 rounded-full bg-pink-500 px-6 py-2.5 font-semibold text-black hover:bg-pink-400 disabled:opacity-50">
             <Zap size={18} /> Тэмцээн нээх
@@ -268,7 +307,21 @@ function Board({quiz}: {quiz: LiveQuiz}) {
   const next = () => (t ? run(() => openQuestion(t, quiz, quiz.state === 'lobby' ? 0 : quiz.cur + 1)) : setError('Сэдэв олдсонгүй (устгагдсан байж магадгүй).'));
   const last = quiz.cur + 1 >= quiz.pids.length;
   const ranked = ranking(players, scores);
+  const teamRanks = teamRanking(players, scores, quiz.teams);
   const close = () => confirm('Тэмцээнийг хаах уу? Оноо, хариултууд устна.') && void run(closeLive);
+  // Teams: whoever joins is put in one here (their class's, or the smallest), once.
+  const users = useLive(quiz.teamBy === 'class' ? 'users' : null, (v) => (v ?? {}) as Record<string, {class?: string}>);
+  const placing = useRef(new Set<string>());
+  useEffect(() => {
+    if (!quiz.teams || (quiz.teamBy === 'class' && !users)) return;
+    const assign = Object.fromEntries(Object.entries(teamsFor(players, quiz.teams, (uid) => users?.[uid]?.class, quiz.teamBy)).filter(([uid]) => !placing.current.has(uid)));
+    if (!Object.keys(assign).length) return;
+    Object.keys(assign).forEach((uid) => placing.current.add(uid));
+    setTeams(assign).catch((e) => {
+      Object.keys(assign).forEach((uid) => placing.current.delete(uid));
+      setError((e as Error).message);
+    });
+  }, [players, quiz.teams, quiz.teamBy, users]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 py-2">
@@ -297,12 +350,34 @@ function Board({quiz}: {quiz: LiveQuiz}) {
           <p className="mt-6 text-5xl font-extrabold tabular-nums">{players.length}</p>
           <p className="text-neutral-400">нэгдсэн</p>
           <ul className="mt-5 flex flex-wrap justify-center gap-2">
-            {players.map((p) => (
-              <li key={p.uid} className="animate-[pop-in_.35s_ease-out] rounded-full bg-neutral-800 px-3 py-1.5 font-medium">
-                {p.name}
-              </li>
-            ))}
+            {!quiz.teams &&
+              players.map((p) => (
+                <li key={p.uid} className="animate-[pop-in_.35s_ease-out] rounded-full bg-neutral-800 px-3 py-1.5 font-medium">
+                  {p.name}
+                </li>
+              ))}
           </ul>
+          {quiz.teams && (
+            <div className={`mx-auto mt-5 grid gap-3 text-left sm:grid-cols-2 ${Object.keys(quiz.teams).length > 2 ? 'lg:grid-cols-3' : 'max-w-2xl'}`}>
+              {Object.entries(quiz.teams).map(([id, team]) => {
+                const members = players.filter((p) => p.team === id);
+                return (
+                  <div key={id} className="rounded-2xl bg-neutral-800/50 p-3">
+                    <p className="flex items-center gap-2 font-bold">
+                      <span className={`h-3 w-3 rounded-full ${TEAM_COLORS[team.color]}`} /> {team.name} <span className="ml-auto text-sm font-normal text-neutral-400">{members.length}</span>
+                    </p>
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {members.map((p) => (
+                        <li key={p.uid} className="animate-[pop-in_.35s_ease-out] rounded-full bg-neutral-800 px-2.5 py-1 text-sm">
+                          {p.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <button onClick={next} disabled={busy || !t} className="mt-8 inline-flex items-center gap-2 rounded-full bg-pink-500 px-8 py-3 text-lg font-bold text-black hover:bg-pink-400 disabled:opacity-50">
             <Play size={20} /> Эхлэх
           </button>
@@ -339,6 +414,7 @@ function Board({quiz}: {quiz: LiveQuiz}) {
             </button>
           ) : (
             <div className="flex flex-wrap items-start gap-5">
+              {teamRanks.length > 0 && <TeamBars teams={teamRanks} />}
               <Top ranked={ranked.slice(0, 5)} />
               <button onClick={last ? () => run(finishLive) : next} disabled={busy} className="ml-auto inline-flex items-center gap-2 rounded-full bg-pink-500 px-6 py-2.5 font-bold text-black hover:bg-pink-400 disabled:opacity-50">
                 {last ? (
@@ -358,6 +434,15 @@ function Board({quiz}: {quiz: LiveQuiz}) {
 
       {quiz.state === 'done' && (
         <section className="space-y-6 rounded-3xl bg-neutral-900 p-6 sm:p-10">
+          {teamRanks.length > 0 && (
+            <div className="mx-auto max-w-lg space-y-2 text-center">
+              <p className="text-3xl font-extrabold">
+                <Crown size={30} className="mr-2 inline text-amber-300" />
+                {teamRanks.filter((x) => x.place === 1).map((x) => x.name).join(', ')} баг яллаа!
+              </p>
+              <TeamBars teams={teamRanks} />
+            </div>
+          )}
           <Podium ranked={ranked} />
           <ol className="mx-auto max-w-md divide-y divide-neutral-800 rounded-2xl bg-neutral-800/40">
             {ranked.map((r, i) => (
@@ -421,6 +506,27 @@ function Choices({q, keyed, counts, big, picked, onPick, disabled}: {q: LiveQues
         );
       })}
     </div>
+  );
+}
+
+/** The teams' standings: average points as bars (each team's colour), members and place. */
+function TeamBars({teams}: {teams: ReturnType<typeof teamRanking>}) {
+  const max = Math.max(1, ...teams.map((t) => t.avg));
+  return (
+    <ol className="min-w-64 flex-1 space-y-2" aria-label="Багууд">
+      {teams.map((t) => (
+        <li key={t.id} className="flex items-center gap-3">
+          <span className="w-5 text-right font-bold tabular-nums">{t.place}</span>
+          <span className="w-24 truncate text-left font-semibold">{t.name}</span>
+          <span className="h-5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+            <span className={`block h-full rounded-full ${TEAM_COLORS[t.color]}`} style={{width: `${(t.avg / max) * 100}%`}} />
+          </span>
+          <span className="w-24 text-right text-sm tabular-nums" title={`${t.members} гишүүн, нийт ${t.total}`}>
+            <b>{t.avg}</b> <span className="text-neutral-400">({t.members})</span>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -496,6 +602,15 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
   const mine = scores[uid];
   // This question's result (the scores of the one before may still be showing for a moment).
   const result = mine && mine.q === quiz.cur ? mine : null;
+  // A team quiz: the student's team (once the teacher's board has put them in one) and its place.
+  const team = quiz.teams && me?.team ? quiz.teams[me.team] : null;
+  const teamRanks = teamRanking(players, scores, quiz.teams);
+  const teamPlace = me?.team ? teamRanks.find((x) => x.id === me.team)?.place : undefined;
+  const teamLine = team && teamPlace ? (
+    <p className="mt-1 text-neutral-300">
+      Таны баг <b>{team.name}</b>: {teamPlace}-р байр ({teamRanks.length} багаас)
+    </p>
+  ) : null;
 
   const join = async () => {
     setJoining(true);
@@ -548,18 +663,31 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
     <div className="mx-auto max-w-xl space-y-4 py-2">
       <header className="flex items-center gap-2">
         <Zap size={20} className="text-pink-300" />
-        <h1 className="mr-auto truncate font-bold">{quiz.title}</h1>
+        <h1 className="mr-auto min-w-0 truncate font-bold">{quiz.title}</h1>
         {quiz.state !== 'lobby' && quiz.state !== 'done' && (
-          <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-sm tabular-nums">
+          <span className="shrink-0 rounded-full bg-neutral-800 px-2.5 py-0.5 text-sm tabular-nums">
             {quiz.cur + 1}/{quiz.pids.length}
           </span>
         )}
-        {mine && <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-sm font-semibold tabular-nums">{mine.score} оноо</span>}
+        {team && (
+          <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-800 px-2.5 py-0.5 text-sm font-semibold">
+            <span className={`h-2.5 w-2.5 rounded-full ${TEAM_COLORS[team.color]}`} /> {team.name}
+          </span>
+        )}
+        {mine && <span className="shrink-0 whitespace-nowrap rounded-full bg-neutral-800 px-2.5 py-0.5 text-sm font-semibold tabular-nums">{mine.score} оноо</span>}
       </header>
 
       {quiz.state === 'lobby' && (
         <div className="rounded-3xl bg-neutral-900 p-8 text-center">
           <p className="text-2xl font-bold">Нэгдлээ!</p>
+          {quiz.teams &&
+            (team ? (
+              <p className="mt-3 flex items-center justify-center gap-2 text-lg">
+                <span className={`h-4 w-4 rounded-full ${TEAM_COLORS[team.color]}`} /> Та <b>{team.name}</b> багт
+              </p>
+            ) : (
+              <p className="mt-3 text-neutral-400">Баг хуваарилж байна…</p>
+            ))}
           <p className="mt-2 text-neutral-400">Багш эхлүүлэхийг хүлээж байна… ({players.length} хүн)</p>
         </div>
       )}
@@ -617,6 +745,7 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
               Та одоо <b>{place}-р</b> байранд ({players.length} хүнээс)
             </p>
           )}
+          {teamLine}
         </div>
       )}
 
@@ -629,6 +758,8 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
               Та <b>{place}-р</b> байр, <b>{mine?.score ?? 0}</b> оноо
             </p>
           )}
+          {teamLine}
+          {teamRanks.length > 0 && <TeamBars teams={teamRanks} />}
           <Podium ranked={ranked} />
         </div>
       )}

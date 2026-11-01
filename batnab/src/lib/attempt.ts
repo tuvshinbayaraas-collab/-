@@ -5,6 +5,8 @@ export interface Attempt {
   order: number[];
   /** Chosen answer per question (by original index), 0 = А … 4 = Д. */
   answers: (number | null)[];
+  /** Each question's choices in the order shown (by original index); none: the book's order. */
+  perms?: (number[] | null)[];
   started: number;
   finished?: number;
   /** Set once the result is stored for a student (results/{uid}/{test}/{resultId}). */
@@ -17,7 +19,7 @@ export interface Attempt {
 // One attempt per test and per account (or guest) on this browser, so classmates sharing a computer don't mix answers.
 const key = (owner: string, testId: string) => `batnab.attempt.${owner}.${testId}`;
 
-function shuffled(count: number) {
+export function shuffled(count: number) {
   const order = Array.from({length: count}, (_, i) => i);
   for (let i = count - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -26,7 +28,16 @@ function shuffled(count: number) {
   return order;
 }
 
-export const newAttempt = (count: number): Attempt => ({order: shuffled(count), answers: Array(count).fill(null), started: Date.now()});
+/**
+ * The choices of each question in an order of their own (another for every attempt, so neighbours' А isn't the same
+ * choice). Not for a question whose choices name others ("А ба Б", "дээрх бүгд"): that one keeps the book's order.
+ */
+export function choicePerms(questions: {c: unknown[]}[]): (number[] | null)[] {
+  const names = /(^|[^\p{L}])[АБВГД]([^\p{L}]|$)|бүгд|аль нь ч|дээрх/iu;
+  return questions.map((q) => (q.c.some((c) => typeof c === 'string' && names.test(c)) ? null : shuffled(q.c.length)));
+}
+
+export const newAttempt = (count: number, perms?: (number[] | null)[]): Attempt => ({order: shuffled(count), answers: Array(count).fill(null), started: Date.now(), ...(perms ? {perms} : {})});
 
 export function loadAttempt(owner: string, testId: string, count: number): Attempt | null {
   try {

@@ -12,9 +12,11 @@ export interface Settings {
   leaderboard: boolean;
   /** Whether students may put up their own photo (off: only ready-made pictures, photos already up are hidden). */
   photos: boolean;
+  /** Whether each attempt shows a question's choices in an order of its own (on unless turned off). */
+  shuffleChoices: boolean;
 }
 
-const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true};
+const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true};
 
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
@@ -32,6 +34,7 @@ function start() {
         retakes: v.retakes !== false,
         leaderboard: v.leaderboard !== false,
         photos: v.photos !== false,
+        shuffleChoices: v.shuffleChoices !== false,
       };
       listeners.forEach((l) => l());
     },
@@ -53,5 +56,20 @@ export const photosAllowed = () => current?.photos !== false;
 
 /** Null while loading. */
 export const useSettings = () => useSyncExternalStore(subscribe, () => current);
+
+/** The settings once they are in (the defaults if they haven't come within `ms`, say offline). */
+export function settingsReady(ms = 4000): Promise<Settings> {
+  start();
+  if (current) return Promise.resolve(current);
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      listeners.delete(done);
+      resolve(current ?? DEFAULTS);
+    };
+    const timer = setTimeout(done, ms);
+    listeners.add(done);
+  });
+}
 
 export const saveSetting = <K extends keyof Settings>(name: K, value: Settings[K]) => set(ref(db, `settings/${name}`), value);

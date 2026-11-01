@@ -22,8 +22,16 @@ export default function QuestionCard(props: {
   id?: string;
   /** Shown at the bottom of the card (e.g. "Багшаас асуух"). */
   footer?: ReactNode;
+  /**
+   * The choices in this attempt's own order (`perm[i]`: the book's choice shown i-th, lettered А, Б… by place).
+   * `chosen` and `correct` stay the book's.
+   */
+  perm?: number[];
 }) {
-  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id, footer} = props;
+  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id, footer, perm} = props;
+  const order = perm && perm.length === q.c.length ? perm : q.c.map((_, i) => i);
+  /** The letter a book's choice has on this card. */
+  const letterOf = (ci: number) => LETTERS[order.indexOf(ci)];
   const graded = checked && correct !== null;
   const right = graded && chosen === correct;
   const figures = q.c.some((c) => typeof c !== 'string');
@@ -37,7 +45,8 @@ export default function QuestionCard(props: {
       </div>
       {q.fig && <div className="mt-3 flex justify-center text-neutral-200">{q.fig}</div>}
       <div className="mt-4 flex flex-wrap gap-2">
-        {q.c.map((c, ci) => {
+        {order.map((ci, at) => {
+          const c = q.c[ci];
           const picked = chosen === ci;
           let style = picked ? 'border-blue-500 bg-blue-500/15' : 'border-neutral-700 hover:border-neutral-500';
           let badge = picked ? 'bg-blue-500 text-black' : 'bg-neutral-800';
@@ -60,7 +69,7 @@ export default function QuestionCard(props: {
               aria-pressed={picked}
               className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${figures ? 'flex-[1_1_9rem] flex-col' : 'min-w-[5.5rem] flex-[1_1_auto]'} ${style}`}
             >
-              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${badge}`}>{LETTERS[ci]}</span>
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${badge}`}>{LETTERS[at]}</span>
               <span className="whitespace-nowrap">{render(c)}</span>
             </button>
           );
@@ -72,14 +81,14 @@ export default function QuestionCard(props: {
             <span className="text-neutral-400">Хариулаагүй.</span>
           ) : reveal ? (
             <>
-              <XCircle size={16} className="text-red-400" /> Таны хариулт: {LETTERS[chosen]}.
+              <XCircle size={16} className="text-red-400" /> Таны хариулт: {letterOf(chosen)}.
             </>
           ) : (
             <>
               <XCircle size={16} className="text-red-400" /> <span className="text-red-300">Энэ бодлого дээр алдсан.</span>
             </>
           )}
-          {reveal && <span className="text-green-400">Зөв хариулт: {LETTERS[correct!]}</span>}
+          {reveal && <span className="text-green-400">Зөв хариулт: {letterOf(correct!)}</span>}
         </p>
       )}
       {right && (

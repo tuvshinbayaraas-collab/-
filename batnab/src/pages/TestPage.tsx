@@ -5,7 +5,7 @@ import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Pe
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import RankLine from '../components/RankLine';
-import {clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
+import {choicePerms, clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {useDbConnected} from '../lib/connection';
@@ -18,7 +18,7 @@ import {saveResult, useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {inThisWeek} from '../lib/week';
-import {useSettings} from '../lib/settings';
+import {settingsReady, useSettings, type Settings} from '../lib/settings';
 import {useNow} from '../lib/time';
 import ExamRunner, {ExamWait} from './ExamRunner';
 import {loadTest, testInfo} from '../tests';
@@ -93,9 +93,13 @@ function Runner(props: {
   const [saveTry, setSaveTry] = useState(0);
   const [onlyWrong, setOnlyWrong] = useState(false);
   const {full, jump} = useJump(() => setOnlyWrong(false));
+  // A new attempt: its questions in their own order, and (unless the teacher turned it off) each one's choices too.
+  const fresh = (t: Test, s: Settings | null) => newAttempt(t.questions.length, s?.shuffleChoices !== false ? choicePerms(t.questions) : undefined);
 
   useEffect(() => {
-    loadTest(id)?.then((t) => {
+    // The settings first: whether the choices are shuffled is fixed when the attempt is made.
+    loadTest(id)?.then(async (t) => {
+      const s = await settingsReady();
       let a = loadAttempt(owner, id, t.questions.length);
       // A test finished before the weekly reset is gone from the results, so start afresh.
       if (a?.finished && !inThisWeek(a.finished)) {
@@ -108,7 +112,7 @@ function Runner(props: {
           setBlocked(true);
           return;
         }
-        a = newAttempt(t.questions.length);
+        a = fresh(t, s);
         saveAttempt(owner, id, a); // so a reload keeps this order and the clock
       }
       setTest(t);
@@ -132,7 +136,7 @@ function Runner(props: {
     setSaveError('');
     setOnlyWrong(false);
     if (!canRetake && saved!.length) return setBlocked(true);
-    update(newAttempt(test.questions.length));
+    update(fresh(test, settings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gone, test]);
 
@@ -260,7 +264,7 @@ function Runner(props: {
     clearAttempt(owner, id);
     setSaveError('');
     setOnlyWrong(false);
-    update(newAttempt(total));
+    update(fresh(test, settings));
     window.scrollTo({top: 0});
   };
 
@@ -415,6 +419,7 @@ function Runner(props: {
               checked={finished && !!g}
               correct={correctOf(qi)}
               reveal={mode === 'preview'}
+              perm={attempt.perms?.[qi] ?? undefined}
               onChoose={finished ? undefined : (ci) => choose(qi, ci)}
             />
           ),

@@ -4,7 +4,8 @@
 //                        closed: the question answers are no longer taken for, key: its right answer once revealed}
 //   liveQ               the current problem as shown (copied by the teacher: a draft topic's too), apart from `live`
 //                        so that the home pages' banner doesn't download its picture
-//   livePlayers/{uid}   {name, at}          joining (the name others see: the nickname or @username)
+//   livePlayers/{uid}   {name, at, team?}   joining (the name others see: the nickname or @username); the team is set
+//                        by the teacher's board (teams of even size, or by class), never by the student
 //   liveAnswers/{i}/{uid} {a, at}           the answer to question i: once, while it's open (the rules check the time)
 //   liveScores/{uid}    {score, last, ok, a, q}   written by the teacher's page at each reveal (q: which question,
 //                        a: whether it was answered)
@@ -40,12 +41,63 @@ export interface LiveQuiz {
   startedAt: number;
   classes?: Record<string, true>;
   key?: string;
+  /** Teams (id → name, colour): as many as asked for, or one per class (`teamBy`). None: everyone for themselves. */
+  teams?: Record<string, LiveTeam>;
+  teamBy?: 'count' | 'class';
+}
+
+export interface LiveTeam {
+  name: string;
+  /** Index into TEAM_COLORS. */
+  color: number;
 }
 
 export interface LivePlayer {
   uid: string;
   name: string;
   at: number;
+  team?: string;
+}
+
+/** Team colours: a team's tile, dot and bar. */
+export const TEAM_COLORS = ['bg-red-500', 'bg-blue-500', 'bg-amber-500', 'bg-green-500', 'bg-pink-500', 'bg-cyan-500'];
+const TEAM_NAMES = ['Улаан', 'Цэнхэр', 'Шар', 'Ногоон', 'Ягаан', 'Хөх'];
+
+/** Teams for a new quiz: `n` coloured ones, or one per class among those given. */
+export function makeTeams(by: 'count' | 'class', n: number, classes: {id: string; name: string}[]): Record<string, LiveTeam> {
+  if (by === 'class') return Object.fromEntries(classes.map((c, i) => [c.id, {name: c.name, color: i % TEAM_COLORS.length}]));
+  return Object.fromEntries(Array.from({length: n}, (_, i) => [`t${i}`, {name: TEAM_NAMES[i], color: i}]));
+}
+
+/**
+ * Teams for the players who have none yet (the teacher's board does it as they join): their class's team, else the
+ * smallest team (the earliest of equals).
+ */
+export function teamsFor(players: LivePlayer[], teams: Record<string, LiveTeam>, classOf: (uid: string) => string | undefined, by: 'count' | 'class' | undefined) {
+  const ids = Object.keys(teams);
+  if (!ids.length) return {};
+  const size = Object.fromEntries(ids.map((id) => [id, players.filter((p) => p.team === id).length]));
+  const out: Record<string, string> = {};
+  for (const p of players)
+    if (!p.team || !teams[p.team]) {
+      const own = by === 'class' ? classOf(p.uid) : undefined;
+      const id = own && teams[own] ? own : ids.reduce((a, b) => (size[b] < size[a] ? b : a));
+      out[p.uid] = id;
+      size[id]++;
+    }
+  return out;
+}
+
+/** The teams by their average score (fair to a smaller team), best first. */
+export function teamRanking(players: LivePlayer[], scores: Record<string, LiveScore>, teams: Record<string, LiveTeam> | undefined) {
+  if (!teams) return [];
+  const list = Object.entries(teams).map(([id, t]) => {
+    const members = players.filter((p) => p.team === id);
+    const total = members.reduce((a, p) => a + (scores[p.uid]?.score ?? 0), 0);
+    return {id, ...t, members: members.length, total, avg: members.length ? Math.round(total / members.length) : 0};
+  });
+  const ranked = list.filter((t) => t.members > 0).sort((a, b) => b.avg - a.avg || b.total - a.total);
+  return ranked.map((t) => ({...t, place: 1 + ranked.filter((x) => x.avg > t.avg).length}));
 }
 export interface LiveScore {
   score: number;
@@ -70,6 +122,8 @@ const parse = (v: unknown): LiveQuiz | null => {
     startedAt: Number(x.startedAt) || 0,
     classes: x.classes && typeof x.classes === 'object' ? x.classes : undefined,
     key: typeof x.key === 'string' ? x.key : undefined,
+    teams: x.teams && typeof x.teams === 'object' ? x.teams : undefined,
+    teamBy: x.teamBy === 'count' || x.teamBy === 'class' ? x.teamBy : undefined,
   };
 };
 
@@ -99,7 +153,7 @@ export function useLiveQuizState(on = true) {
 export const useLivePlayers = (on = true) =>
   useLive(on ? 'livePlayers' : null, (v) =>
     Object.entries((v ?? {}) as Record<string, Partial<LivePlayer>>)
-      .map(([uid, p]) => ({uid, name: String(p?.name ?? ''), at: Number(p?.at) || 0}))
+      .map(([uid, p]) => ({uid, name: String(p?.name ?? ''), at: Number(p?.at) || 0, ...(typeof p?.team === 'string' ? {team: p.team} : {})}))
       .sort((a, b) => a.at - b.at),
   );
 
@@ -145,15 +199,29 @@ async function questionOf(t: Topic, pid: string): Promise<LiveQuestion> {
 }
 
 /** A new quiz, waiting for the students to join (the last one's players, answers and scores cleared). */
-export async function startLive(t: Topic, pids: string[], dur: number, classes?: Record<string, true>) {
+export async function startLive(t: Topic, pids: string[], dur: number, classes?: Record<string, true>, teams?: {by: 'count' | 'class'; list: Record<string, LiveTeam>}) {
   await update(ref(db), {
-    live: {tid: t.id, title: t.title.slice(0, 80), pids, cur: 0, state: 'lobby', qStart: 0, dur, startedAt: serverTimestamp(), ...(classes && Object.keys(classes).length ? {classes} : {})},
+    live: {
+      tid: t.id,
+      title: t.title.slice(0, 80),
+      pids,
+      cur: 0,
+      state: 'lobby',
+      qStart: 0,
+      dur,
+      startedAt: serverTimestamp(),
+      ...(classes && Object.keys(classes).length ? {classes} : {}),
+      ...(teams && Object.keys(teams.list).length > 1 ? {teams: teams.list, teamBy: teams.by} : {}),
+    },
     liveQ: null,
     livePlayers: null,
     liveAnswers: null,
     liveScores: null,
   });
 }
+
+/** Players put in their teams (the teacher's board). */
+export const setTeams = (assign: Record<string, string>) => update(ref(db), Object.fromEntries(Object.entries(assign).map(([uid, team]) => [`livePlayers/${uid}/team`, team])));
 
 /** Question `i` on the board, its time running from now. */
 export async function openQuestion(t: Topic, quiz: LiveQuiz, i: number) {

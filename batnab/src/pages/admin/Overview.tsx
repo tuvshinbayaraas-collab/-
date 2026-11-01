@@ -12,6 +12,7 @@ import {LETTERS, type Question, type Test} from '../../tests/types';
 import {gradeOf, mean, reports, testReport, timeAgo, type AdminData, type QuestionStat, type Student, type TestReport} from './data';
 import {useTest} from './useTest';
 import WeekBanner from './WeekBanner';
+import CopyCheck from './CopyCheck';
 import TestsNow from './TestsNow';
 import WeakTopics from './WeakTopics';
 
@@ -320,11 +321,12 @@ function ClassTable({data}: {data: AdminData}) {
   );
 }
 
-type View = 'summary' | 'questions' | 'students';
+type View = 'summary' | 'questions' | 'students' | 'copies';
 const VIEWS: [View, string][] = [
   ['summary', 'Тойм'],
   ['questions', 'Бодлого'],
   ['students', 'Сурагчид'],
+  ['copies', 'Ижил хариулт'],
 ];
 
 /**
@@ -360,7 +362,7 @@ function TestDetail({report}: {report: TestReport}) {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-3 rounded-full bg-neutral-900 p-1 text-sm font-medium" role="tablist">
+        <div className="grid grid-cols-4 rounded-full bg-neutral-900 p-1 text-xs font-medium sm:text-sm" role="tablist">
           {VIEWS.map(([v, label]) => (
             <Link
               key={v}
@@ -389,6 +391,19 @@ function TestDetail({report}: {report: TestReport}) {
       {view === 'summary' && <Summary report={report} rate={rate} href={href} />}
       {view === 'questions' && <Questions report={report} rate={rate} test={test} initial={Number(query.get('q')) - 1} />}
       {view === 'students' && <Students report={report} initial={query.get('show') === 'missing' ? 'missing' : 'taken'} />}
+      {view === 'copies' && (
+        <CopyCheck
+          // Each student's first attempt (before they saw which ones they got wrong).
+          sheets={rows.map((r) => ({uid: r.student.uid, answers: r.attempts[0].answers, at: r.attempts[0].at, seconds: r.attempts[0].seconds}))}
+          keyed={key}
+          count={info.count}
+          students={rows.map((r) => r.student)}
+          review={(uid) => {
+            const r = rows.find((x) => x.student.uid === uid)!;
+            return `/review/${info.id}/${r.attempts[0].id}?u=${uid}`;
+          }}
+        />
+      )}
       {!rows.length && view !== 'students' && <p className="text-sm text-neutral-400">Энэ долоо хоногт энэ тестийг хэн ч өгөөгүй байна.</p>}
     </div>
   );

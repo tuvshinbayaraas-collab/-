@@ -3,12 +3,13 @@ import {useEffect, useRef, useState} from 'react';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
-import {formatDuration, formatTime} from '../lib/attempt';
+import {choicePerms, formatDuration, formatTime, shuffled} from '../lib/attempt';
 import {examEvent, examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {ask, useLeaveCounter} from '../lib/leaves';
 import {usePrefs} from '../lib/prefs';
 import {Link, setNavGuard} from '../lib/router';
+import {settingsReady} from '../lib/settings';
 import {clock, serverNow, useNow} from '../lib/time';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
@@ -21,6 +22,8 @@ interface ExamAttempt {
   away: number;
   /** Server time when this student opened the exam. */
   started: number;
+  /** Each question's choices in the order shown (by original index); none: the book's order. */
+  perms?: (number[] | null)[];
 }
 
 const storeKey = (uid: string, test: string, start: number) => `batnab.exam.${uid}.${test}.${start}`;
@@ -40,15 +43,6 @@ function keep(key: string, a: ExamAttempt) {
   } catch {
     // the server copy is what counts
   }
-}
-
-function shuffled(count: number) {
-  const order = Array.from({length: count}, (_, i) => i);
-  for (let i = count - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return order;
 }
 
 /** A scheduled exam for one student: once, until the end time, saved as they go. */
@@ -72,11 +66,13 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   latest.current = attempt;
 
   useEffect(() => {
-    loadTest(id)?.then((t) => {
+    // The settings first: whether the choices are shuffled is fixed when the attempt is made.
+    loadTest(id)?.then(async (t) => {
+      const shuffleChoices = (await settingsReady()).shuffleChoices;
       const n = t.questions.length;
       let a = load(key, n);
       if (!a) {
-        a = {order: shuffled(n), answers: Array(n).fill(null), leaves: 0, away: 0, started: serverNow()};
+        a = {order: shuffled(n), answers: Array(n).fill(null), leaves: 0, away: 0, started: serverNow(), ...(shuffleChoices ? {perms: choicePerms(t.questions)} : {})};
         // Opened on another device before: carry on from what the server has.
         if (saved) a = {...a, answers: a.answers.map((_, i) => choiceAt(saved.answers, i)), leaves: saved.leaves, away: saved.away};
         keep(key, a);
@@ -372,6 +368,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
               chosen={chosen(qi)}
               checked={finished && !!g}
               correct={correctOf(qi)}
+              perm={attempt.perms?.[qi] ?? undefined}
               onChoose={finished ? undefined : (ci) => choose(qi, ci)}
             />
           ),

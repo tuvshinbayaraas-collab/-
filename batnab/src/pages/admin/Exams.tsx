@@ -9,6 +9,7 @@ import {Link, navigate} from '../../lib/router';
 import {clock, dayLabel, span, useNow} from '../../lib/time';
 import {TESTS, testInfo} from '../../tests';
 import {download, mean, resultsCsv, testReport, type AdminData, type QuestionStat} from './data';
+import CopyCheck from './CopyCheck';
 import {Distribution, Meter, pct, QuestionRow, Stat, StudentName} from './Overview';
 import {useTest} from './useTest';
 
@@ -368,6 +369,18 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
               <QuestionRow key={q.i} q={q} rate={rate(q)} takers={report.rows.length} question={questions?.questions[q.i]} />
             ))}
           </ul>
+        </section>
+      )}
+      {started.length > 1 && (
+        <section>
+          <h2 className="mb-2 font-semibold">Ижил хариулт</h2>
+          <CopyCheck
+            sheets={started.map((r) => ({uid: r.uid, answers: r.answer!.answers, at: r.answer!.at}))}
+            keyed={key}
+            count={info.count}
+            students={data.students}
+            review={(uid) => `/review/${test}/exam?u=${uid}`}
+          />
         </section>
       )}
     </div>
