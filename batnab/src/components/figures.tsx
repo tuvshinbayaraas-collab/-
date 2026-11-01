@@ -30,8 +30,8 @@ interface PlotProps {
   origin?: 'left' | 'below' | false;
 }
 
-/** A dark outline behind label text, so a line running through it doesn't hide it. */
-const HALO = {stroke: '#171717', strokeWidth: 3, paintOrder: 'stroke'} as const;
+/** An outline behind label text in the card's own colour (dark or light look), so a line running through it doesn't hide it. */
+const HALO = {style: {stroke: 'var(--color-neutral-900)', strokeWidth: 3, paintOrder: 'stroke'}} as const;
 
 interface Fill {
   from: number;

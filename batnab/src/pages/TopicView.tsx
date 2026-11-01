@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectTitle, ResultCard} from '../components/Perfect';
 import {ProblemView, Rich, TopicPicture, type Outcome} from '../components/TopicParts';
+import VideoEmbed from '../components/VideoEmbed';
 import {addMistakes, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
@@ -66,7 +67,9 @@ export default function TopicView({id}: {id: string}) {
             <BookOpen size={16} /> Хичээл
           </h2>
           <div className="mt-3 space-y-4">
-            {t.lesson.map((b, i) => (b.t === 'text' ? <Rich key={i} text={b.text} className="text-[15px] text-neutral-100" /> : <TopicPicture key={i} tid={t.id} iid={b.img} className="w-full" />))}
+            {t.lesson.map((b, i) =>
+              b.t === 'text' ? <Rich key={i} text={b.text} className="text-[15px] text-neutral-100" /> : b.t === 'img' ? <TopicPicture key={i} tid={t.id} iid={b.img} className="w-full" /> : <VideoEmbed key={i} link={b.url} title="Видео хичээл" />,
+            )}
           </div>
         </section>
       )}

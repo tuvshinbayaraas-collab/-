@@ -3,11 +3,14 @@ import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
+  Bell,
   BookOpen,
   CalendarClock,
   ClipboardList,
+  Camera,
   Check,
   ChevronRight,
+  DatabaseBackup,
   Download,
   Flame,
   FlaskConical,
@@ -23,6 +26,7 @@ import {
   UserRound,
   Users,
   X,
+  Zap,
 } from 'lucide-react';
 import {useEffect, useRef, useState, type PointerEvent, type ReactNode} from 'react';
 import appIcon from '../lib/appIcon';
@@ -120,6 +124,14 @@ export default function GuideDialog({role}: {role: GuideRole}) {
             go: {label: 'Сэдэв хэсгийг нээх', href: '/admin?tab=topics'},
           },
           {
+            icon: <Zap size={34} />,
+            tone: 'pink',
+            title: 'Шууд тэмцээн',
+            text: 'Сэдвийн бодлогуудаар ангидаа Kahoot шиг тэмцээн хийнэ: самбар дээр бодлогыг нэг нэгээр гаргаж, сурагчид утсаараа хариулна. Хурдан, зөв хариулсан нь илүү оноо авна.',
+            tip: 'Сэдэв дээрх «Тэмцээн» эсвэл «Сэдэв» хэсгийн «Шууд тэмцээн» товчоор нээнэ. Зөвхөн зөв хариулт нь тавигдсан бодлогууд орно.',
+            go: {label: 'Шууд тэмцээн нээх', href: '/live'},
+          },
+          {
             icon: <ClipboardList size={34} />,
             tone: 'cyan',
             title: 'Даалгавар, зарлал, асуулт',
@@ -132,6 +144,7 @@ export default function GuideDialog({role}: {role: GuideRole}) {
             tone: 'blue',
             title: 'Анализ',
             text: 'Ангийн дүнгийн хүснэгт, тест бүрийн хамгийн хүнд бодлогууд, бодлого бүрт аль хариултыг хэд сонгосныг харна.',
+            tip: 'Сэдэв бүрийн «Үр дүн» хэсэгт бодлого бүрийг хэдэн хувь нь алдсан, ямар буруу хариулт их гарсан, хэн алдсаныг харна.',
             go: {label: 'Анализ хэсгийг нээх', href: '/admin?tab=overview'},
           },
           {
@@ -146,6 +159,14 @@ export default function GuideDialog({role}: {role: GuideRole}) {
             tone: 'pink',
             title: 'Тохиргоо',
             text: 'Туршилтын тест, тестийг дахин өгөх эсэх, leaderboard, сурагчдын зураг зэргийг эндээс асааж унтраана.',
+            go: {label: 'Тохиргоог нээх', href: '/admin?tab=settings'},
+          },
+          {
+            icon: <DatabaseBackup size={34} />,
+            tone: 'cyan',
+            title: 'Нөөц',
+            text: '«Тохиргоо» → «Нөөц татах»: бүх сэдэв, зураг, сурагч, дүнг нэг файлаар компьютертээ хадгална. Санамсаргүй устгасан зүйлээ тэр файлаас «Нөөцөөс сэргээх»-ээр буцаана.',
+            tip: 'Долоо хоногт нэг удаа татаж байгаарай. Мэдэгдлийн хонхонд шинэ асуулт, шалгах хариулт ирнэ.',
             go: {label: 'Тохиргоог нээх', href: '/admin?tab=settings'},
           },
         ]
@@ -183,6 +204,26 @@ export default function GuideDialog({role}: {role: GuideRole}) {
               text: 'Цэсний «Сэдвүүд»-ээс багшийн оруулсан хичээлийг уншаад бодлогоо бодно. «Шалгах» дармагц зөв, буруу нь болон бодолт нь гарна.',
               tip: 'Эхний хариулт тань багшид харагдана. Дараа нь «Дахин бодох»-оор дахин оролдож болно.',
               go: {label: 'Сэдвүүдийг нээх', href: '/topics'},
+            },
+            {
+              icon: <Camera size={34} />,
+              tone: 'violet',
+              title: 'Бодолтын зураг',
+              text: '«Багш шалгана» гэсэн бодлогод дэвтэр дээрээ бодсоноо утсаараа зураг авч «Бодолтын зураг»-аар илгээнэ. Багш шалгаад зөв, бурууг тань хэлнэ.',
+              tip: 'Багш шалгахаас өмнө зургаа сольж болно.',
+            },
+            {
+              icon: <Zap size={34} />,
+              tone: 'pink',
+              title: 'Шууд тэмцээн',
+              text: 'Багш ангид тэмцээн нээхэд нүүр хуудсанд «Шууд тэмцээн эхэллээ!» гарна. Дарж нэгдээд бодлого бүрийг утсаараа хариулна: хурдан, зөв бол илүү оноо.',
+            },
+            {
+              icon: <Bell size={34} />,
+              tone: 'blue',
+              title: 'Мэдэгдэл',
+              text: 'Дээд талын хонхонд шинэ даалгавар, багшийн мэдээ, шалгалт, багшийн шалгасан хариулт, асуултын хариу ирнэ.',
+              tip: 'Цэсээс «Гэрэлтэй загвар» сонговол сайт цагаан өнгөтэй болно.',
             },
             {
               icon: <Flame size={34} />,

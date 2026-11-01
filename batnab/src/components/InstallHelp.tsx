@@ -93,7 +93,7 @@ function Step({n, children, mock}: {n: number; children: ReactNode; mock?: React
 /** A button name as the phone shows it, with what it means. */
 const Btn = ({label, mn}: {label: string; mn?: string}) => (
   <>
-    <b className="whitespace-nowrap rounded bg-neutral-800 px-1.5 py-0.5 font-semibold text-white">{label}</b>
+    <b className="whitespace-nowrap rounded bg-neutral-800 px-1.5 py-0.5 font-semibold text-neutral-50">{label}</b>
     {mn && <span className="text-neutral-400"> ({mn})</span>}
   </>
 );
@@ -145,7 +145,7 @@ function ShareSheet() {
         <div className="flex items-center justify-between rounded-lg bg-neutral-800/60 px-3 py-2">
           {T.reading} <Glasses size={16} />
         </div>
-        <div className="flex items-center justify-between rounded-lg bg-blue-500/20 px-3 py-2 font-semibold text-white ring-2 ring-blue-400">
+        <div className="flex items-center justify-between rounded-lg bg-blue-500/20 px-3 py-2 font-semibold text-neutral-50 ring-2 ring-blue-400">
           {T.add} <SquarePlus size={16} />
         </div>
       </div>

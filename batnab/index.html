@@ -6,6 +6,13 @@
     <title>Batnab</title>
     <meta name="description" content="Batnab" />
     <meta name="theme-color" content="#0f0f0f" />
+    <!-- The light look, if picked (lib/theme.ts), before anything is drawn. -->
+    <script>
+      try {
+        var t = localStorage.getItem('batnab.theme');
+        if (t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
     <!-- Installable as an app (Нүүр дэлгэцэд нэмэх). -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

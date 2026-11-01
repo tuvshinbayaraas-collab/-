@@ -15,6 +15,8 @@ import type {Result} from './results';
 export interface Exam {
   start: number;
   end: number;
+  /** When it was scheduled (0 if not known). */
+  createdAt: number;
 }
 
 export interface ExamAnswer {
@@ -47,7 +49,7 @@ const subscribe = (l: () => void) => {
       (s) => {
         const v = (s.val() ?? {}) as Record<string, Partial<Exam>>;
         exams = Object.fromEntries(
-          Object.entries(v).flatMap(([test, e]) => (typeof e?.start === 'number' && typeof e?.end === 'number' ? [[test, {start: e.start, end: e.end}]] : [])),
+          Object.entries(v).flatMap(([test, e]) => (typeof e?.start === 'number' && typeof e?.end === 'number' ? [[test, {start: e.start, end: e.end, createdAt: Number(e.createdAt) || 0}]] : [])),
         );
         listeners.forEach((f) => f());
       },

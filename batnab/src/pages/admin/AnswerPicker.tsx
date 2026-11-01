@@ -31,7 +31,7 @@ export default function AnswerPicker({p, answer, onAnswer, onKind}: {p: Problem;
             ['answer', 'Хариулт бичих'],
           ] as const
         ).map(([k, label]) => (
-          <button key={k} type="button" role="radio" aria-checked={p.kind === k} onClick={() => onKind(k)} className={`rounded-full px-2.5 py-1 font-medium ${p.kind === k ? 'bg-neutral-600 text-white' : 'text-neutral-400'}`}>
+          <button key={k} type="button" role="radio" aria-checked={p.kind === k} onClick={() => onKind(k)} className={`rounded-full px-2.5 py-1 font-medium ${p.kind === k ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400'}`}>
             {label}
           </button>
         ))}

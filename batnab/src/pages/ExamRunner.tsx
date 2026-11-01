@@ -212,7 +212,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="sticky top-14 z-20 -mx-4 border-b border-neutral-800 bg-[#0f0f0f]/95 px-4 pb-3 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="sticky top-14 z-20 -mx-4 border-b border-neutral-800 bg-page/95 px-4 pb-3 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="text-lg font-bold">Шалгалт: {info.title}</h1>
           <span className="text-sm text-neutral-400">

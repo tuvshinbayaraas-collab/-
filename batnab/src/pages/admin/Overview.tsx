@@ -14,12 +14,11 @@ import {useTest} from './useTest';
 import WeekBanner from './WeekBanner';
 import WeakTopics from './WeakTopics';
 
-// Chart colours on the dark surface (#171717). One measure → one hue (blue); the class table uses the same hue as a
+// Chart colours on the card (dark, or white in the light look: the track and muted bars follow it). One measure → one hue (blue); the class table uses the same hue as a
 // sequential ramp; "hard question" uses the warning status colour, always with an icon and a label.
 const SERIES = '#3987e5';
-const TRACK = '#0d366b';
-const MUTED = '#525252';
-const WARNING = '#fab219';
+const TRACK = 'var(--chart-track)';
+const MUTED = 'var(--chart-muted)';
 // Re-stepped so the darkest step still stands out from the surface (ramp validator: monotone, even steps, 2.8:1).
 const RAMP = [
   {min: 85, bg: '#a3c9f3', fg: '#0b0b0b'},
@@ -250,7 +249,7 @@ function ClassTable({data}: {data: AdminData}) {
               ['avg', 'Дүнгээр'],
             ] as const
           ).map(([id, label]) => (
-            <button key={id} onClick={() => setSort(id)} className={`rounded-full px-3 py-1 font-medium ${sort === id ? 'bg-neutral-100 text-black' : 'text-neutral-300'}`}>
+            <button key={id} onClick={() => setSort(id)} className={`rounded-full px-3 py-1 font-medium ${sort === id ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-300'}`}>
               {label}
             </button>
           ))}
@@ -293,7 +292,7 @@ function ClassTable({data}: {data: AdminData}) {
                           href={`/review/${all[i].info.id}/${c.attempts[0].id}?u=${s.uid}`}
                           title={`${s.profile.name}, ${all[i].info.title}: ${c.first ? `${c.first.score}/${c.first.total}` : 'түлхүүргүй'}${c.attempts.length > 1 && c.best ? `, шилдэг ${c.best.score}` : ''}`}
                           className="block rounded-md py-1.5 text-xs font-medium hover:outline hover:outline-2 hover:outline-neutral-300"
-                          style={color ? {background: color.bg, color: color.fg} : {background: '#262626', color: '#a3a3a3'}}
+                          style={color ? {background: color.bg, color: color.fg} : {background: 'var(--color-neutral-800)', color: 'var(--color-neutral-400)'}}
                         >
                           {p === null ? '?' : p}
                         </Link>
@@ -336,7 +335,7 @@ function TestDetail({report}: {report: TestReport}) {
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-14 z-20 -mx-4 space-y-2 border-b border-neutral-800 bg-[#0f0f0f]/95 px-4 pb-2.5 pt-1.5 backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="sticky top-14 z-20 -mx-4 space-y-2 border-b border-neutral-800 bg-page/95 px-4 pb-2.5 pt-1.5 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex items-center gap-1.5">
           <Link href="/admin?tab=overview" aria-label="Бүх тест" title="Бүх тест" className="shrink-0 rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
             <ArrowLeft size={18} />
@@ -347,7 +346,7 @@ function TestDetail({report}: {report: TestReport}) {
                 key={t.id}
                 href={href(t.id)}
                 aria-current={t.id === info.id ? 'page' : undefined}
-                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${t.id === info.id ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${t.id === info.id ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
               >
                 {t.title}
               </Link>
@@ -361,7 +360,7 @@ function TestDetail({report}: {report: TestReport}) {
               href={href(info.id, v)}
               role="tab"
               aria-selected={view === v}
-              className={`rounded-full py-1.5 text-center ${view === v ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+              className={`rounded-full py-1.5 text-center ${view === v ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
             >
               {label}
               {v === 'students' && <span className="ml-1 text-xs text-neutral-400">{rows.length}</span>}
@@ -475,12 +474,12 @@ function QuestionGrid({questions, rate, selected, onSelect, link}: {questions: Q
           const c = r === null ? null : rampOf(r);
           const label = `${q.i + 1}-р бодлого: ${r === null ? 'түлхүүргүй' : `${Math.round(r)}% зөв`}${r !== null && r < 50 ? ', хүнд' : ''}`;
           const cls = `relative flex aspect-square flex-col items-center justify-center rounded-lg leading-tight outline-none focus-visible:ring-2 focus-visible:ring-white hover:brightness-110 ${selected === q.i ? 'ring-2 ring-white ring-offset-2 ring-offset-neutral-900' : ''}`;
-          const style = c ? {background: c.bg, color: c.fg} : {background: '#262626', color: '#a3a3a3'};
+          const style = c ? {background: c.bg, color: c.fg} : {background: 'var(--color-neutral-800)', color: 'var(--color-neutral-400)'};
           const body = (
             <>
               <span className="text-[10px] opacity-80">{q.i + 1}</span>
               <span className="text-sm font-semibold tabular-nums">{r === null ? '—' : Math.round(r)}</span>
-              {r !== null && r < 50 && <AlertTriangle size={10} color={WARNING} className="absolute right-1 top-1" aria-hidden />}
+              {r !== null && r < 50 && <AlertTriangle size={10} className="absolute right-1 top-1 text-amber-400" aria-hidden />}
             </>
           );
           return link ? (
@@ -494,7 +493,7 @@ function QuestionGrid({questions, rate, selected, onSelect, link}: {questions: Q
           );
         })}
       </div>
-      <RampLegend extra={<span className="flex items-center gap-1"><AlertTriangle size={12} color={WARNING} /> хүнд (&lt;50%)</span>} />
+      <RampLegend extra={<span className="flex items-center gap-1"><AlertTriangle size={12} className="shrink-0 text-amber-400" /> хүнд (&lt;50%)</span>} />
     </>
   );
 }
@@ -541,7 +540,7 @@ function Questions({report, rate, test, initial}: {report: TestReport; rate: (q:
             {q.i + 1}-р бодлого <span className="font-normal text-neutral-400">· {pct(rate(q))} зөв</span>
             {rate(q) !== null && rate(q)! < 50 && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-neutral-200">
-                <AlertTriangle size={13} color={WARNING} /> Хүнд
+                <AlertTriangle size={13} className="shrink-0 text-amber-400" /> Хүнд
               </span>
             )}
           </h3>
@@ -576,7 +575,7 @@ function Students({report, initial}: {report: TestReport; initial: 'taken' | 'mi
     order === 'name' ? a.student.profile.name.localeCompare(b.student.profile.name) : order === 'time' ? a.attempts[0].seconds - b.attempts[0].seconds : score(b) - score(a),
   );
   const list = all ? sorted : sorted.slice(0, SHOWN);
-  const chip = (on: boolean) => `shrink-0 rounded-full px-3 py-1 text-sm font-medium ${on ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`;
+  const chip = (on: boolean) => `shrink-0 rounded-full px-3 py-1 text-sm font-medium ${on ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`;
 
   return (
     <section className="space-y-3">
@@ -590,7 +589,7 @@ function Students({report, initial}: {report: TestReport; initial: 'taken' | 'mi
         {show === 'taken' && rows.length > 1 && (
           <div className="ml-auto flex rounded-full bg-neutral-900 p-0.5 text-xs">
             {ORDERS.map(([o, label]) => (
-              <button key={o} onClick={() => setOrder(o)} aria-pressed={order === o} className={`rounded-full px-2.5 py-1 font-medium ${order === o ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>
+              <button key={o} onClick={() => setOrder(o)} aria-pressed={order === o} className={`rounded-full px-2.5 py-1 font-medium ${order === o ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}>
                 {label}
               </button>
             ))}
@@ -711,7 +710,7 @@ export function QuestionRow({q, rate, takers, question}: {q: QuestionStat; rate:
         <span className="flex items-center gap-1 text-xs font-medium text-neutral-200">
           {hard && (
             <>
-              <AlertTriangle size={13} color={WARNING} /> Хүнд
+              <AlertTriangle size={13} className="shrink-0 text-amber-400" /> Хүнд
             </>
           )}
         </span>
@@ -743,7 +742,7 @@ export function QuestionDetail({q, takers, question}: {q: QuestionStat; takers: 
           const right = q.key === c;
           return (
             <li key={L} className="grid grid-cols-[1.5rem_minmax(0,1fr)_5.5rem] items-center gap-2 text-xs">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-bold ${right ? 'bg-neutral-100 text-black' : 'bg-neutral-800'}`}>{L}</span>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-bold ${right ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800'}`}>{L}</span>
               <span className="block h-2.5 overflow-hidden rounded-full bg-neutral-800">
                 <span className="block h-full rounded-full" style={{width: `${takers ? (n / takers) * 100 : 0}%`, background: right ? SERIES : MUTED}} />
               </span>

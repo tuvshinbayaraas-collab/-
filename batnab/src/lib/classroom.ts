@@ -61,8 +61,8 @@ const parseQuestions = (uid: string, v: unknown) =>
 export const useMyQuestions = (uid: string | undefined) => useLive(uid ? `questions/${uid}` : null, (v) => parseQuestions(uid!, v).sort((a, b) => b.at - a.at));
 
 /** Every student's questions, for the teacher: unanswered first, then newest. */
-export const useAllQuestions = () =>
-  useLive('questions', (v) =>
+export const useAllQuestions = (on = true) =>
+  useLive(on ? 'questions' : null, (v) =>
     Object.entries((v ?? {}) as Record<string, unknown>)
       .flatMap(([uid, qs]) => parseQuestions(uid, qs))
       .sort((a, b) => Number(!!a.reply) - Number(!!b.reply) || b.at - a.at),

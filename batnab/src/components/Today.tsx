@@ -1,7 +1,8 @@
-import {CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X} from 'lucide-react';
+import {CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X, Zap} from 'lucide-react';
 import {useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
 import {forClass} from '../lib/live';
+import {useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
 import {usePrefs} from '../lib/prefs';
 import {useMyResults} from '../lib/results';
@@ -60,6 +61,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const questions = useMyQuestions(uid);
   const [hidden, setHidden] = useState(hiddenIds);
   const prefs = usePrefs();
+  const live = useLiveQuiz();
 
   const notes = (announcements ?? []).filter((a) => forClass(a.classes, classId) && a.at > now - 21 * DAY && !hidden.includes(a.id)).slice(0, 3);
   const tasks = (assignments ?? []).filter((a) => forClass(a.classes, classId) && a.due > now - 3 * DAY && (a.kind === 'test' || topics?.some((t) => t.id === a.ref)));
@@ -78,7 +80,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
       badge: streak,
       hotBg: 'bg-orange-500/10 hover:bg-orange-500/15',
       tone: 'text-orange-300',
-      badgeBg: 'bg-orange-400',
+      badgeBg: 'bg-orange-500',
     },
     {
       href: '/mistakes',
@@ -90,7 +92,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
       badge: due,
       hotBg: 'bg-rose-500/10 hover:bg-rose-500/15',
       tone: 'text-rose-300',
-      badgeBg: 'bg-rose-400',
+      badgeBg: 'bg-rose-500',
     },
     {
       href: '/questions',
@@ -102,7 +104,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
       badge: replies,
       hotBg: 'bg-sky-500/10 hover:bg-sky-500/15',
       tone: 'text-sky-300',
-      badgeBg: 'bg-sky-400',
+      badgeBg: 'bg-sky-500',
     },
   ];
   const hide = (id: string) => {
@@ -117,6 +119,16 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
 
   return (
     <div className="mt-5 space-y-3">
+      {live && live.state !== 'done' && forClass(live.classes, classId) && (
+        <Link href="/live" className="flex items-center gap-3 rounded-2xl bg-pink-500 p-4 text-black hover:bg-pink-400">
+          <Zap size={24} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">Шууд тэмцээн эхэллээ!</span>
+            <span className="block truncate text-sm">{live.title} · нэгдэх</span>
+          </span>
+          <ChevronRight size={20} />
+        </Link>
+      )}
       {notes.map((a) => (
         <div key={a.id} className="flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
           <Megaphone size={20} className="mt-0.5 shrink-0 text-amber-300" />

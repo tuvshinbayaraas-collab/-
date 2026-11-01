@@ -3,10 +3,12 @@ import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './lib/install'; // early, so the browser's install offer isn't missed
+import {applyTheme} from './lib/theme';
 import {reloadForUpdate} from './lib/update';
 
 // Part of the site failed to download (usually: a new version came out while this page was open).
 window.addEventListener('vite:preloadError', () => reloadForUpdate());
+applyTheme();
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>

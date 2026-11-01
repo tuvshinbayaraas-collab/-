@@ -1,7 +1,8 @@
-import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, X} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {Rich, TopicPicture} from '../../components/TopicParts';
+import VideoEmbed, {videoSource} from '../../components/VideoEmbed';
 import {useClasses} from '../../lib/classes';
 import {chunks} from '../../lib/ocr';
 import {imageFile} from '../../lib/photo';
@@ -34,6 +35,7 @@ import BulkAnswers from './BulkAnswers';
 import {field, MathArea} from './MathField';
 import OcrDialog, {type OcrAction} from './OcrDialog';
 import ProblemsDialog from './ProblemsDialog';
+import ProblemStats, {problemStats} from './ProblemStats';
 import TopicCheck, {waitingIn} from './TopicCheck';
 
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
@@ -145,7 +147,10 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const remove = async () => {
     if (!confirm(`«${draft.title}» сэдвийг хичээл, бодлого, зураг, сурагчдын хариултын хамт устгах уу?`)) return;
     deleted.current = true;
-    const ok = await deleteTopic(draft.id).then(
+    const ok = await deleteTopic(
+      draft.id,
+      data.students.map((s) => s.uid),
+    ).then(
       () => true,
       (e) => alert(`Алдаа: ${(e as Error).message}`),
     );
@@ -181,7 +186,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               ['results', 'Үр дүн', BarChart3],
             ] as const
           ).map(([m, label, I]) => (
-            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium sm:px-4 ${mode === m ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>
+            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium sm:px-4 ${mode === m ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}>
               <I size={15} /> {label}
               {m === 'check' && waiting > 0 && <span className="rounded-full bg-violet-500 px-1.5 text-[11px] font-bold leading-4 text-black">{waiting}</span>}
             </button>
@@ -190,6 +195,11 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
         <button onClick={() => leave(`/topics/${draft.id}`)} className={`${small} ml-auto`}>
           <Eye size={15} /> Сурагчаар харах
         </button>
+        {draft.problems.some((p) => answers[p.id]) && (
+          <button onClick={() => leave(`/live?topic=${draft.id}`)} className={`${small} text-pink-200`} title="Энэ сэдвийн бодлогоор ангид шууд тэмцээн">
+            <Zap size={15} /> Тэмцээн
+          </button>
+        )}
       </div>
 
       {mode === 'results' ? (
@@ -437,7 +447,7 @@ function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (
       {blocks.map((b, i) => (
         <div key={i} className="rounded-2xl bg-neutral-900 p-4">
           <div className="mb-2 flex items-center gap-1 text-xs text-neutral-500">
-            {b.t === 'text' ? <Type size={14} /> : <ImagePlus size={14} />} {b.t === 'text' ? 'Бичвэр' : 'Зураг'}
+            {b.t === 'text' ? <Type size={14} /> : b.t === 'img' ? <ImagePlus size={14} /> : <Video size={14} />} {b.t === 'text' ? 'Бичвэр' : b.t === 'img' ? 'Зураг' : 'Видео'}
             <span className="ml-auto flex">
               <button onClick={() => onChange(swap(blocks, i, i - 1))} disabled={i === 0} aria-label="Дээш" className={icon}>
                 <ArrowUp size={15} />
@@ -452,6 +462,8 @@ function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (
           </div>
           {b.t === 'text' ? (
             <MathArea value={b.text} onChange={(text) => set(i, {t: 'text', text})} rows={4} max={LESSON_MAX} placeholder="Хичээлийн бичвэр…" />
+          ) : b.t === 'vid' ? (
+            <VideoLink value={b.url} onChange={(url) => set(i, {t: 'vid', url})} />
           ) : (
             <>
               <TopicPicture tid={topic.id} iid={b.img} className="w-full" />
@@ -465,6 +477,9 @@ function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (
       <div className="flex flex-wrap gap-2">
         <button onClick={() => onChange([...blocks, {t: 'text', text: ''}])} className={small}>
           <Type size={15} /> Бичвэр нэмэх
+        </button>
+        <button onClick={() => onChange([...blocks, {t: 'vid', url: ''}])} className={small}>
+          <Video size={15} /> Видео нэмэх
         </button>
         <button onClick={() => fileRef.current?.click()} disabled={adding} className={small}>
           <ImagePlus size={15} /> {adding ? 'Зураг хуулж байна…' : 'Зураг нэмэх'}
@@ -524,6 +539,29 @@ function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (
         />
       )}
     </section>
+  );
+}
+
+/** A video's link (YouTube, Google Drive, Vimeo, a video file), with how it will look. */
+function VideoLink({value, onChange}: {value: string; onChange: (v: string) => void}) {
+  const src = value.trim() ? videoSource(value) : null;
+  return (
+    <div className="space-y-2">
+      <input
+        type="url"
+        inputMode="url"
+        value={value}
+        maxLength={500}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Видео тайлбарын холбоос: YouTube, Google Drive…"
+        aria-label="Видео холбоос"
+        className={`${field} py-2 text-sm`}
+      />
+      {value.trim() && !src && <p className="text-xs text-amber-300">Холбоос «https://…» гэж эхэлнэ.</p>}
+      {src?.kind === 'link' && <p className="text-xs text-neutral-400">Энэ холбоосыг сайт дотор тоглуулж чадахгүй: сурагчид товч дарж шинэ цонхонд нээнэ.</p>}
+      {src?.kind === 'drive' && <p className="text-xs text-neutral-400">Google Drive дээр файлыг «Холбоостой хэн ч үзэж болно» болгож хуваалцсан байх хэрэгтэй.</p>}
+      {src && <VideoEmbed link={value} />}
+    </div>
   );
 }
 
@@ -835,9 +873,10 @@ function ProblemEditor(props: {
             <span className="text-xs text-neutral-500">Сурагчид «{no}-р бодлого» гэж харна. Хоосон бол дарааллаар нь.</span>
           </label>
 
-          <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg)}>
-            <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт (заавал биш) — сурагч хариулсны дараа харагдана</summary>
+          <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg || p.vid)}>
+            <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт, видео тайлбар (заавал биш) — сурагч хариулсны дараа харагдана</summary>
             <div className="mt-3 space-y-3">
+              <VideoLink value={p.vid ?? ''} onChange={(vid) => onChange((x) => ({...x, vid}))} />
               <MathArea value={p.sol ?? ''} onChange={(sol) => onChange((x) => ({...x, sol}))} max={3000} placeholder="Хэрхэн бодох вэ…" />
               <ImageSlot
                 tid={tid}
@@ -876,6 +915,12 @@ function Results({topic, answers, data}: {topic: Topic; answers: Record<string, 
     .sort((a, b) => b.right - a.right || b.done - a.done || a.s.profile.name.localeCompare(b.s.profile.name, 'mn'));
   const started = rows.filter((r) => r.done).length;
   const n = topic.problems.length;
+  // The students the topic is for (its classes; not the closed accounts): who hasn't answered a problem is one of them.
+  const seeing = data.students.filter((s) => !s.profile.disabled && (!topic.classes || !Object.keys(topic.classes).length || !!topic.classes[s.profile.class ?? '']));
+  const first = (uid: string, pid: string) => {
+    const a = progress[uid]?.[topic.id]?.[pid];
+    return a ? {a: a.a, v: judge(uid, pid) ?? null} : undefined;
+  };
   const judged = rows.reduce((a, r) => a + r.done - r.waiting, 0);
 
   return (
@@ -893,41 +938,7 @@ function Results({topic, answers, data}: {topic: Topic; answers: Record<string, 
         </div>
       </div>
 
-      {n > 0 && (
-        <section>
-          <h2 className="mb-2 font-semibold">Бодлого бүрээр</h2>
-          <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
-            {topic.problems.map((p, i) => {
-              const got = rows.filter((r) => r.mine[p.id]);
-              const vs = got.map((r) => judge(r.s.uid, p.id));
-              const ok = vs.filter((v) => v === true).length;
-              const wait = vs.filter((v) => v === null).length;
-              const pct = got.length - wait ? Math.round((ok / (got.length - wait)) * 100) : null;
-              const picks = p.kind === 'choice' ? LETTER_CODES.map((l) => [l, got.filter((r) => r.mine[p.id].a === l).length] as const) : [];
-              return (
-                <li key={p.id} className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="w-8 shrink-0 font-semibold">{problemNo(p, i)}.</span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-400">{p.text || (p.img ? 'Зурагтай бодлого' : '—')}</span>
-                    {wait > 0 && <span className="shrink-0 rounded-full bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200">{wait} шалгах</span>}
-                    <span className={`shrink-0 text-sm font-semibold tabular-nums ${pct === null ? 'text-neutral-500' : pct >= 70 ? 'text-green-400' : pct >= 40 ? 'text-amber-300' : 'text-red-400'}`}>{pct === null ? '—' : `${pct}% зөв`}</span>
-                    <span className="w-14 shrink-0 text-right text-xs text-neutral-500">{got.length} бодсон</span>
-                  </div>
-                  {picks.some(([, c]) => c) && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5 pl-11 text-xs">
-                      {picks.map(([l, c]) => (
-                        <span key={l} className={`rounded-full px-2 py-0.5 ${answers[p.id] === l ? 'bg-green-500/15 text-green-300' : c ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-800/50 text-neutral-600'}`}>
-                          {LETTER_LABELS[l]}: {c}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+      {n > 0 && <ProblemStats topic={topic} stats={problemStats(topic, seeing, first)} keys={answers} />}
 
       <section>
         <h2 className="mb-2 font-semibold">Сурагч бүрээр</h2>

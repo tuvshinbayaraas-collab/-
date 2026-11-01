@@ -79,7 +79,7 @@ export default function Mistakes() {
             ['all', `Бүгд (${list.length})`],
           ] as const
         ).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-3 py-1.5 font-medium ${tab === id ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-3 py-1.5 font-medium ${tab === id ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}>
             {label}
           </button>
         ))}

@@ -1,7 +1,6 @@
 import {AlertTriangle, BookOpen} from 'lucide-react';
 import {Link} from '../../lib/router';
-import {useLive} from '../../lib/live';
-import {useAllMarks, useAllProgress, useTopics, verdict, type Marks, type Progress, type Topic} from '../../lib/topics';
+import {useAllMarks, useAllProgress, useAllTopicKeys, useTopics, verdict, type Marks, type Progress, type Topic} from '../../lib/topics';
 import type {AdminData, Student} from './data';
 
 export interface TopicScore {
@@ -16,8 +15,7 @@ export interface TopicScore {
   by: Map<string, [number, number]>;
 }
 
-/** Every topic's keys, for the teacher. */
-export const useAllTopicKeys = () => useLive('topicKeys', (v) => (v ?? {}) as Record<string, Record<string, string>>);
+export {useAllTopicKeys};
 
 /** How the class did in each opened topic, by first answers: against the key or the teacher's mark (answers the teacher hasn't checked yet only counted as answered). */
 export function topicScores(students: Student[], topics: Topic[], progress: Record<string, Progress>, keys: Record<string, Record<string, string>>, marks: Record<string, Marks> = {}): TopicScore[] {

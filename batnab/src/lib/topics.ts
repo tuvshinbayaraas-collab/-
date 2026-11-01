@@ -1,4 +1,4 @@
-// Topics ("Сэдэв"): a lesson (text with $math$ and pictures) and problems the teacher writes in the dashboard.
+// Topics ("Сэдэв"): a lesson (text with $math$, pictures, videos) and problems the teacher writes in the dashboard.
 //   topics/{tid}              title, intro, published, classes (none = every class), order, lesson[], problems[]
 //   topicImages/{tid}/{iid}   pictures as data URLs, loaded only when shown
 //   topicKeys/{tid}/{pid}     the right answer ("A"…"E", or a short written answer), teacher only
@@ -7,12 +7,17 @@
 //                             A problem without a key takes an answer too: it goes to the teacher to check.
 //   topicMarks/{uid}/{tid}/{pid} = {ok, at, note?}   the teacher's word on an answer (right or wrong, a note): for a
 //                             problem without a key, or instead of the key's (a written answer put another way).
+//   topicWork/{uid}/{tid}/{pid} = {img, at}   a photo of the student's working, sent with the answer (or added while
+//                             the teacher hasn't checked it yet); the answer then carries `w: true` (its text may
+//                             be empty), so the teacher's page knows there is one without loading every photo.
 import {get, onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState, useSyncExternalStore} from 'react';
 import {auth, db} from './firebase';
+import {useLive} from './live';
 import {loadImage} from './photo';
 
-export type Block = {t: 'text'; text: string} | {t: 'img'; img: string};
+/** A part of the lesson: text, a picture, or a video (a YouTube, Google Drive… link). */
+export type Block = {t: 'text'; text: string} | {t: 'img'; img: string} | {t: 'vid'; url: string};
 
 export interface Problem {
   id: string;
@@ -25,6 +30,8 @@ export interface Problem {
   /** How to solve it, shown after answering. */
   sol?: string;
   solImg?: string;
+  /** A video explanation (a link), shown with the solution. */
+  vid?: string;
   /** Whether the teacher has set the right answer (the answer itself is in topicKeys); without it the teacher checks. */
   k?: boolean;
   /** Its number in the book ("18." printed on its picture); the problems are still in the topic's order. */
@@ -63,7 +70,7 @@ function parse(id: string, v: Partial<Topic> | null): Topic | null {
     classes: v.classes && typeof v.classes === 'object' ? v.classes : undefined,
     order: typeof v.order === 'number' ? v.order : (v.createdAt ?? 0),
     createdAt: typeof v.createdAt === 'number' ? v.createdAt : 0,
-    lesson: asArray<Block>(v.lesson).filter((b) => (b.t === 'text' && typeof b.text === 'string') || (b.t === 'img' && typeof b.img === 'string')),
+    lesson: asArray<Block>(v.lesson).filter((b) => (b.t === 'text' && typeof b.text === 'string') || (b.t === 'img' && typeof b.img === 'string') || (b.t === 'vid' && typeof b.url === 'string')),
     problems: asArray<Problem>(v.problems).filter((p) => typeof p.id === 'string'),
   };
 }
@@ -134,7 +141,7 @@ export function useTopicImage(tid: string, iid: string | undefined) {
 }
 
 /** A picture made small enough for the database (at most ~330 KB): the smaller of PNG (diagrams) and JPEG (photos). */
-async function compress(file: File) {
+export async function compress(file: File) {
   const img = await loadImage(file);
   try {
     // As sharp as fits (up to 2000 px), so a page of text can still be read when zoomed in.
@@ -192,6 +199,7 @@ const stored = (p: Problem, keyed: boolean) => ({
   choices: p.kind === 'choice' && p.choices && Object.values(p.choices).some((c) => c?.trim()) ? Object.fromEntries(Object.entries(p.choices).filter(([, c]) => c?.trim())) : null,
   sol: clean(p.sol),
   solImg: p.solImg ?? null,
+  vid: clean(p.vid),
   k: keyed,
   no: typeof p.no === 'number' && p.no > 0 ? Math.round(p.no) : null,
 });
@@ -206,7 +214,7 @@ export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]
       classes: t.classes && Object.keys(t.classes).length ? t.classes : null,
       order: t.order,
       createdAt: t.createdAt,
-      lesson: t.lesson.filter((b) => (b.t === 'text' ? b.text.trim() : b.img)).map((b) => (b.t === 'text' ? {t: 'text', text: b.text.trim()} : b)),
+      lesson: t.lesson.filter((b) => (b.t === 'text' ? b.text.trim() : b.t === 'img' ? b.img : b.url.trim())).map((b) => (b.t === 'text' ? {t: 'text', text: b.text.trim()} : b.t === 'vid' ? {t: 'vid', url: b.url.trim()} : b)),
       problems: t.problems.map((p) => stored(p, !!keys[p.id])),
     },
     [`topicKeys/${t.id}`]: Object.fromEntries(Object.entries(keys).filter(([pid, k]) => k && t.problems.some((p) => p.id === pid))),
@@ -235,7 +243,7 @@ export async function copyTopic(t: Topic, keys: Record<string, string>, order: n
     classes: null,
     order,
     createdAt: serverTimestamp(),
-    lesson: t.lesson.flatMap((b): Block[] => (b.t === 'text' ? [b] : img(b.img) ? [{t: 'img', img: img(b.img)!}] : [])),
+    lesson: t.lesson.flatMap((b): Block[] => (b.t !== 'img' ? [b] : img(b.img) ? [{t: 'img', img: img(b.img)!}] : [])),
     problems: t.problems.map((p) => ({...stored(p, !!keys[p.id]), id: pids.get(p.id)!, img: img(p.img), solImg: img(p.solImg)})),
   };
   ops[`topicKeys/${id}`] = Object.fromEntries(Object.entries(keys).flatMap(([pid, k]) => (pids.has(pid) && k ? [[pids.get(pid)!, k]] : [])));
@@ -243,11 +251,18 @@ export async function copyTopic(t: Topic, keys: Record<string, string>, order: n
   return id;
 }
 
-export const deleteTopic = (tid: string) => update(ref(db), {[`topics/${tid}`]: null, [`topicKeys/${tid}`]: null, [`topicImages/${tid}`]: null});
+/** The topic with its pictures and keys, and (for these students) their answers, the teacher's marks, their photos. */
+export const deleteTopic = (tid: string, uids: string[] = []) =>
+  update(ref(db), {
+    [`topics/${tid}`]: null,
+    [`topicKeys/${tid}`]: null,
+    [`topicImages/${tid}`]: null,
+    ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`].map((k) => [k, null]))),
+  });
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});
 
-export const resetProgress = (uid: string, tid: string) => update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null});
+export const resetProgress = (uid: string, tid: string) => update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null, [`topicWork/${uid}/${tid}`]: null});
 
 /** The teacher's copy of a topic's keys; null while loading. */
 export function useTopicKeys(tid: string) {
@@ -269,7 +284,8 @@ export function useTopicKeys(tid: string) {
 /** Written answers are compared without spaces or case, with "," and "." the same. */
 export const normalize = (a: string) => a.trim().toLowerCase().replace(/\s+/g, '').replace(/,/g, '.').slice(0, 40);
 
-export type Progress = Record<string, Record<string, {a: string; at: number}>>;
+/** tid → pid → the first answer (`w`: a photo of the working came with it). */
+export type Progress = Record<string, Record<string, {a: string; at: number; w?: boolean}>>;
 
 /** A student's answers in every topic (topicProgress/{uid}); null while loading. */
 export function useProgress(uid: string | undefined) {
@@ -285,17 +301,19 @@ export function useProgress(uid: string | undefined) {
   return uid ? p : {};
 }
 
-/** Everyone's answers, for the teacher. */
-export function useAllProgress() {
+/** Everyone's answers, for the teacher (`on` false: not read). */
+export function useAllProgress(on = true) {
   const [p, setP] = useState<Record<string, Progress> | null>(null);
   useEffect(
     () =>
-      onValue(
-        ref(db, 'topicProgress'),
-        (s) => setP((s.val() ?? {}) as Record<string, Progress>),
-        () => setP({}),
-      ),
-    [],
+      on
+        ? onValue(
+            ref(db, 'topicProgress'),
+            (s) => setP((s.val() ?? {}) as Record<string, Progress>),
+            () => setP({}),
+          )
+        : undefined,
+    [on],
   );
   return p;
 }
@@ -324,20 +342,25 @@ export function useMarks(uid: string | undefined) {
   return uid ? m : {};
 }
 
-/** Every student's marks (uid → tid → pid), for the teacher. */
-export function useAllMarks() {
+/** Every student's marks (uid → tid → pid), for the teacher (`on` false: not read). */
+export function useAllMarks(on = true) {
   const [m, setM] = useState<Record<string, Marks> | null>(null);
   useEffect(
     () =>
-      onValue(
-        ref(db, 'topicMarks'),
-        (s) => setM((s.val() ?? {}) as Record<string, Marks>),
-        () => setM({}),
-      ),
-    [],
+      on
+        ? onValue(
+            ref(db, 'topicMarks'),
+            (s) => setM((s.val() ?? {}) as Record<string, Marks>),
+            () => setM({}),
+          )
+        : undefined,
+    [on],
   );
   return m;
 }
+
+/** Every topic's keys, for the teacher (`on` false: not read). */
+export const useAllTopicKeys = (on = true) => useLive(on ? 'topicKeys' : null, (v) => (v ?? {}) as Record<string, Record<string, string>>);
 
 /**
  * Marks these students' answers to a problem right or wrong (null takes the mark back). A note given (empty to take it
@@ -365,11 +388,63 @@ export function setMarks(uids: string[], tid: string, pid: string, ok: boolean |
 export const verdict = (a: string | undefined, key: string | null | undefined, mark?: Mark | null) => (mark ? mark.ok : key ? a === key || (a !== undefined && normalize(a) === key) : null);
 
 /** Records the student's first answer, then reads the key (allowed only now). */
-export async function answer(tid: string, pid: string, a: string) {
+export async function answer(tid: string, pid: string, a: string, work?: File) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
-  await set(ref(db, `topicProgress/${uid}/${tid}/${pid}`), {a, at: serverTimestamp()});
+  if (!work) await set(ref(db, `topicProgress/${uid}/${tid}/${pid}`), {a, at: serverTimestamp()});
+  else {
+    // The photo and the answer in one write: neither without the other.
+    const img = await compress(work);
+    await update(ref(db), {
+      [`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()},
+      [`topicProgress/${uid}/${tid}/${pid}`]: {a, at: serverTimestamp(), w: true},
+    });
+    works.set(`${uid}/${tid}/${pid}`, Promise.resolve(img));
+  }
   return readKey(tid, pid);
+}
+
+/** A photo of the working added to an answer already sent (or put in place of the one sent), while it waits for the teacher. */
+export async function sendWork(tid: string, pid: string, file: File) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Нэвтэрнэ үү');
+  const img = await compress(file);
+  await update(ref(db), {[`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()}, [`topicProgress/${uid}/${tid}/${pid}/w`]: true});
+  const p = Promise.resolve(img);
+  works.set(`${uid}/${tid}/${pid}`, p);
+  workListeners.forEach((l) => l());
+  return img;
+}
+
+const works = new Map<string, Promise<string | null>>();
+const workListeners = new Set<() => void>();
+/** A student's photo of their working (theirs, or anyone's for the teacher): undefined while loading, null if none. */
+export function useWork(uid: string | undefined, tid: string, pid: string) {
+  const k = `${uid}/${tid}/${pid}`;
+  const [state, setState] = useState<{k: string; v: string | null} | null>(null);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setVersion((n) => n + 1);
+    workListeners.add(bump);
+    return () => void workListeners.delete(bump);
+  }, []);
+  useEffect(() => {
+    if (!uid) return;
+    let live = true;
+    if (!works.has(k))
+      works.set(
+        k,
+        get(ref(db, `topicWork/${k}/img`)).then(
+          (s) => (typeof s.val() === 'string' ? s.val() : null),
+          () => null,
+        ),
+      );
+    works.get(k)!.then((v) => live && setState({k, v}));
+    return () => {
+      live = false;
+    };
+  }, [k, uid, version]);
+  return state?.k === k ? state.v : undefined;
 }
 
 const keyCache = new Map<string, string | null>();

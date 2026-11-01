@@ -1,7 +1,9 @@
-import {Check, Hourglass, ImageOff, Lightbulb, MessageSquare, RotateCcw, X} from 'lucide-react';
-import {useEffect, useState, type FormEvent} from 'react';
+import {Camera, Check, Hourglass, ImageOff, Lightbulb, MessageSquare, RotateCcw, X} from 'lucide-react';
+import {useEffect, useRef, useState, type FormEvent} from 'react';
 import AskButton from './Ask';
-import {answer, LETTER_CODES, LETTER_LABELS, normalize, readKey, useTopicImage, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
+import {auth} from '../lib/firebase';
+import {answer, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
+import VideoEmbed from './VideoEmbed';
 import MathText from './MathText';
 import ZoomView from './ZoomView';
 
@@ -40,6 +42,105 @@ export interface Outcome {
   key: string | null;
 }
 
+/** A student's photo of their working (`uid`'s, for the teacher): small, a tap shows it full size. */
+export function WorkPhoto({uid, tid, pid, className = ''}: {uid: string; tid: string; pid: string; className?: string}) {
+  const url = useWork(uid, tid, pid);
+  const [big, setBig] = useState(false);
+  if (url === undefined) return <div className={`h-24 w-32 animate-pulse rounded-lg bg-neutral-800 ${className}`} aria-label="Зураг ачаалж байна" />;
+  if (!url) return null;
+  return (
+    <>
+      <button type="button" onClick={() => setBig(true)} className={`block overflow-hidden rounded-lg bg-white ring-1 ring-neutral-700 ${className}`} aria-label="Бодолтын зургийг томоор харах">
+        <img src={url} alt="Бодолтын зураг" className="max-h-40 w-auto max-w-full object-contain" />
+      </button>
+      {big && <ZoomView url={url} onClose={() => setBig(false)} />}
+    </>
+  );
+}
+
+/** The student's own photo of the working, once sent; while the teacher hasn't checked it, one can be added or put in its place. */
+function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; pid: string; sent: boolean; open: boolean; onSent: () => void}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const send = async () => {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      await sendWork(tid, pid, file);
+      setFile(null);
+      onSent();
+    } catch (e) {
+      setError(/permission/i.test((e as Error).message) ? 'Багш аль хэдийн шалгасан тул зураг солих боломжгүй.' : (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!sent && !open) return null;
+  return (
+    <div className="space-y-2">
+      {sent && (
+        <div>
+          <p className="mb-1 text-xs text-neutral-500">Илгээсэн бодолтын зураг</p>
+          <WorkPhoto uid={uid} tid={tid} pid={pid} />
+        </div>
+      )}
+      {open && (
+        <div className="flex flex-wrap items-center gap-2">
+          <PickPhoto file={file} onFile={setFile} disabled={busy} label={sent ? 'Өөр зураг' : 'Бодолтын зураг нэмэх'} />
+          {file && (
+            <button type="button" onClick={send} disabled={busy} className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+              {busy ? 'Илгээж байна…' : sent ? 'Энэ зургаар солих' : 'Зургийг илгээх'}
+            </button>
+          )}
+        </div>
+      )}
+      {error && <p className="text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/** "Бодолтын зураг": a photo of the working picked to send (with a look at it, and a way to take it off). */
+function PickPhoto({file, onFile, disabled, label = 'Бодолтын зураг'}: {file: File | null; onFile: (f: File | null) => void; disabled?: boolean; label?: string}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    if (!file) return setUrl('');
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {url ? (
+        <span className="relative">
+          <img src={url} alt="Илгээх бодолтын зураг" className="h-20 w-auto rounded-lg bg-white object-contain ring-1 ring-neutral-700" />
+          <button type="button" onClick={() => onFile(null)} disabled={disabled} aria-label="Зургийг авах" className="absolute -right-2 -top-2 rounded-full bg-neutral-700 p-1 text-neutral-100 hover:bg-neutral-600">
+            <X size={12} />
+          </button>
+        </span>
+      ) : (
+        <button type="button" onClick={() => input.current?.click()} disabled={disabled} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50">
+          <Camera size={15} /> {label}
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        aria-label="Бодолтын зураг сонгох"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f?.type.startsWith('image/')) onFile(f);
+          e.target.value = '';
+        }}
+      />
+    </div>
+  );
+}
+
 /**
  * One problem for a student: pick А–Д (or write the answer), "Шалгах" records the first answer and shows whether it
  * was right, the right answer and the solution. "Дахин бодох" lets them try again just for practice (not recorded).
@@ -52,7 +153,7 @@ export function ProblemView(props: {
   tid: string;
   p: Problem;
   num: number;
-  first?: {a: string};
+  first?: {a: string; w?: boolean};
   mark?: Mark | null;
   teacher?: boolean;
   onOutcome?: (o: Outcome) => void;
@@ -70,6 +171,11 @@ export function ProblemView(props: {
   const [error, setError] = useState('');
   // No right answer given: the teacher checks the answer.
   const byTeacher = !p.k && !practice;
+  // A photo of the working, for the teacher to check (sent with the answer, or added after it while it waits).
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [sentPhoto, setSentPhoto] = useState(false);
+  const withPhoto = byTeacher && !teacher;
+  const uid = auth.currentUser?.uid;
 
   // Answered before: show how it went.
   useEffect(() => {
@@ -94,7 +200,7 @@ export function ProblemView(props: {
   const value = p.kind === 'choice' ? pick : byTeacher ? pick.trim().slice(0, 300) : normalize(pick);
   const check = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!value) return;
+    if (!value && !(withPhoto && photo && !first)) return;
     setBusy(true);
     setError('');
     try {
@@ -106,7 +212,9 @@ export function ProblemView(props: {
           review(verdict(value, key, null) === true);
         }
       } else {
-        const key = await answer(tid, p.id, value);
+        const key = await answer(tid, p.id, value, (withPhoto && photo) || undefined);
+        if (withPhoto && photo) setSentPhoto(true);
+        setPhoto(null);
         const o = {a: value, key};
         setOutcome(o);
         onOutcome?.(o);
@@ -130,10 +238,11 @@ export function ProblemView(props: {
   const waiting = counted && v === null;
   const ok = v === true;
   const shownKey = outcome?.key ? (p.kind === 'choice' ? LETTER_LABELS[outcome.key as Letter] : outcome.key) : null;
-  const solution = (p.sol || p.solImg) && (
+  const solution = (p.sol || p.solImg || p.vid) && (
     <>
       {p.sol && <Rich text={p.sol} className="mt-2 text-sm text-neutral-200" />}
       {p.solImg && <TopicPicture tid={tid} iid={p.solImg} className="mt-2 w-full" />}
+      {p.vid && <VideoEmbed link={p.vid} className="mt-2" />}
     </>
   );
   const ring = !done || v === null ? '' : ok ? 'ring-1 ring-green-500/40' : 'ring-1 ring-red-500/40';
@@ -185,7 +294,7 @@ export function ProblemView(props: {
                     className={`flex min-w-[4.5rem] flex-[1_1_auto] items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${style}`}
                   >
                     <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${right || (picked && ok) ? 'bg-green-500 text-black' : picked ? (done ? (v === null ? 'bg-violet-400 text-black' : 'bg-red-500 text-black') : 'bg-blue-500 text-black') : 'bg-neutral-800'}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${right || (picked && ok) ? 'bg-green-500 text-black' : picked ? (done ? (v === null ? 'bg-violet-500 text-black' : 'bg-red-500 text-black') : 'bg-blue-500 text-black') : 'bg-neutral-800'}`}
                     >
                       {LETTER_LABELS[l]}
                     </span>
@@ -215,12 +324,17 @@ export function ProblemView(props: {
               className={`w-full rounded-xl border bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500 sm:w-64 ${done ? (ok ? 'border-green-500' : v === false ? 'border-red-500' : 'border-violet-400') : 'border-neutral-700'}`}
             />
           )}
+          {!done && withPhoto && !first && (
+            <div className="mt-2">
+              <PickPhoto file={photo} onFile={setPhoto} disabled={busy} />
+            </div>
+          )}
           {!done && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button disabled={busy || !value} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+              <button disabled={busy || (!value && !(withPhoto && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
                 {busy ? (byTeacher ? 'Илгээж байна…' : 'Шалгаж байна…') : byTeacher ? 'Багшид илгээх' : 'Шалгах'}
               </button>
-              {!practice && !first && !teacher && <span className="text-xs text-neutral-500">{byTeacher ? 'Хариулт тань багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}</span>}
+              {!practice && !first && !teacher && <span className="text-xs text-neutral-500">{byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}</span>}
             </div>
           )}
         </form>
@@ -229,6 +343,7 @@ export function ProblemView(props: {
 
       {done && (
         <div className="mt-4 space-y-3">
+          {withPhoto && counted && uid && <MyWork uid={uid} tid={tid} pid={p.id} sent={sentPhoto || !!first?.w} open={waiting} onSent={() => setSentPhoto(true)} />}
           {waiting ? (
             <p className="flex flex-wrap items-center gap-2 font-semibold text-violet-200">
               <Hourglass size={18} /> Багшид илгээсэн. Шалгаад зөв, бурууг тань энд хэлнэ.
@@ -249,7 +364,7 @@ export function ProblemView(props: {
           {solution && (
             <details open={v === false} className="rounded-xl bg-neutral-800/50 p-3">
               <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-amber-200">
-                <Lightbulb size={16} /> Бодолт
+                <Lightbulb size={16} /> {p.sol || p.solImg ? `Бодолт${p.vid ? ' · видео' : ''}` : 'Видео тайлбар'}
               </summary>
               {solution}
             </details>

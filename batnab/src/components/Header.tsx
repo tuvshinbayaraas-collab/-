@@ -1,13 +1,17 @@
-import {BookOpen, CircleHelp, Download, Flame, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, NotebookPen, Settings, Trophy, UserRound} from 'lucide-react';
-import {useState, type ReactNode} from 'react';
+import {BookOpen, CircleHelp, Download, Flame, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Zap} from 'lucide-react';
+import {lazy, Suspense, useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
+import {useTheme} from '../lib/theme';
 import Avatar from './Avatar';
 import {openGuide} from '../lib/guide';
 import {BetaBadge, useGetApp} from './GetApp';
 import {useGuideRole} from './Guide';
 import Logo from './Logo';
+
+// The bell and its list come in their own file, after the page (it reads a fair bit to know what's new).
+const Bell = lazy(() => import('./Bell'));
 
 export default function Header() {
   const {user, ready, profile, admin} = useSession();
@@ -17,6 +21,9 @@ export default function Header() {
   const guideRole = useGuideRole();
   const settings = useSettings();
   const name = shownName(profile);
+  const [, setTheme] = useTheme();
+  // What's on the page now ("Төхөөрөмжийн" included): the menu offers the other one.
+  const light = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
 
   const item = (href: string, icon: ReactNode, label: string) => (
     <Link href={href} onClick={() => setMenuOpen(false)} className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700">
@@ -25,7 +32,7 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-[#0f0f0f] px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-page px-4">
       <Logo />
       {user ? (
         <div className="flex items-center gap-2">
@@ -33,6 +40,11 @@ export default function Header() {
             <Link href="/admin" className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-blue-300 hover:bg-blue-500/10 sm:flex">
               <GraduationCap size={18} /> Багшийн самбар
             </Link>
+          )}
+          {(admin || (profile && !profile.disabled)) && (
+            <Suspense fallback={<span className="block h-[34px] w-[34px]" />}>
+              <Bell />
+            </Suspense>
           )}
           <div className="relative">
             <button onClick={() => setMenuOpen((o) => !o)} aria-label="Миний бүртгэл" className="block rounded-full">
@@ -54,6 +66,7 @@ export default function Header() {
                     <>
                       {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
                       {item('/topics', <BookOpen size={20} />, 'Сэдвүүд')}
+                      {item('/live', <Zap size={20} />, 'Шууд тэмцээн')}
                       {!admin && item('/daily', <Flame size={20} />, 'Өдрийн дасгал')}
                       {!admin && item('/mistakes', <NotebookPen size={20} />, 'Алдааны дэвтэр')}
                       {!admin && item('/questions', <MessageCircleQuestion size={20} />, 'Асуултууд')}
@@ -73,6 +86,15 @@ export default function Header() {
                       <CircleHelp size={20} /> Заавар
                     </button>
                   )}
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setTheme(light ? 'dark' : 'light');
+                    }}
+                    className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                  >
+                    {light ? <Moon size={20} /> : <Sun size={20} />} {light ? 'Бараан загвар' : 'Гэрэлтэй загвар'}
+                  </button>
                   {!app.installed && (
                     <button
                       onClick={() => {

@@ -1,4 +1,4 @@
-import {ChevronRight, CircleHelp, Clock, Forward, LayoutList, Medal, Settings2, Trophy, Type} from 'lucide-react';
+import {ChevronRight, CircleHelp, Clock, Forward, LayoutList, Medal, Monitor, Moon, Settings2, Sun, Trophy, Type} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
@@ -11,6 +11,7 @@ import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
+import {useTheme, type Theme} from '../lib/theme';
 import {testInfo} from '../tests';
 
 /** The menu's "Тохиргоо": the user's own settings, saved to their account. */
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<PrefKey | null>(null);
   const [saved, flash] = useSavedNote();
+  const [theme, setTheme] = useTheme();
 
   if (session.ready && !session.user) return <LockedNote text="Тохиргоогоо өөрчлөхийн тулд нэвтэрнэ үү." />;
   if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
@@ -108,6 +110,27 @@ export default function SettingsPage() {
       </Group>
 
       <Group title="Харагдац">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-4">
+          <Icon tone="violet">{theme === 'light' ? <Sun size={18} /> : theme === 'auto' ? <Monitor size={18} /> : <Moon size={18} />}</Icon>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Загвар</span>
+            <span className="mt-0.5 block text-[13px] leading-snug text-neutral-400">Бараан эсвэл гэрэлтэй (проектор, хэвлэхэд тохиромжтой). Энэ төхөөрөмж дээр хадгалагдана.</span>
+          </span>
+          <div className="flex w-full rounded-full bg-neutral-800 p-1 text-sm sm:w-auto" role="radiogroup" aria-label="Загвар">
+            {THEMES.map(([t, label, icon]) => (
+              <button
+                key={t}
+                type="button"
+                role="radio"
+                aria-checked={theme === t}
+                onClick={() => setTheme(t)}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 font-medium sm:flex-none ${theme === t ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </div>
         {toggle('bigText', 'violet', <Type size={18} />, 'Том үсэг', 'Сайтын бүх бичгийг томруулж харуулна.')}
         {!session.admin &&
           toggle(
@@ -144,6 +167,12 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+const THEMES: [Theme, string, ReactNode][] = [
+  ['dark', 'Бараан', <Moon key="d" size={14} />],
+  ['light', 'Гэрэлтэй', <Sun key="l" size={14} />],
+  ['auto', 'Төхөөрөмжийн', <Monitor key="a" size={14} />],
+];
 
 const TONES = {
   amber: 'bg-amber-500/15 text-amber-300',

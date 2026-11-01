@@ -13,7 +13,6 @@ import {Distribution, Meter, pct, QuestionRow, Stat, StudentName} from './Overvi
 import {useTest} from './useTest';
 
 // "Hard" uses the warning status colour, always with an icon and a label (see Overview).
-const WARNING = '#fab219';
 
 const STATE_LABEL: Record<ExamState, string> = {upcoming: 'Товлогдсон', active: 'Явагдаж байна', ended: 'Дууссан'};
 const STATE_STYLE: Record<ExamState, string> = {
@@ -290,7 +289,7 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
                         title={`Нийт ${formatDuration(w.ms / 1000)} гадуур байсан`}
                         className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-800"
                       >
-                        <AlertTriangle size={13} color={WARNING} /> {w.leaves} удаа гарсан
+                        <AlertTriangle size={13} className="shrink-0 text-amber-400" /> {w.leaves} удаа гарсан
                         <span className="hidden text-neutral-400 sm:inline">· {formatDuration(w.ms / 1000)}</span>
                         <ChevronDown size={13} className={`transition-transform ${open === uid ? 'rotate-180' : ''}`} />
                       </button>
@@ -358,7 +357,7 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
                   ['hard', 'Хүндээс нь'],
                 ] as const
               ).map(([id, label]) => (
-                <button key={id} onClick={() => setSort(id)} className={`rounded-full px-3 py-1 font-medium ${sort === id ? 'bg-neutral-100 text-black' : 'text-neutral-300'}`}>
+                <button key={id} onClick={() => setSort(id)} className={`rounded-full px-3 py-1 font-medium ${sort === id ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-300'}`}>
                   {label}
                 </button>
               ))}

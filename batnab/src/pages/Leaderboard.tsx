@@ -66,7 +66,7 @@ export default function Leaderboard() {
             ['overall', 'Хамгийн өндөр оноо'],
           ] as const
         ).map(([t, label]) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => pick(t)} className={`rounded-full py-2 ${tab === t ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}>
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => pick(t)} className={`rounded-full py-2 ${tab === t ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}>
             {label}
           </button>
         ))}

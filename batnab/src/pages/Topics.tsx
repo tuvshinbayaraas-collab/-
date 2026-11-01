@@ -1,4 +1,4 @@
-import {BookOpen, ChevronRight, Image as ImageIcon, ListChecks} from 'lucide-react';
+import {BookOpen, ChevronRight, Image as ImageIcon, ListChecks, PlayCircle} from 'lucide-react';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import {useClasses} from '../lib/classes';
 import {Link} from '../lib/router';
@@ -42,6 +42,7 @@ export default function Topics() {
             const done = counted.filter((p) => mine[p.id]).length;
             const total = counted.length;
             const pics = t.lesson.filter((b) => b.t === 'img').length;
+            const videos = t.lesson.filter((b) => b.t === 'vid').length + t.problems.filter((p) => p.vid).length;
             return (
               <li key={t.id}>
                 <Link href={`/topics/${t.id}`} className="flex items-center gap-4 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800/70 sm:p-5">
@@ -64,6 +65,11 @@ export default function Topics() {
                       {pics === 0 && t.problems.some((p) => p.img) && (
                         <span className="flex items-center gap-1">
                           <ImageIcon size={13} /> зурагтай
+                        </span>
+                      )}
+                      {videos > 0 && (
+                        <span className="flex items-center gap-1">
+                          <PlayCircle size={13} /> {videos} видео
                         </span>
                       )}
                     </p>

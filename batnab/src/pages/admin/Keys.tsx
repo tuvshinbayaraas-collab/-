@@ -105,7 +105,7 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
               key={t.id}
               onClick={() => pick(t.id)}
               aria-current={current}
-              className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium ${current ? 'bg-neutral-100 text-black' : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'}`}
+              className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium ${current ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'}`}
             >
               {t.title}
               <span className={`text-xs ${current ? 'text-neutral-600' : n === t.count ? 'text-green-400' : 'text-neutral-500'}`}>
@@ -176,7 +176,7 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
       </section>
 
       {dirty && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-800 bg-[#0f0f0f]/95 px-4 py-3 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-800 bg-page/95 px-4 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
             <p className="min-w-0 flex-1 text-sm">
               <span className="font-medium text-amber-300">{changed} өөрчлөлт хадгалаагүй.</span>{' '}
@@ -236,7 +236,7 @@ function TypeIn({count, onApply}: {count: number; onApply: (key: string) => void
             setText('');
           }}
           disabled={!parsed.found}
-          className="rounded-full bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-black hover:bg-white disabled:opacity-50"
+          className="rounded-full bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-900 hover:bg-neutral-50 disabled:opacity-50"
         >
           Хүснэгтэд буулгах
         </button>

@@ -396,7 +396,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="flex rounded-full bg-neutral-800 p-0.5 text-xs" role="radiogroup" aria-label="Юугаар нэмэх">
                     {USES.map(([u, label]) => (
-                      <button key={u} type="button" role="radio" aria-checked={it.use === u} onClick={() => edit(it.id, (x) => ({...x, use: u}))} className={`rounded-full px-3 py-1 font-medium ${it.use === u ? 'bg-neutral-600 text-white' : 'text-neutral-400'}`}>
+                      <button key={u} type="button" role="radio" aria-checked={it.use === u} onClick={() => edit(it.id, (x) => ({...x, use: u}))} className={`rounded-full px-3 py-1 font-medium ${it.use === u ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400'}`}>
                         {label}
                       </button>
                     ))}

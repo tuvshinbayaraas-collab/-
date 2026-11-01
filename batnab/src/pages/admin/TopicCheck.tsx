@@ -1,6 +1,6 @@
 import {Check, ChevronDown, MessageSquare, X} from 'lucide-react';
 import {useRef, useState} from 'react';
-import {Rich, TopicPicture} from '../../components/TopicParts';
+import {Rich, TopicPicture, WorkPhoto} from '../../components/TopicParts';
 import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, setMarks, verdict, type Letter, type Mark, type Marks, type Problem, type Progress, type Topic} from '../../lib/topics';
 import type {Student} from './data';
 
@@ -8,6 +8,8 @@ import type {Student} from './data';
 interface Entry {
   s: Student;
   a: string;
+  /** A photo of the working came with it. */
+  w?: boolean;
   mark?: Mark;
   v: boolean | null;
 }
@@ -41,10 +43,11 @@ export default function TopicCheck(props: {topic: Topic; students: Student[]; pr
   const list = topic.problems
     .map((p, i) => {
       const entries: Entry[] = students.flatMap((s) => {
-        const a = progress[s.uid]?.[topic.id]?.[p.id]?.a;
-        if (!a) return [];
+        const got = progress[s.uid]?.[topic.id]?.[p.id];
+        if (!got) return [];
+        const a = got.a ?? '';
         const mark = marks[s.uid]?.[topic.id]?.[p.id];
-        return [{s, a, mark, v: verdict(a, keys[p.id], mark)}];
+        return [{s, a, w: got.w === true, mark, v: verdict(a, keys[p.id], mark)}];
       });
       return {p, i, entries, waiting: entries.filter((e) => e.v === null).length};
     })
@@ -90,10 +93,10 @@ export default function TopicCheck(props: {topic: Topic; students: Student[]; pr
 
 function ProblemCheck(props: {topic: Topic; p: Problem; no: number; entries: Entry[]; waiting: number; keyed?: string; onKey: (k: string) => void; onMark: (uids: string[], ok: boolean | null, note?: string) => void}) {
   const {topic, p, no, entries, waiting, keyed, onKey, onMark} = props;
-  // The same answer together (written ones compared as the key would be).
+  // The same answer together (written ones compared as the key would be); one with a photo of the working on its own.
   const by = new Map<string, Entry[]>();
   for (const e of entries) {
-    const g = p.kind === 'choice' ? e.a : normalize(e.a);
+    const g = e.w ? `photo:${e.s.uid}` : p.kind === 'choice' ? e.a : normalize(e.a);
     by.set(g, [...(by.get(g) ?? []), e]);
   }
   const groups = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
@@ -130,7 +133,7 @@ function ProblemCheck(props: {topic: Topic; p: Problem; no: number; entries: Ent
         </div>
         <ul className="min-w-0 space-y-2">
           {groups.map(([g, es]) => (
-            <Group key={g} p={p} entries={es} onMark={onMark} />
+            <Group key={g} tid={topic.id} p={p} entries={es} onMark={onMark} />
           ))}
         </ul>
       </div>
@@ -138,9 +141,11 @@ function ProblemCheck(props: {topic: Topic; p: Problem; no: number; entries: Ent
   );
 }
 
-function Group({p, entries, onMark}: {p: Problem; entries: Entry[]; onMark: (uids: string[], ok: boolean | null, note?: string) => void}) {
-  const [open, setOpen] = useState(false);
-  const shown = p.kind === 'choice' ? (LETTER_LABELS[entries[0].a as Letter] ?? entries[0].a) : entries[0].a;
+function Group({tid, p, entries, onMark}: {tid: string; p: Problem; entries: Entry[]; onMark: (uids: string[], ok: boolean | null, note?: string) => void}) {
+  const first = entries[0];
+  // A photo of the working: the answer is that student's alone, shown open with the photo.
+  const [open, setOpen] = useState(!!first.w);
+  const shown = p.kind === 'choice' ? (LETTER_LABELS[first.a as Letter] ?? first.a) : first.a || (first.w ? 'Бодолтын зураг' : '');
   const all = (v: boolean | null) => entries.every((e) => e.v === v);
   const set = (ok: boolean) => {
     // Marked so already by the teacher: a second tap takes the marks back.
@@ -169,7 +174,7 @@ function Group({p, entries, onMark}: {p: Problem; entries: Entry[]; onMark: (uid
       {open && (
         <ul className="divide-y divide-neutral-800 border-t border-neutral-800">
           {entries.map((e) => (
-            <Person key={e.s.uid} p={p} e={e} onMark={(ok, note) => onMark([e.s.uid], ok, note)} />
+            <Person key={e.s.uid} tid={tid} p={p} e={e} onMark={(ok, note) => onMark([e.s.uid], ok, note)} />
           ))}
         </ul>
       )}
@@ -177,7 +182,7 @@ function Group({p, entries, onMark}: {p: Problem; entries: Entry[]; onMark: (uid
   );
 }
 
-function Person({p, e, onMark}: {p: Problem; e: Entry; onMark: (ok: boolean | null, note?: string) => void}) {
+function Person({tid, p, e, onMark}: {tid: string; p: Problem; e: Entry; onMark: (ok: boolean | null, note?: string) => void}) {
   const [note, setNote] = useState(e.mark?.note ?? '');
   const [writing, setWriting] = useState(false);
   const saveNote = () => {
@@ -197,6 +202,7 @@ function Person({p, e, onMark}: {p: Problem; e: Entry; onMark: (ok: boolean | nu
           </button>
         </span>
       </div>
+      {e.w && <WorkPhoto uid={e.s.uid} tid={tid} pid={p.id} className="mt-2" />}
       {e.mark?.note && !writing && <p className="mt-1 whitespace-pre-wrap text-xs text-neutral-400">“{e.mark.note}”</p>}
       {writing && (
         <input

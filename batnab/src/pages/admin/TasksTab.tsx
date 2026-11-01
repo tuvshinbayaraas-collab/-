@@ -104,7 +104,7 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
               ['test', 'Тест'],
             ] as const
           ).map(([k, label]) => (
-            <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`flex-1 rounded-full px-3 py-1.5 font-medium ${kind === k ? 'bg-neutral-600 text-white' : 'text-neutral-400'}`}>
+            <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`flex-1 rounded-full px-3 py-1.5 font-medium ${kind === k ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400'}`}>
               {label}
             </button>
           ))}

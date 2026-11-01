@@ -58,3 +58,16 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// A notification tapped (lib/notifications.ts): to the site, on the page it is about.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const href = event.notification.data?.href || '/';
+  event.waitUntil(
+    self.clients.matchAll({type: 'window', includeUncontrolled: true}).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+      if (open) return open.focus().then((c) => c.navigate(href));
+      return self.clients.openWindow(href);
+    }),
+  );
+});

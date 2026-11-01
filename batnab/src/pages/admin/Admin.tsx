@@ -72,11 +72,11 @@ export default function Admin({student, topic, report}: {student?: string; topic
               key={t.id}
               href={`/admin?tab=${t.id}`}
               aria-current={active ? 'page' : undefined}
-              className={`relative -mb-px flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 border-b-2 px-2 py-2 text-xs font-medium sm:min-w-0 sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm ${active ? 'border-blue-500 text-white' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}
+              className={`relative -mb-px flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 border-b-2 px-2 py-2 text-xs font-medium sm:min-w-0 sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm ${active ? 'border-blue-500 text-neutral-50' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}
             >
               <t.icon size={18} className="sm:h-4 sm:w-4" /> {t.label}
               {t.id === 'questions' && unanswered > 0 && (
-                <span className="absolute right-1 top-1 min-w-4 rounded-full bg-sky-400 px-1 text-center text-[10px] font-bold leading-4 text-black sm:static sm:ml-0.5">{unanswered}</span>
+                <span className="absolute right-1 top-1 min-w-4 rounded-full bg-sky-500 px-1 text-center text-[10px] font-bold leading-4 text-black sm:static sm:ml-0.5">{unanswered}</span>
               )}
             </Link>
           );

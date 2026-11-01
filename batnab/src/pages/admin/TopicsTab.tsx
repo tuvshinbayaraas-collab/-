@@ -1,4 +1,4 @@
-import {ArrowDown, ArrowUp, BookOpen, ChevronRight, ClipboardCheck, Plus} from 'lucide-react';
+import {ArrowDown, ArrowUp, BookOpen, ChevronRight, ClipboardCheck, Plus, Zap} from 'lucide-react';
 import {useState} from 'react';
 import {useClasses} from '../../lib/classes';
 import {Link, navigate} from '../../lib/router';
@@ -39,6 +39,9 @@ export default function TopicsTab({data}: {data: AdminData}) {
           <h2 className="font-semibold">Сэдвүүд ({topics.length})</h2>
           <p className="text-sm text-neutral-400">Сэдэв бүрт хичээл (бичвэр, томьёо, зураг) болон бодлого оруулна. Сурагчид цэсний «Сэдвүүд»-ээс үзнэ.</p>
         </div>
+        <Link href="/live" className="flex items-center gap-2 rounded-full bg-pink-500/15 px-4 py-2 text-sm font-semibold text-pink-200 hover:bg-pink-500/25">
+          <Zap size={16} /> Шууд тэмцээн
+        </Link>
         <button onClick={add} disabled={busy} className="flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
           <Plus size={18} /> Шинэ сэдэв
         </button>

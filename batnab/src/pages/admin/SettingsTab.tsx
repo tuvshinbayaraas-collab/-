@@ -4,6 +4,7 @@ import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {useSettings, saveSetting, type Settings} from '../../lib/settings';
 import {TESTS} from '../../tests';
 import {untilReset} from '../../lib/week';
+import BackupSection from './Backup';
 import {download, resultsCsv, type AdminData} from './data';
 
 export default function SettingsTab({data}: {data: AdminData}) {
@@ -82,6 +83,8 @@ export default function SettingsTab({data}: {data: AdminData}) {
           <Download size={16} /> CSV татах ({data.results.length})
         </button>
       </section>
+
+      <BackupSection />
 
       <section className="rounded-2xl bg-neutral-900 p-5 text-sm text-neutral-400">
         <h2 className="font-semibold text-neutral-100">Анхаарах зүйл</h2>
