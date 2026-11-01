@@ -391,7 +391,7 @@
         "$tid": {
           "$pid": {
             ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && root.child('topics').child($tid).child('published').val() === true && $pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && !root.child('topicMarks').child($uid).child($tid).child($pid).exists()",
-            ".validate": "newData.hasChildren(['img', 'at'])",
+            ".validate": "newData.hasChildren(['img', 'at']) && newData.parent().parent().parent().parent().child('topicProgress').child($uid).child($tid).child($pid).exists()",
             "img": {
               ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 500000"
             },
@@ -615,14 +615,18 @@
         ".validate": "newData.isNumber() && newData.val() >= 0"
       }
     },
+    "liveQ": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
     "livePlayers": {
       ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && root.child('live').child('state').exists() && root.child('live').child('state').val() !== 'done' && !data.exists()",
+        ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && root.child('live').child('state').exists() && root.child('live').child('state').val() !== 'done' && !data.exists() && (!root.child('live').child('classes').exists() || (root.child('users').child($uid).child('class').exists() && root.child('live').child('classes').child(root.child('users').child($uid).child('class').val()).exists()))",
         ".validate": "newData.hasChildren(['name', 'at'])",
         "name": {
-          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"
+          ".validate": "newData.isString() && (newData.val() === root.child('users').child($uid).child('nickname').val() || newData.val() === '@' + root.child('users').child($uid).child('username').val())"
         },
         "at": {
           ".validate": "newData.val() === now"
@@ -637,7 +641,8 @@
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$i": {
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('livePlayers').child($uid).exists() && root.child('live').child('state').val() === 'q' && root.child('live').child('cur').val() + '' === $i && now <= root.child('live').child('qStart').val() + root.child('live').child('dur').val() * 1000 + 2000",
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('livePlayers').child($uid).exists() && root.child('live').child('state').val() === 'q' && !root.child('live').child('closed').exists() && root.child('live').child('cur').val() + '' === $i && now <= root.child('live').child('qStart').val() + root.child('live').child('dur').val() * 1000 + 2000",
           ".validate": "newData.hasChildren(['a', 'at'])",
           "a": {
             ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40"

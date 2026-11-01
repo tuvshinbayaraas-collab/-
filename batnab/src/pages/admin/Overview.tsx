@@ -473,13 +473,14 @@ function QuestionGrid({questions, rate, selected, onSelect, link}: {questions: Q
           const r = rate(q);
           const c = r === null ? null : rampOf(r);
           const label = `${q.i + 1}-р бодлого: ${r === null ? 'түлхүүргүй' : `${Math.round(r)}% зөв`}${r !== null && r < 50 ? ', хүнд' : ''}`;
-          const cls = `relative flex aspect-square flex-col items-center justify-center rounded-lg leading-tight outline-none focus-visible:ring-2 focus-visible:ring-white hover:brightness-110 ${selected === q.i ? 'ring-2 ring-white ring-offset-2 ring-offset-neutral-900' : ''}`;
+          const cls = `relative flex aspect-square flex-col items-center justify-center rounded-lg leading-tight outline-none focus-visible:ring-2 focus-visible:ring-neutral-50 hover:brightness-110 ${selected === q.i ? 'ring-2 ring-neutral-50 ring-offset-2 ring-offset-neutral-900' : ''}`;
           const style = c ? {background: c.bg, color: c.fg} : {background: 'var(--color-neutral-800)', color: 'var(--color-neutral-400)'};
           const body = (
             <>
               <span className="text-[10px] opacity-80">{q.i + 1}</span>
               <span className="text-sm font-semibold tabular-nums">{r === null ? '—' : Math.round(r)}</span>
-              {r !== null && r < 50 && <AlertTriangle size={10} className="absolute right-1 top-1 text-amber-400" aria-hidden />}
+              {/* On the cell's own (fixed) colour: the dark look's warning colour in either look. */}
+              {r !== null && r < 50 && <AlertTriangle size={10} color="#fab219" className="absolute right-1 top-1" aria-hidden />}
             </>
           );
           return link ? (

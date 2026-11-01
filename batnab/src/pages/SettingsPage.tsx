@@ -11,7 +11,7 @@ import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {useTheme, type Theme} from '../lib/theme';
+import {lightSupported, useTheme, type Theme} from '../lib/theme';
 import {testInfo} from '../tests';
 
 /** The menu's "Тохиргоо": the user's own settings, saved to their account. */
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<PrefKey | null>(null);
   const [saved, flash] = useSavedNote();
-  const [theme, setTheme] = useTheme();
+  const {theme, setTheme} = useTheme();
 
   if (session.ready && !session.user) return <LockedNote text="Тохиргоогоо өөрчлөхийн тулд нэвтэрнэ үү." />;
   if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
@@ -114,7 +114,9 @@ export default function SettingsPage() {
           <Icon tone="violet">{theme === 'light' ? <Sun size={18} /> : theme === 'auto' ? <Monitor size={18} /> : <Moon size={18} />}</Icon>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Загвар</span>
-            <span className="mt-0.5 block text-[13px] leading-snug text-neutral-400">Бараан эсвэл гэрэлтэй (проектор, хэвлэхэд тохиромжтой). Энэ төхөөрөмж дээр хадгалагдана.</span>
+            <span className="mt-0.5 block text-[13px] leading-snug text-neutral-400">
+              {lightSupported ? 'Бараан эсвэл гэрэлтэй (проектор, хэвлэхэд тохиромжтой). Энэ төхөөрөмж дээр хадгалагдана.' : 'Энэ хөтөч гэрэлтэй загварыг харуулж чадахгүй (шинэчлэхэд болно).'}
+            </span>
           </span>
           <div className="flex w-full rounded-full bg-neutral-800 p-1 text-sm sm:w-auto" role="radiogroup" aria-label="Загвар">
             {THEMES.map(([t, label, icon]) => (
@@ -123,8 +125,9 @@ export default function SettingsPage() {
                 type="button"
                 role="radio"
                 aria-checked={theme === t}
+                disabled={t !== 'dark' && !lightSupported}
                 onClick={() => setTheme(t)}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 font-medium sm:flex-none ${theme === t ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 font-medium disabled:opacity-40 sm:flex-none ${theme === t ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
                 {icon} {label}
               </button>

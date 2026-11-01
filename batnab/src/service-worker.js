@@ -64,10 +64,12 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const href = event.notification.data?.href || '/';
   event.waitUntil(
-    self.clients.matchAll({type: 'window', includeUncontrolled: true}).then((list) => {
+    self.clients.matchAll({type: 'window'}).then((list) => {
+      // An open page goes there itself (the site's own navigation: nothing unsaved lost); otherwise a new window.
       const open = list.find((c) => new URL(c.url).origin === self.location.origin);
-      if (open) return open.focus().then((c) => c.navigate(href));
-      return self.clients.openWindow(href);
+      if (!open) return self.clients.openWindow(href);
+      open.postMessage({type: 'batnab-open', href});
+      return open.focus().catch(() => {});
     }),
   );
 });

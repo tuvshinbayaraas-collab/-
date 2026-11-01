@@ -3,7 +3,7 @@ import {lazy, Suspense, useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {useTheme} from '../lib/theme';
+import {lightSupported, useTheme} from '../lib/theme';
 import Avatar from './Avatar';
 import {openGuide} from '../lib/guide';
 import {BetaBadge, useGetApp} from './GetApp';
@@ -21,9 +21,8 @@ export default function Header() {
   const guideRole = useGuideRole();
   const settings = useSettings();
   const name = shownName(profile);
-  const [, setTheme] = useTheme();
   // What's on the page now ("Төхөөрөмжийн" included): the menu offers the other one.
-  const light = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
+  const {light, setTheme} = useTheme();
 
   const item = (href: string, icon: ReactNode, label: string) => (
     <Link href={href} onClick={() => setMenuOpen(false)} className="flex items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700">
@@ -86,15 +85,17 @@ export default function Header() {
                       <CircleHelp size={20} /> Заавар
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setTheme(light ? 'dark' : 'light');
-                    }}
-                    className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
-                  >
-                    {light ? <Moon size={20} /> : <Sun size={20} />} {light ? 'Бараан загвар' : 'Гэрэлтэй загвар'}
-                  </button>
+                  {lightSupported && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setTheme(light ? 'dark' : 'light');
+                      }}
+                      className="flex w-full items-center gap-4 px-4 py-2.5 text-sm hover:bg-neutral-700"
+                    >
+                      {light ? <Moon size={20} /> : <Sun size={20} />} {light ? 'Бараан загвар' : 'Гэрэлтэй загвар'}
+                    </button>
+                  )}
                   {!app.installed && (
                     <button
                       onClick={() => {

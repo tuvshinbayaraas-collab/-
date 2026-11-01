@@ -2,7 +2,7 @@ import {CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCirc
 import {useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
 import {forClass} from '../lib/live';
-import {useLiveQuiz} from '../lib/liveQuiz';
+import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
 import {usePrefs} from '../lib/prefs';
 import {useMyResults} from '../lib/results';
@@ -119,7 +119,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
 
   return (
     <div className="mt-5 space-y-3">
-      {live && live.state !== 'done' && forClass(live.classes, classId) && (
+      {liveOn(live, now) && forClass(live.classes, classId) && (
         <Link href="/live" className="flex items-center gap-3 rounded-2xl bg-pink-500 p-4 text-black hover:bg-pink-400">
           <Zap size={24} className="shrink-0" />
           <span className="min-w-0 flex-1">

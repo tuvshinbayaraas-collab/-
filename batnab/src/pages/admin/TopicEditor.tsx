@@ -6,7 +6,7 @@ import VideoEmbed, {videoSource} from '../../components/VideoEmbed';
 import {useClasses} from '../../lib/classes';
 import {chunks} from '../../lib/ocr';
 import {imageFile} from '../../lib/photo';
-import {Link, navigate} from '../../lib/router';
+import {Link, navigate, useLocation} from '../../lib/router';
 import {
   copyTopic,
   deleteTopic,
@@ -71,6 +71,12 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const [answers, setAnswers] = useState<Record<string, string>>(() => ({...keys}));
   const [saved, setSaved] = useState(() => snapshot(topic, keys));
   const [mode, setMode] = useState<'edit' | 'check' | 'results'>(() => (new URLSearchParams(location.search).has('check') ? 'check' : 'edit'));
+  // Sent to "Шалгах" while already here (the bell's "answers to check"): there it goes.
+  const {query} = useLocation();
+  const toCheck = query.has('check');
+  useEffect(() => {
+    if (toCheck) setMode('check');
+  }, [toCheck]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, flash] = useSavedNote();
@@ -149,7 +155,8 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
     deleted.current = true;
     const ok = await deleteTopic(
       draft.id,
-      data.students.map((s) => s.uid),
+      // Everyone with answers in it (students deleted since included).
+      [...new Set([...data.students.map((s) => s.uid), ...Object.keys(progress ?? {})])],
     ).then(
       () => true,
       (e) => alert(`Алдаа: ${(e as Error).message}`),

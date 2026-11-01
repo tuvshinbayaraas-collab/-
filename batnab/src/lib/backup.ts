@@ -54,16 +54,21 @@ export interface Backup {
   data: Record<string, unknown>;
 }
 
-/** Reads it all (`onStep`: which part, out of how many). */
+/**
+ * Reads it all (`onStep`: which part, out of how many). A part that can't be read fails the whole backup (a file
+ * missing a part would pass for a full one); only one the rules don't let the teacher read (none now) is left out.
+ */
 export async function makeBackup(onStep?: (done: number, total: number) => void): Promise<Backup> {
   const data: Record<string, unknown> = {};
   let done = 0;
   await Promise.all(
     NODES.map(async ([node]) => {
-      // A part the rules don't let the teacher read (none now) is left out rather than failing the whole backup.
       const v = await get(ref(db, node)).then(
         (s) => s.val(),
-        () => undefined,
+        (e: Error) => {
+          if (/permission/i.test(e.message)) return undefined;
+          throw new Error(`«${node}» хэсгийг уншиж чадсангүй (${e.message})`);
+        },
       );
       if (v !== undefined && v !== null) data[node] = v;
       onStep?.(++done, NODES.length);
@@ -110,34 +115,57 @@ export const partCounts = (b: Backup) =>
 /** One write stays under this (a topic's pictures can be large: they go a few at a time). */
 const LIMIT = 4_000_000;
 
-/** Puts the chosen parts back; returns how many records were written. */
+/** A student's record as it can go back: no class that no longer exists, no photo while photos are off. */
+function fitUser(v: unknown, classes: Set<string>, photos: boolean) {
+  if (!v || typeof v !== 'object') return v;
+  const u = {...(v as Record<string, unknown>)};
+  if (typeof u.class === 'string' && !classes.has(u.class)) delete u.class;
+  if (typeof u.photo === 'string' && !u.photo.startsWith('avatar:') && !photos) delete u.photo;
+  return u;
+}
+
+/**
+ * Puts the chosen parts back, part by part (one that fails doesn't stop the others). Returns how many records were
+ * written and the parts that failed, with why.
+ */
 export async function restoreBackup(b: Backup, parts: PartId[], onStep?: (done: number, total: number) => void) {
-  const ops: [string, unknown][] = [];
-  for (const p of PARTS.filter((x) => parts.includes(x.id)))
-    for (const node of p.nodes) {
+  const chosen = PARTS.filter((x) => parts.includes(x.id));
+  // What a student's record may point to: the classes there are (and those coming back), whether photos are on.
+  const [classesNow, photosNow] = await Promise.all([get(ref(db, 'classes')).then((s) => s.val() ?? {}), get(ref(db, 'settings/photos')).then((s) => s.val())]);
+  const classes = new Set([...Object.keys(classesNow as object), ...(parts.includes('classes') ? Object.keys((b.data.classes ?? {}) as object) : [])]);
+  // Each part's writes, in batches of about LIMIT characters.
+  const jobs: {part: (typeof PARTS)[number]; batch: Record<string, unknown>}[] = [];
+  for (const part of chosen) {
+    let cur: Record<string, unknown> = {};
+    let size = 0;
+    for (const node of part.nodes) {
       const depth = NODES.find(([n]) => n === node)![1];
-      if (b.data[node] !== undefined) ops.push(...records(node, b.data[node], depth));
+      if (b.data[node] === undefined) continue;
+      for (const [path, raw] of records(node, b.data[node], depth)) {
+        const v = node === 'users' ? fitUser(raw, classes, photosNow !== false) : raw;
+        const n = JSON.stringify(v ?? null).length + path.length;
+        if (size && size + n > LIMIT) {
+          jobs.push({part, batch: cur});
+          cur = {};
+          size = 0;
+        }
+        cur[path] = v;
+        size += n;
+      }
     }
-  // In batches of about LIMIT characters.
-  const batches: Record<string, unknown>[] = [];
-  let cur: Record<string, unknown> = {};
-  let size = 0;
-  for (const [path, v] of ops) {
-    const n = JSON.stringify(v ?? null).length + path.length;
-    if (size && size + n > LIMIT) {
-      batches.push(cur);
-      cur = {};
-      size = 0;
-    }
-    cur[path] = v;
-    size += n;
+    if (size) jobs.push({part, batch: cur});
   }
-  if (size) batches.push(cur);
-  for (const [i, batch] of batches.entries()) {
-    await update(ref(db), batch);
-    onStep?.(i + 1, batches.length);
+  let written = 0;
+  const failed = new Map<string, string>();
+  for (const [i, job] of jobs.entries()) {
+    if (!failed.has(job.part.label))
+      await update(ref(db), job.batch).then(
+        () => (written += Object.keys(job.batch).length),
+        (e: Error) => failed.set(job.part.label, e.message),
+      );
+    onStep?.(i + 1, jobs.length);
   }
-  return ops.length;
+  return {written, failed: [...failed.entries()]};
 }
 
 const LAST = 'batnab.lastBackup';

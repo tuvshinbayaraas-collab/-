@@ -72,7 +72,7 @@ function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; 
       setFile(null);
       onSent();
     } catch (e) {
-      setError(/permission/i.test((e as Error).message) ? 'Багш аль хэдийн шалгасан тул зураг солих боломжгүй.' : (e as Error).message);
+      setError(/permission/i.test((e as Error).message) ? 'Зургийг илгээж чадсангүй: багш шалгасан, эсвэл сэдэв хаагдсан байж магадгүй. Хуудсаа дахин ачаална уу.' : (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -175,6 +175,8 @@ export function ProblemView(props: {
   const [photo, setPhoto] = useState<File | null>(null);
   const [sentPhoto, setSentPhoto] = useState(false);
   const withPhoto = byTeacher && !teacher;
+  // A photo alone is an answer only where one is written (an А–Д problem needs its letter, the key may be picked later).
+  const photoAlone = withPhoto && p.kind === 'answer';
   const uid = auth.currentUser?.uid;
 
   // Answered before: show how it went.
@@ -200,7 +202,7 @@ export function ProblemView(props: {
   const value = p.kind === 'choice' ? pick : byTeacher ? pick.trim().slice(0, 300) : normalize(pick);
   const check = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!value && !(withPhoto && photo && !first)) return;
+    if (!value && !(photoAlone && photo && !first)) return;
     setBusy(true);
     setError('');
     try {
@@ -331,7 +333,7 @@ export function ProblemView(props: {
           )}
           {!done && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button disabled={busy || (!value && !(withPhoto && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+              <button disabled={busy || (!value && !(photoAlone && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
                 {busy ? (byTeacher ? 'Илгээж байна…' : 'Шалгаж байна…') : byTeacher ? 'Багшид илгээх' : 'Шалгах'}
               </button>
               {!practice && !first && !teacher && <span className="text-xs text-neutral-500">{byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}</span>}

@@ -22,7 +22,7 @@ const LOOK = {
   exam: {
     border: 'bg-[linear-gradient(90deg,#b45309,#f59e0b,#fde68a,#fbbf24,#b45309)]',
     glow: 'shadow-[0_0_48px_-12px_rgba(251,191,36,0.8)]',
-    text: 'bg-[linear-gradient(90deg,#f59e0b,#fde68a,#fbbf24,#fff7d6,#f59e0b)]',
+    text: 'perfect-gold bg-[linear-gradient(90deg,#f59e0b,#fde68a,#fbbf24,#fff7d6,#f59e0b)]',
     chip: 'bg-[linear-gradient(90deg,#f59e0b,#fde68a,#fbbf24)] text-black',
     colors: GOLD,
   },

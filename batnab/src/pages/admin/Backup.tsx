@@ -115,8 +115,9 @@ function Restore({file, onClose, onDone}: {file: Backup; onClose: () => void; on
     setError('');
     setBusy('Сэргээж байна…');
     try {
-      const n = await restoreBackup(file, [...chosen], (i, total) => setBusy(`Сэргээж байна… ${Math.round((i / total) * 100)}%`));
-      onDone(n);
+      const {written, failed} = await restoreBackup(file, [...chosen], (i, total) => setBusy(`Сэргээж байна… ${Math.round((i / total) * 100)}%`));
+      if (failed.length) setError(`${written} зүйл сэргээгдсэн. Сэргээж чадаагүй: ${failed.map(([part, why]) => `${part} (${why})`).join('; ')}`);
+      else onDone(written);
     } catch (e) {
       setError(`Сэргээж чадсангүй: ${(e as Error).message}. Хэсэг нь сэргээгдсэн байж магадгүй: дахин оролдож болно.`);
     } finally {

@@ -1,6 +1,6 @@
 import {Bell as BellIcon, BellRing, CalendarClock, ClipboardCheck, Megaphone, MessageCircleQuestion, MessageCircleReply, Trophy, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type ReactNode} from 'react';
-import {canNotify, showSystemNote, useNotes, type NoteKind} from '../lib/notifications';
+import {canNotify, showSystemNote, useNotes, type Note, type NoteKind} from '../lib/notifications';
 import {Link} from '../lib/router';
 import {timeAgo} from '../pages/admin/data';
 
@@ -29,19 +29,23 @@ export default function Bell() {
   useEffect(() => {
     const nav = navigator as Navigator & {setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void>};
     (fresh ? nav.setAppBadge?.(fresh) : nav.clearAppBadge?.())?.catch(() => {});
+    // Signed out: no count left on the icon.
+    return () => void nav.clearAppBadge?.()?.catch(() => {});
   }, [fresh]);
 
-  // A note that arrives while the site is in another tab or app: on the device's own list too.
+  // A note that arrives while the site is in another tab or app: on the device's own list too (again when one comes
+  // back newer, as more answers to check in a topic).
   const told = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (!notes) return;
+    const key = (n: Note) => `${n.id}:${n.at}`;
     if (!told.current) {
-      told.current = new Set(notes.map((n) => n.id));
+      told.current = new Set(notes.map(key));
       return;
     }
     for (const n of notes)
-      if (!told.current.has(n.id)) {
-        told.current.add(n.id);
+      if (!told.current.has(key(n))) {
+        told.current.add(key(n));
         if (n.at > seen) showSystemNote(n);
       }
   }, [notes, seen]);

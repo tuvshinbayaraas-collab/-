@@ -1,6 +1,7 @@
 import {Check, Crown, Play, Timer, Trophy, Users, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
+import MathText from '../components/MathText';
 import {Rich} from '../components/TopicParts';
 import ZoomView from '../components/ZoomView';
 import {useClasses} from '../lib/classes';
@@ -12,6 +13,7 @@ import {
   finishLive,
   joinLive,
   LIVE_COLORS,
+  liveOn,
   openQuestion,
   quizzable,
   ranking,
@@ -20,8 +22,10 @@ import {
   startLive,
   useLiveAnswers,
   useLivePlayers,
+  useLiveQuestion,
   useLiveQuizState,
   useLiveScores,
+  useMyLiveAnswer,
   type LiveQuestion,
   type LiveQuiz,
 } from '../lib/liveQuiz';
@@ -227,6 +231,7 @@ function Board({quiz}: {quiz: LiveQuiz}) {
   const players = useLivePlayers() ?? [];
   const scores = useLiveScores() ?? {};
   const answers = useLiveAnswers(quiz.state === 'q' || quiz.state === 'reveal' ? quiz.cur : null) ?? {};
+  const question = useLiveQuestion();
   const now = useNow(250);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -244,16 +249,21 @@ function Board({quiz}: {quiz: LiveQuiz}) {
       setBusy(false);
     }
   };
-  // Time's up, or everyone has answered: the answer shows by itself (once).
+  // Time's up (and a moment for an answer sent in the last second to arrive), or everyone has answered: the answer
+  // shows by itself. Tried again on the next change if it failed (the reveal can run twice safely).
   const revealed = useRef(-1);
+  const over = quiz.state === 'q' && !!quiz.qStart && now >= quiz.qStart + quiz.dur * 1000 + 1500;
   useEffect(() => {
     if (quiz.state !== 'q' || revealed.current === quiz.cur || !quiz.qStart) return;
-    if (left === 0 || (players.length > 0 && answered >= players.length)) {
+    if (over || (players.length > 0 && answered >= players.length)) {
       revealed.current = quiz.cur;
-      void run(() => revealQuestion(quiz));
+      void revealQuestion(quiz).catch((e) => {
+        revealed.current = -1;
+        setError((e as Error).message);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quiz.state, quiz.cur, left, answered, players.length]);
+  }, [quiz.state, quiz.cur, over, answered, players.length]);
 
   const next = () => (t ? run(() => openQuestion(t, quiz, quiz.state === 'lobby' ? 0 : quiz.cur + 1)) : setError('Сэдэв олдсонгүй (устгагдсан байж магадгүй).'));
   const last = quiz.cur + 1 >= quiz.pids.length;
@@ -299,10 +309,10 @@ function Board({quiz}: {quiz: LiveQuiz}) {
         </section>
       )}
 
-      {(quiz.state === 'q' || quiz.state === 'reveal') && quiz.q && (
+      {(quiz.state === 'q' || quiz.state === 'reveal') && question && (
         <section className="space-y-5 rounded-3xl bg-neutral-900 p-5 sm:p-8">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="mr-auto text-lg font-semibold text-neutral-300">{quiz.q.no}-р бодлого</h2>
+            <h2 className="mr-auto text-lg font-semibold text-neutral-300">{question.no}-р бодлого</h2>
             {quiz.state === 'q' && (
               <span className="text-sm text-neutral-400">
                 {answered}/{players.length} хариулсан
@@ -310,9 +320,9 @@ function Board({quiz}: {quiz: LiveQuiz}) {
             )}
             {quiz.state === 'q' && <Countdown left={left} dur={quiz.dur} big />}
           </div>
-          <Question q={quiz.q} big />
-          {quiz.q.kind === 'choice' ? (
-            <Choices q={quiz.q} keyed={quiz.state === 'reveal' ? quiz.key : undefined} counts={quiz.state === 'reveal' ? countBy(answers) : undefined} big />
+          <Question q={question} big />
+          {question.kind === 'choice' ? (
+            <Choices q={question} keyed={quiz.state === 'reveal' ? quiz.key : undefined} counts={quiz.state === 'reveal' ? countBy(answers) : undefined} big />
           ) : (
             quiz.state === 'reveal' && (
               <p className="text-2xl font-bold">
@@ -352,7 +362,7 @@ function Board({quiz}: {quiz: LiveQuiz}) {
           <ol className="mx-auto max-w-md divide-y divide-neutral-800 rounded-2xl bg-neutral-800/40">
             {ranked.map((r, i) => (
               <li key={r.uid} className="flex items-center gap-3 px-4 py-2">
-                <span className="w-6 text-right font-semibold tabular-nums text-neutral-400">{i + 1}.</span>
+                <span className="w-6 text-right font-semibold tabular-nums text-neutral-400">{r.place}.</span>
                 <span className="min-w-0 flex-1 truncate">{r.name}</span>
                 <span className="font-semibold tabular-nums">{r.score}</span>
               </li>
@@ -395,7 +405,11 @@ function Choices({q, keyed, counts, big, picked, onPick, disabled}: {q: LiveQues
             className={`relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 text-left font-bold text-white transition-opacity ${LIVE_COLORS[l]} ${big ? 'min-h-20 text-2xl' : 'min-h-16 text-xl'} ${dim ? 'opacity-35' : ''} ${picked === l ? 'ring-4 ring-neutral-50' : ''} ${l === 'E' ? 'col-span-2' : ''}`}
           >
             <span className="shrink-0">{LETTER_LABELS[l]}</span>
-            {text && <span className="min-w-0 text-base font-semibold [overflow-wrap:anywhere]">{text}</span>}
+            {text && (
+              <span className="min-w-0 text-base font-semibold [overflow-wrap:anywhere]">
+                <MathText text={text} />
+              </span>
+            )}
             {right && <Check size={big ? 28 : 22} className="ml-auto shrink-0" />}
             {counts && (
               <span className="ml-auto shrink-0 rounded-full bg-black/25 px-2.5 py-0.5 text-base tabular-nums">
@@ -413,9 +427,9 @@ function Choices({q, keyed, counts, big, picked, onPick, disabled}: {q: LiveQues
 function Top({ranked}: {ranked: ReturnType<typeof ranking>}) {
   return (
     <ol className="min-w-64 flex-1 space-y-1.5">
-      {ranked.map((r, i) => (
+      {ranked.map((r) => (
         <li key={r.uid} className="flex items-center gap-3 rounded-xl bg-neutral-800/60 px-3 py-2">
-          <span className="w-6 text-right font-bold tabular-nums">{i + 1}</span>
+          <span className="w-6 text-right font-bold tabular-nums">{r.place}</span>
           <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
           {r.last > 0 && <span className="text-sm font-semibold text-green-300">+{r.last}</span>}
           <span className="w-16 text-right font-bold tabular-nums">{r.score}</span>
@@ -427,22 +441,23 @@ function Top({ranked}: {ranked: ReturnType<typeof ranking>}) {
 
 function Podium({ranked}: {ranked: ReturnType<typeof ranking>}) {
   const [first, second, third] = ranked;
-  const step = (r: (typeof ranked)[number] | undefined, place: number, h: string, tone: string) =>
+  // The same score shares a place (the step shows it), the first one in order stands highest.
+  const step = (r: (typeof ranked)[number] | undefined, h: string, tone: string) =>
     r ? (
       <div className="flex w-28 flex-col items-center sm:w-36">
-        {place === 1 && <Crown size={32} className="mb-1 text-amber-300" />}
+        {r.place === 1 && <Crown size={32} className="mb-1 text-amber-300" />}
         <p className="max-w-full truncate font-bold">{r.name}</p>
         <p className="text-sm tabular-nums text-neutral-400">{r.score}</p>
-        <div className={`mt-2 flex w-full items-start justify-center rounded-t-xl pt-2 text-3xl font-extrabold text-black ${tone} ${h}`}>{place}</div>
+        <div className={`mt-2 flex w-full items-start justify-center rounded-t-xl pt-2 text-3xl font-extrabold text-black ${tone} ${h}`}>{r.place}</div>
       </div>
     ) : (
       <div className="w-28 sm:w-36" />
     );
   return (
     <div className="flex items-end justify-center gap-2 sm:gap-4">
-      {step(second, 2, 'h-24', 'bg-neutral-300')}
-      {step(first, 1, 'h-36', 'bg-amber-400')}
-      {step(third, 3, 'h-16', 'bg-orange-400')}
+      {step(second, 'h-24', 'bg-slate-300')}
+      {step(first, 'h-36', 'bg-amber-400')}
+      {step(third, 'h-16', 'bg-orange-400')}
     </div>
   );
 }
@@ -457,38 +472,27 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
   const now = useNow(250);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
-  // What was sent this quiz, by question (kept over a reload: the rules accept one answer only).
-  const storeKey = quiz ? `batnab.live.${quiz.startedAt}.${uid}` : '';
-  const [sent, setSent] = useState<Record<number, string>>({});
-  useEffect(() => {
-    try {
-      setSent(storeKey ? JSON.parse(sessionStorage.getItem(storeKey) ?? '{}') : {});
-    } catch {
-      setSent({});
-    }
-  }, [storeKey]);
-  const remember = (i: number, a: string) => {
-    const next = {...sent, [i]: a};
-    setSent(next);
-    try {
-      sessionStorage.setItem(storeKey, JSON.stringify(next));
-    } catch {
-      // private window: for this page only
-    }
-  };
+  const asking = !!quiz && (quiz.state === 'q' || quiz.state === 'reveal');
+  const question = useLiveQuestion(asking);
+  // The answer the server has from this student (on any of their devices): the rules take one only.
+  const myAnswer = useMyLiveAnswer(asking ? quiz.cur : null, uid);
+  const [sending, setSending] = useState<{i: number; a: string} | null>(null);
+  // An answer refused (too late: the question had closed).
+  const [refused, setRefused] = useState<number | null>(null);
   const [typed, setTyped] = useState('');
   useEffect(() => setTyped(''), [quiz?.cur]);
 
   if (!state) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
-  if (!quiz || !forClass(quiz.classes, classId))
+  const me = quiz ? players.find((p) => p.uid === uid) : undefined;
+  // Not for this class, or left open and forgotten (and not joined): nothing to join.
+  if (!quiz || !forClass(quiz.classes, classId) || (!me && !liveOn(quiz, now)))
     return (
       <CenterNote icon={<Zap size={36} />} title="Одоогоор шууд тэмцээн алга">
         <p>Багш тэмцээн нээхэд энд болон нүүр хуудсанд гарна.</p>
       </CenterNote>
     );
-  const me = players.find((p) => p.uid === uid);
   const ranked = ranking(players, scores);
-  const place = ranked.findIndex((r) => r.uid === uid) + 1;
+  const place = ranked.find((r) => r.uid === uid)?.place ?? 0;
   const mine = scores[uid];
   // This question's result (the scores of the one before may still be showing for a moment).
   const result = mine && mine.q === quiz.cur ? mine : null;
@@ -505,14 +509,18 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
     }
   };
   const answer = async (a: string) => {
-    if (!a || sent[quiz.cur] !== undefined) return;
-    remember(quiz.cur, a);
+    if (!a || myAnswer !== null || sending) return;
+    const i = quiz.cur;
+    setSending({i, a});
     setError('');
     try {
-      await answerLive(quiz.cur, a);
+      await answerLive(i, a);
     } catch (e) {
-      // Too late, or already answered from another device: what was sent stands.
-      if (!/permission/i.test((e as Error).message)) setError((e as Error).message);
+      // Too late (the question closed), or answered already from another device.
+      if (/permission/i.test((e as Error).message)) setRefused(i);
+      else setError((e as Error).message);
+    } finally {
+      setSending(null);
     }
   };
 
@@ -535,7 +543,7 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
     );
 
   const left = quiz.state === 'q' ? secondsLeft(quiz, now) : 0;
-  const mineNow = sent[quiz.cur];
+  const mineNow = myAnswer ?? (sending?.i === quiz.cur ? sending.a : null);
   return (
     <div className="mx-auto max-w-xl space-y-4 py-2">
       <header className="flex items-center gap-2">
@@ -556,21 +564,22 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
         </div>
       )}
 
-      {quiz.state === 'q' && quiz.q && (
+      {quiz.state === 'q' && question && (
         <div className="space-y-4 rounded-3xl bg-neutral-900 p-4 sm:p-5">
           <div className="flex items-center gap-2">
-            <span className="mr-auto font-semibold text-neutral-300">{quiz.q.no}-р бодлого</span>
+            <span className="mr-auto font-semibold text-neutral-300">{question.no}-р бодлого</span>
             <Countdown left={left} dur={quiz.dur} />
           </div>
-          <Question q={quiz.q} />
-          {mineNow !== undefined ? (
+          <Question q={question} />
+          {mineNow !== null ? (
             <p className="rounded-2xl bg-neutral-800 p-4 text-center font-semibold">
-              Хариулт илгээгдлээ{quiz.q.kind === 'choice' ? `: ${label(mineNow)}` : `: ${mineNow}`}. Бусдыг хүлээж байна…
+              {myAnswer === null ? 'Илгээж байна' : 'Хариулт илгээгдлээ'}
+              {question.kind === 'choice' ? `: ${label(mineNow)}` : `: ${mineNow}`}. {myAnswer !== null && 'Бусдыг хүлээж байна…'}
             </p>
-          ) : left === 0 ? (
-            <p className="rounded-2xl bg-neutral-800 p-4 text-center font-semibold text-neutral-300">Хугацаа дууслаа.</p>
-          ) : quiz.q.kind === 'choice' ? (
-            <Choices q={quiz.q} onPick={(l) => void answer(l)} />
+          ) : left === 0 || refused === quiz.cur ? (
+            <p className="rounded-2xl bg-neutral-800 p-4 text-center font-semibold text-neutral-300">Хугацаа дууслаа{refused === quiz.cur ? ': хариулт хүлээж авсангүй' : ''}.</p>
+          ) : question.kind === 'choice' ? (
+            <Choices q={question} onPick={(l) => void answer(l)} disabled={!!sending} />
           ) : (
             <form
               onSubmit={(e: FormEvent) => {
@@ -589,7 +598,7 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
         </div>
       )}
 
-      {quiz.state === 'reveal' && quiz.q && (
+      {quiz.state === 'reveal' && question && (
         <div className={`rounded-3xl p-6 text-center ${result?.ok ? 'bg-green-500/15' : 'bg-red-500/10'}`}>
           {result?.ok ? (
             <>
@@ -599,8 +608,8 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
           ) : (
             <>
               <X size={40} className="mx-auto text-red-300" />
-              <p className="mt-2 text-2xl font-bold text-red-300">{mineNow === undefined ? 'Хариулаагүй' : 'Буруу'}</p>
-              <p className="mt-1 text-neutral-300">Зөв хариулт: {quiz.q.kind === 'choice' ? label(quiz.key ?? '') : quiz.key}</p>
+              <p className="mt-2 text-2xl font-bold text-red-300">{(result ? result.a : mineNow !== null) ? 'Буруу' : 'Хариулаагүй'}</p>
+              <p className="mt-1 text-neutral-300">Зөв хариулт: {question.kind === 'choice' ? label(quiz.key ?? '') : quiz.key}</p>
             </>
           )}
           {place > 0 && (

@@ -8,9 +8,10 @@ import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
 import {useMedals} from './leaderboard';
-import {useLiveQuiz} from './liveQuiz';
+import {liveOn, useLiveQuiz} from './liveQuiz';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
+import {navigate} from './router';
 import {useSession} from './session';
 import {clock, dayLabel, serverNow, useNow} from './time';
 import {problemNo, useAllMarks, useAllProgress, useAllTopicKeys, useMarks, useProgress, useTopics, verdict} from './topics';
@@ -52,7 +53,8 @@ export function useSeen(uid: string | undefined) {
   useEffect(() => setSeen(uid ? readSeen(uid) : 0), [uid]);
   const markAll = () => {
     if (!uid) return;
-    const now = Math.max(Date.now(), serverNow());
+    // The server's time, as the notes have (a phone's clock running fast would hide the next ones).
+    const now = serverNow();
     try {
       localStorage.setItem(seenKey(uid), String(now));
     } catch {
@@ -77,7 +79,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   const medals = useMedals(on ? uid : undefined, on);
   const live = useLiveQuiz(on);
   if (!on || !uid) return [];
-  if (!assignments || !announcements || !topics || !progress || !marks || !questions) return null;
+  if (!assignments || !announcements || !exams || !results || !topics || !progress || !marks || !questions) return null;
   const notes: Note[] = [];
   for (const a of assignments.filter((x) => forClass(x.classes, classId))) {
     const title = assignmentTitle(a, topics);
@@ -104,7 +106,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   }
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
   for (const m of medals ?? []) notes.push({id: `md:${m.week}`, kind: 'medal', at: m.week + 7 * DAY, text: `${PLACES[m.place]} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`, href: '/profile'});
-  if (live && live.state !== 'done' && forClass(live.classes, classId)) notes.push({id: `l:${live.startedAt}`, kind: 'live', at: live.startedAt, text: `Шууд тэмцээн эхэллээ: ${live.title}. Нэгдээрэй!`, href: '/live'});
+  if (liveOn(live, now) && forClass(live.classes, classId)) notes.push({id: `l:${live.startedAt}`, kind: 'live', at: live.startedAt, text: `Шууд тэмцээн эхэллээ: ${live.title}. Нэгдээрэй!`, href: '/live'});
   return notes.filter((n) => n.at > now - KEEP && n.at <= now + 60_000).sort((a, b) => b.at - a.at);
 }
 
@@ -119,7 +121,8 @@ function useTeacherNotes(on: boolean): Note[] | null {
   if (!on) return [];
   if (!questions || !topics || !progress || !marks || !keys || !users) return null;
   const notes: Note[] = [];
-  for (const q of questions) if (!q.reply) notes.push({id: `q:${q.uid}/${q.id}`, kind: 'question', at: q.at, text: `Шинэ асуулт: ${users[q.uid]?.name ?? 'Сурагч'} — ${q.ctx.label}`, href: '/admin?tab=questions'});
+  // Not a deleted student's (their question can't be answered from the dashboard any more).
+  for (const q of questions) if (!q.reply && users[q.uid] && !users[q.uid].disabled) notes.push({id: `q:${q.uid}/${q.id}`, kind: 'question', at: q.at, text: `Шинэ асуулт: ${users[q.uid]?.name ?? 'Сурагч'} — ${q.ctx.label}`, href: '/admin?tab=questions'});
   for (const t of topics) {
     let n = 0;
     let last = 0;
@@ -166,9 +169,16 @@ export function showSystemNote(n: Note) {
       const x = new Notification('Batnab', options);
       x.onclick = () => {
         window.focus();
-        location.assign(n.href);
+        navigate(n.href);
       };
     } catch {
       // some phones only allow it from the service worker
     }
 }
+
+// A notification tapped while the site is open: the service worker asks this page to go there (within the site, so an
+// exam in progress is asked about first and nothing unsaved is lost to a reload).
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  const d = e.data as {type?: string; href?: unknown} | null;
+  if (d?.type === 'batnab-open' && typeof d.href === 'string' && d.href.startsWith('/')) navigate(d.href);
+});

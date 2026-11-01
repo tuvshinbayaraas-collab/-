@@ -399,7 +399,6 @@ export async function answer(tid: string, pid: string, a: string, work?: File) {
       [`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()},
       [`topicProgress/${uid}/${tid}/${pid}`]: {a, at: serverTimestamp(), w: true},
     });
-    works.set(`${uid}/${tid}/${pid}`, Promise.resolve(img));
   }
   return readKey(tid, pid);
 }
@@ -410,40 +409,22 @@ export async function sendWork(tid: string, pid: string, file: File) {
   if (!uid) throw new Error('Нэвтэрнэ үү');
   const img = await compress(file);
   await update(ref(db), {[`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()}, [`topicProgress/${uid}/${tid}/${pid}/w`]: true});
-  const p = Promise.resolve(img);
-  works.set(`${uid}/${tid}/${pid}`, p);
-  workListeners.forEach((l) => l());
   return img;
 }
 
-const works = new Map<string, Promise<string | null>>();
-const workListeners = new Set<() => void>();
-/** A student's photo of their working (theirs, or anyone's for the teacher): undefined while loading, null if none. */
+/** A student's photo of their working (theirs, or anyone's for the teacher), kept up to date (replaced while it
+ * waits): undefined while loading, null if none. */
 export function useWork(uid: string | undefined, tid: string, pid: string) {
   const k = `${uid}/${tid}/${pid}`;
   const [state, setState] = useState<{k: string; v: string | null} | null>(null);
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const bump = () => setVersion((n) => n + 1);
-    workListeners.add(bump);
-    return () => void workListeners.delete(bump);
-  }, []);
   useEffect(() => {
     if (!uid) return;
-    let live = true;
-    if (!works.has(k))
-      works.set(
-        k,
-        get(ref(db, `topicWork/${k}/img`)).then(
-          (s) => (typeof s.val() === 'string' ? s.val() : null),
-          () => null,
-        ),
-      );
-    works.get(k)!.then((v) => live && setState({k, v}));
-    return () => {
-      live = false;
-    };
-  }, [k, uid, version]);
+    return onValue(
+      ref(db, `topicWork/${k}/img`),
+      (s) => setState({k, v: typeof s.val() === 'string' ? (s.val() as string) : null}),
+      () => setState({k, v: null}),
+    );
+  }, [k, uid]);
   return state?.k === k ? state.v : undefined;
 }
 

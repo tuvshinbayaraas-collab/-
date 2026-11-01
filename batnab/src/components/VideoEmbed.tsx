@@ -2,7 +2,7 @@ import {ExternalLink, Play} from 'lucide-react';
 import {useState} from 'react';
 
 /** What a video link plays as: YouTube, Google Drive, Vimeo, a video file, or (anything else) a link to open. */
-export type VideoSource = {kind: 'youtube'; id: string; start: number} | {kind: 'drive'; id: string} | {kind: 'vimeo'; id: string} | {kind: 'file'; url: string} | {kind: 'link'; url: string};
+export type VideoSource = {kind: 'youtube'; id: string; start: number} | {kind: 'drive'; id: string} | {kind: 'vimeo'; id: string; hash?: string} | {kind: 'file'; url: string} | {kind: 'link'; url: string};
 
 /** Seconds from YouTube's "t=" ("90", "1m30s", "1h2m3s"). */
 const seconds = (t: string | null) => {
@@ -36,8 +36,9 @@ export function videoSource(link: string): VideoSource | null {
     if (id) return {kind: 'drive', id};
   }
   if (host === 'vimeo.com' || host === 'player.vimeo.com') {
-    const id = /\/(?:video\/)?(\d+)/.exec(u.pathname)?.[1];
-    if (id) return {kind: 'vimeo', id};
+    // vimeo.com/123, vimeo.com/123/abcdef (unlisted: its hash), …/showcase/9/video/123, player.vimeo.com/video/123?h=…
+    const m = /(?:^|\/video)\/(\d+)(?:\/([\da-f]+))?\/?$/.exec(u.pathname) ?? /\/(\d+)(?:\/([\da-f]+))?\/?$/.exec(u.pathname);
+    if (m) return {kind: 'vimeo', id: m[1], hash: m[2] ?? u.searchParams.get('h') ?? undefined};
   }
   if (/\.(mp4|webm|ogv|mov|m4v)$/i.test(u.pathname)) return {kind: 'file', url: u.href};
   return {kind: 'link', url: u.href};
@@ -49,7 +50,7 @@ const frame = (s: VideoSource) =>
     : s.kind === 'drive'
       ? `https://drive.google.com/file/d/${s.id}/preview`
       : s.kind === 'vimeo'
-        ? `https://player.vimeo.com/video/${s.id}?autoplay=1`
+        ? `https://player.vimeo.com/video/${s.id}?autoplay=1${s.hash ? `&h=${s.hash}` : ''}`
         : '';
 
 /**

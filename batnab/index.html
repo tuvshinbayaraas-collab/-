@@ -10,7 +10,8 @@
     <script>
       try {
         var t = localStorage.getItem('batnab.theme');
-        if (t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.dataset.theme = 'light';
+        var ok = window.CSS && CSS.supports && CSS.supports('color', 'color-mix(in lab, red, red)');
+        if (ok && (t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches))) document.documentElement.dataset.theme = 'light';
       } catch (e) {}
     </script>
     <!-- Installable as an app (Нүүр дэлгэцэд нэмэх). -->
