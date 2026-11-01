@@ -171,19 +171,19 @@
             ".validate": "newData.isString() && newData.val().matches(/^[A-E-]{1,100}$/)"
           },
           "leaves": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())"
+            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val() || (auth != null && root.child('admins').child(auth.uid).val() === true))"
           },
           "away": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())"
+            ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val() || (auth != null && root.child('admins').child(auth.uid).val() === true))"
           },
           "seconds": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 604800"
           },
           "startedAt": {
-            ".validate": "newData.isNumber() && newData.val() <= now && (!data.exists() || newData.val() === data.val())"
+            ".validate": "newData.isNumber() && newData.val() <= now && (!data.exists() || newData.val() === data.val() || (auth != null && root.child('admins').child(auth.uid).val() === true))"
           },
           "at": {
-            ".validate": "newData.val() === now"
+            ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber() && newData.val() <= now)"
           },
           "done": {
             ".validate": "newData.isBoolean()"
@@ -213,7 +213,7 @@
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400000"
             },
             "at": {
-              ".validate": "newData.val() === now"
+              ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber() && newData.val() <= now)"
             },
             "$other": {
               ".validate": false
@@ -346,7 +346,7 @@
               ".validate": "newData.isString() && newData.val().length <= 300 && (newData.val().length > 0 || newData.parent().child('w').val() === true)"
             },
             "at": {
-              ".validate": "newData.val() === now"
+              ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber() && newData.val() <= now)"
             },
             "w": {
               ".write": "auth != null && auth.uid === $uid && data.parent().exists() && !root.child('topicMarks').child($uid).child($tid).child($pid).exists()",
@@ -396,7 +396,7 @@
               ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 500000"
             },
             "at": {
-              ".validate": "newData.val() === now"
+              ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber() && newData.val() <= now)"
             },
             "$other": {
               ".validate": false
@@ -465,7 +465,7 @@
             ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 600"
           },
           "at": {
-            ".validate": "newData.isNumber() && (data.exists() ? newData.val() === data.val() : newData.val() === now)"
+            ".validate": "newData.isNumber() && ((auth != null && root.child('admins').child(auth.uid).val() === true) ? newData.val() <= now : data.exists() ? newData.val() === data.val() : newData.val() === now)"
           },
           "ctx": {
             ".validate": "newData.hasChildren(['s', 't', 'label'])",
