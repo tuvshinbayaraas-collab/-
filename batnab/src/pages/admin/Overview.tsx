@@ -12,6 +12,7 @@ import {LETTERS, type Question, type Test} from '../../tests/types';
 import {gradeOf, mean, reports, testReport, timeAgo, type AdminData, type QuestionStat, type Student, type TestReport} from './data';
 import {useTest} from './useTest';
 import WeekBanner from './WeekBanner';
+import TestsNow from './TestsNow';
 import WeakTopics from './WeakTopics';
 
 // Chart colours on the card (dark, or white in the light look: the track and muted bars follow it). One measure → one hue (blue); the class table uses the same hue as a
@@ -115,6 +116,7 @@ export default function Overview({data, test}: {data: AdminData; test?: string})
         );
       })}
       <WeekBanner data={data} />
+      <TestsNow data={data} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Сурагч" value={active.length} sub={data.students.length > active.length ? `${data.students.length - active.length} хаалттай` : 'идэвхтэй'} />
@@ -205,6 +207,11 @@ function Recent({data}: {data: AdminData}) {
                     <span className="min-w-0 flex-1">
                       <StudentName student={byUid.get(r.uid)!} sub={`${testInfo(r.test)!.title} • ${timeAgo(r.at)}`} />
                     </span>
+                    {!!r.leaves && (
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300" title="Тест өгөх үеэр хуудаснаас гарсан (сурагчид харагдахгүй)">
+                        <AlertTriangle size={12} /> {r.leaves}
+                      </span>
+                    )}
                     <span className="shrink-0 text-right tabular-nums">{g ? `${g.score}/${g.total}` : <span className="text-sm text-neutral-500">түлхүүргүй</span>}</span>
                   </Link>
                 </li>
@@ -621,7 +628,7 @@ function Students({report, initial}: {report: TestReport; initial: 'taken' | 'mi
                       r.attempts.length > 1 && r.best ? `шилдэг ${r.best.score}` : '',
                       `${r.attempts.length} удаа`,
                       formatDuration(r.attempts[0].seconds),
-                      r.attempts[0].leaves ? `⚠ хуудаснаас ${r.attempts[0].leaves} удаа гарсан` : '',
+                      r.attempts[0].leaves ? `⚠ хуудаснаас ${r.attempts[0].leaves} удаа гарсан${r.attempts[0].away ? ` (${formatDuration(r.attempts[0].away / 1000)})` : ''}` : '',
                     ]
                       .filter(Boolean)
                       .join(' • ')}

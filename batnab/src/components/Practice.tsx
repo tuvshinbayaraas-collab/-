@@ -103,30 +103,47 @@ function TestQuestion({m, label, testKey, boxes, onAnswered}: {m: Mistake; label
         {boxes}
       </div>
       <ol>
-        <QuestionCard num={qi + 1} q={q} chosen={pick} checked={checked} correct={right} onChoose={checked ? undefined : (ci) => setPick(pick === ci ? null : ci)} />
+        <QuestionCard
+          num={qi + 1}
+          q={q}
+          chosen={pick}
+          checked={checked}
+          correct={right}
+          onChoose={checked ? undefined : (ci) => setPick(pick === ci ? null : ci)}
+          // In the card, as a topic problem's: checking, then how it went, and asking the teacher.
+          footer={
+            <div className="flex w-full flex-wrap items-center gap-3">
+              {!checked ? (
+                <>
+                  <button
+                    disabled={pick === null || right === null}
+                    onClick={() => {
+                      setChecked(true);
+                      onAnswered(pick === right);
+                    }}
+                    className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:bg-neutral-800 disabled:text-neutral-500"
+                  >
+                    Шалгах
+                  </button>
+                  {right === null ? (
+                    <span className="text-sm text-neutral-500">Энэ тестийн хариултыг одоо шалгах боломжгүй.</span>
+                  ) : (
+                    pick === null && <span className="text-sm text-neutral-500">Хариултаа сонгоно уу.</span>
+                  )}
+                </>
+              ) : (
+                <p className={`flex items-center gap-2 font-semibold ${ok ? 'text-green-400' : 'text-red-300'}`}>
+                  {/* Right or wrong is on the card already: what happens next. */}
+                  {ok ? <Check size={18} /> : <X size={18} />} {ok ? 'Дараа дахин давтана.' : 'Маргааш дахин оролдоорой.'}
+                </p>
+              )}
+              <span className="ml-auto">
+                <AskButton ctx={{s: 't', t: m.t, q: m.q, label}} />
+              </span>
+            </div>
+          }
+        />
       </ol>
-      <div className="flex flex-wrap items-center gap-3 px-1 pt-1">
-        {!checked ? (
-          <button
-            disabled={pick === null || right === null}
-            onClick={() => {
-              setChecked(true);
-              onAnswered(pick === right);
-            }}
-            className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
-          >
-            Шалгах
-          </button>
-        ) : (
-          <p className={`flex items-center gap-2 font-semibold ${ok ? 'text-green-400' : 'text-red-300'}`}>
-            {ok ? <Check size={18} /> : <X size={18} />} {ok ? 'Зөв! Дараа дахин давтана.' : 'Буруу. Маргааш дахин оролдоорой.'}
-          </p>
-        )}
-        {right === null && <span className="text-sm text-neutral-500">Энэ тестийн хариултыг одоо шалгах боломжгүй.</span>}
-        <span className="ml-auto">
-          <AskButton ctx={{s: 't', t: m.t, q: m.q, label}} />
-        </span>
-      </div>
     </div>
   );
 }

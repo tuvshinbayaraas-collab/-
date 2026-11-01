@@ -1,4 +1,4 @@
-import {AlertTriangle, Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
+import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
@@ -12,6 +12,7 @@ import {useDbConnected} from '../lib/connection';
 import {submitScore} from '../lib/leaderboard';
 import {addMistakes, useMistakes} from '../lib/mistakes';
 import {ask, useLeaveCounter} from '../lib/leaves';
+import {endTestLive, markTestOut, reportTestLive} from '../lib/testLive';
 import {usePrefs} from '../lib/prefs';
 import {saveResult, useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
@@ -138,23 +139,41 @@ function Runner(props: {
   const finished = !!attempt?.finished;
 
   // Leaving the page (another tab or app, another window, closing it, another page of the site) while answering is
-  // counted and shown to the teacher. Stored at once: the page may be closing, or already gone to another page.
+  // counted quietly (the student isn't shown it) and shown to the teacher: live in "Одоо тест өгч байна", and with the
+  // result. Stored at once: the page may be closing, or already gone to another page.
   const latest = useRef(attempt);
   latest.current = attempt;
   const bump = (f: (a: Attempt) => Attempt) => {
     const prev = latest.current;
-    if (!prev) return;
+    if (!prev) return null;
     const next = f(prev);
     latest.current = next;
     saveAttempt(owner, id, next);
     setAttempt(next);
+    return next;
   };
+  const liveUid = mode === 'student' ? owner : null;
   useLeaveCounter(
     !!attempt && !finished && mode !== 'preview',
-    () => bump((a) => ({...a, leaves: (a.leaves ?? 0) + 1})),
-    (ms) => bump((a) => ({...a, away: (a.away ?? 0) + ms})),
+    () => {
+      const a = bump((x) => ({...x, leaves: (x.leaves ?? 0) + 1}));
+      if (liveUid && a) markTestOut(liveUid, true, {leaves: a.leaves ?? 0, away: a.away ?? 0});
+    },
+    (ms) => {
+      const a = bump((x) => ({...x, away: (x.away ?? 0) + ms}));
+      if (liveUid && a) markTestOut(liveUid, false, {leaves: a.leaves ?? 0, away: a.away ?? 0});
+    },
     {store: attempt ? `batnab.away.${owner}.${id}.${attempt.started}` : undefined},
   );
+  // The teacher's live view: this test going on (how far, how often left), off it once handed in.
+  const answeredNow = attempt ? attempt.answers.filter((x) => x !== null).length : 0;
+  useEffect(() => {
+    if (!liveUid || !attempt) return;
+    if (attempt.finished) return void endTestLive(liveUid);
+    void reportTestLive(liveUid, {test: id, started: attempt.started, n: answeredNow, total: attempt.answers.length, leaves: attempt.leaves ?? 0, away: attempt.away ?? 0}, document.visibilityState === 'hidden');
+    // Reported again as answers come; leaving and coming back are reported where they're counted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveUid, attempt?.started, attempt?.finished, answeredNow]);
   useEffect(() => {
     if (finished) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -262,11 +281,6 @@ function Runner(props: {
           {!prefs.hideTimer && (
             <span className="flex items-center gap-1 text-sm tabular-nums text-neutral-400">
               <Clock size={14} /> {formatTime(elapsed)}
-            </span>
-          )}
-          {mode !== 'preview' && !!attempt.leaves && (
-            <span className="flex items-center gap-1 text-sm text-amber-300" title="Тест өгөх үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжсэн, хуудсаа хаасан тоо. Багш харна.">
-              <AlertTriangle size={14} /> {attempt.leaves} удаа гарсан
             </span>
           )}
           <div className="ml-auto">

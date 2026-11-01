@@ -333,7 +333,7 @@ export function ProblemView(props: {
           )}
           {!done && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button disabled={busy || (!value && !(photoAlone && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+              <button disabled={busy || (!value && !(photoAlone && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:bg-neutral-800 disabled:text-neutral-500">
                 {busy ? (byTeacher ? 'Илгээж байна…' : 'Шалгаж байна…') : byTeacher ? 'Багшид илгээх' : 'Шалгах'}
               </button>
               {!practice && !first && !teacher && <span className="text-xs text-neutral-500">{byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}</span>}

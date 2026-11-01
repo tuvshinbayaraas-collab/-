@@ -73,7 +73,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         <p className="text-sm text-neutral-400">
           {formatDate(result.at)} • {formatDuration(result.seconds)}
           {isExam && away.leaves > 0 && ` • хуудаснаас ${away.leaves} удаа гарсан (нийт ${formatDuration(away.ms / 1000)})`}
-          {!isExam && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан`}
+          {/* Counted quietly during a practice test: the teacher sees it, the student doesn't. */}
+          {!isExam && session.admin && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан${result.away ? ` (нийт ${formatDuration(result.away / 1000)})` : ''}`}
         </p>
         {times.length > 0 && (
           <details className="mt-2 rounded-xl bg-neutral-800/50 px-3 py-2 text-sm">
