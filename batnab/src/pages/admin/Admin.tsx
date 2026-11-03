@@ -18,6 +18,7 @@ import TasksTab from './TasksTab';
 import Students from './Students';
 import TopicEditor from './TopicEditor';
 import TopicsTab from './TopicsTab';
+import Loading from '../../components/Loading';
 
 const TABS = [
   {id: 'overview', label: 'Анализ', icon: BarChart3},
@@ -48,7 +49,7 @@ export default function Admin({student, topic, report}: {student?: string; topic
   const questions = useAllQuestions();
   const unanswered = (questions ?? []).filter((q) => !q.reply && data?.students.some((s) => s.uid === q.uid)).length;
 
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote title="Багшийн самбар" text="Багшийн бүртгэлээр нэвтэрнэ үү." />;
   if (!session.admin) return <CenterNote title="Энэ хуудсыг зөвхөн багш харна" />;
 
@@ -85,7 +86,7 @@ export default function Admin({student, topic, report}: {student?: string; topic
       {error && <p className="mt-4 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-300">Өгөгдөл уншихад алдаа гарлаа: {error}</p>}
       <div className="mt-5">
         {!data || !all ? (
-          <p className="py-16 text-center text-neutral-400">Ачаалж байна…</p>
+          <Loading small />
         ) : student ? (
           <StudentDetail uid={student} data={all} />
         ) : report ? (

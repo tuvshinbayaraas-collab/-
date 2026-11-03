@@ -37,6 +37,7 @@ import OcrDialog, {type OcrAction} from './OcrDialog';
 import ProblemsDialog from './ProblemsDialog';
 import ProblemStats, {problemStats} from './ProblemStats';
 import TopicCheck, {waitingIn} from './TopicCheck';
+import Loading from '../../components/Loading';
 
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
 const addButton = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300';
@@ -46,7 +47,7 @@ const icon = 'rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-
 export default function TopicEditor({id, data}: {id: string; data: AdminData}) {
   const topics = useTopics();
   const keys = useTopicKeys(id);
-  if (!topics || !keys) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics || !keys) return <Loading small />;
   const topic = topics.find((t) => t.id === id);
   if (!topic)
     return (
@@ -220,7 +221,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
         progress && marks ? (
           <TopicCheck topic={draft} students={data.students} progress={progress} marks={marks} keys={answers} onKey={(pid, k) => setAnswers((x) => ({...x, [pid]: k}))} />
         ) : (
-          <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>
+          <Loading small />
         )
       ) : (
         <>
@@ -913,7 +914,7 @@ function ProblemEditor(props: {
 function Results({topic, answers, data}: {topic: Topic; answers: Record<string, string>; data: AdminData}) {
   const progress = useAllProgress();
   const marks = useAllMarks();
-  if (!progress || !marks) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!progress || !marks) return <Loading small />;
   const judge = (uid: string, pid: string) => {
     const a = progress[uid]?.[topic.id]?.[pid];
     return a ? verdict(a.a, answers[pid], marks[uid]?.[topic.id]?.[pid]) : undefined;

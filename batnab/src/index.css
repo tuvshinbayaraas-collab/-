@@ -6,9 +6,25 @@
 /* The page behind everything (bg-page); charts' track and muted bars. The light look sets its own (theme-light.css). */
 @theme {
   --color-page: #0f0f0f;
+  /* Batnab's own blue (the logo's): an indigo-leaning royal blue in place of the stock one, everywhere "blue-" is
+     used for the main actions, links and the picked answer. Things that mean the colour blue itself (a live quiz's
+     Б tile, the Цэнхэр team) are sky. Kept apart from violet, which means "the teacher checks it". */
+  --color-blue-50: oklch(97% 0.014 270);
+  --color-blue-100: oklch(93.6% 0.03 270);
+  --color-blue-200: oklch(88.4% 0.056 270);
+  --color-blue-300: oklch(80.5% 0.096 270);
+  --color-blue-400: oklch(71.5% 0.142 270);
+  --color-blue-500: oklch(62.5% 0.2 270);
+  --color-blue-600: oklch(54.5% 0.225 270);
+  --color-blue-700: oklch(48% 0.22 270);
+  --color-blue-800: oklch(41% 0.185 270);
+  --color-blue-900: oklch(36% 0.14 270);
+  --color-blue-950: oklch(27% 0.1 270);
+  /* The logo's gold dot, and the odd golden touch next to it. */
+  --color-gold: #ffbf2e;
 }
 :root {
-  --chart-track: #0d366b;
+  --chart-track: #1a2766;
   --chart-muted: #525252;
 }
 
@@ -72,6 +88,32 @@
   :root[data-theme='light'] body {
     color: #161616;
   }
+  /* Squared paper, as in a maths exercise book, very faint behind every page (cards and the header sit on it),
+     strongest at the top. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: linear-gradient(to right, var(--paper-line) 1px, transparent 1px), linear-gradient(to bottom, var(--paper-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: center top;
+    mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.35));
+  }
+  :root {
+    --paper-line: rgb(255 255 255 / 0.035);
+    /* Test figures (graphs, geometry): a third larger on a computer, where there's room. */
+    --fig-scale: 1;
+  }
+  @media (min-width: 640px) {
+    :root {
+      --fig-scale: 1.35;
+    }
+  }
+  :root[data-theme='light'] {
+    --paper-line: rgb(20 30 80 / 0.05);
+  }
 }
 
 /* Printing (the teacher's class report): the page on white, without the site's header, footer and menus. */
@@ -86,7 +128,8 @@
     color: #000 !important;
   }
   body > #root > div > header,
-  body > #root > div > footer {
+  body > #root > div > footer,
+  body::before {
     display: none !important;
   }
   main {

@@ -1,10 +1,12 @@
 import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
+import Loading from '../components/Loading';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import RankLine from '../components/RankLine';
+import SkillBreakdown from '../components/SkillBreakdown';
 import {choicePerms, clearAttempt, formatDuration, formatTime, loadAttempt, newAttempt, saveAttempt, type Attempt} from '../lib/attempt';
 import {examState, useExamAnswer, useExams} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
@@ -19,7 +21,9 @@ import {Link, useLocation} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {inThisWeek} from '../lib/week';
 import {settingsReady, useSettings, type Settings} from '../lib/settings';
+import {skillStats} from '../lib/skills';
 import {useNow} from '../lib/time';
+import {skillOf, type Skill} from '../tests/skills';
 import ExamRunner, {ExamWait} from './ExamRunner';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
@@ -39,7 +43,7 @@ export default function TestPage({id}: {id: string}) {
   const {query} = useLocation();
 
   if (!info) return <CenterNote title="Ийм тест олдсонгүй" />;
-  if (!session.ready || !settings || !exams) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready || !settings || !exams) return <Loading />;
 
   const mode: Mode | null = session.admin ? 'preview' : isStudent(session) ? 'student' : !session.user && settings.trial === id ? 'trial' : null;
   if (!mode) {
@@ -51,28 +55,18 @@ export default function TestPage({id}: {id: string}) {
   const state = exam ? examState(exam, now) : null;
   if (exam && state !== 'ended' && mode === 'trial') return <CenterNote title="Энэ тест одоогоор шалгалтаар товлогдсон байна" />;
   if (exam && mode === 'student') {
-    if (examAnswer === undefined) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+    if (examAnswer === undefined) return <Loading what="Шалгалтыг ачаалж байна…" />;
     if (state === 'upcoming') return <ExamWait id={id} exam={exam} now={now} />;
     if (state === 'active' || (examAnswer && query.get('practice') !== '1'))
       return <ExamRunner key={`${session.user!.uid}/${id}/${exam.start}`} id={id} exam={exam} uid={session.user!.uid} saved={examAnswer} />;
   }
   // Earlier results only matter when retakes are off (to close a test already taken), so only then wait for them.
-  if (mode === 'student' && !settings.retakes && mine === null) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (mode === 'student' && !settings.retakes && mine === null) return <Loading what="Тестийг ачаалж байна…" />;
 
   const taken = mine?.find((r) => r.test === id);
   const owner = session.user?.uid ?? 'guest';
   const saved = mine ? mine.filter((r) => r.test === id).map((r) => r.id) : null;
-  return (
-    <Runner
-      key={`${owner}/${id}`}
-      id={id}
-      owner={owner}
-      mode={mode}
-      canRetake={mode !== 'student' || settings.retakes}
-      taken={taken ? {test: id, id: taken.id} : null}
-      saved={saved}
-    />
-  );
+  return <Runner key={`${owner}/${id}`} id={id} owner={owner} mode={mode} canRetake={mode !== 'student' || settings.retakes} taken={taken ? {test: id, id: taken.id} : null} saved={saved} />;
 }
 
 function Runner(props: {
@@ -92,32 +86,42 @@ function Runner(props: {
   const [saveError, setSaveError] = useState('');
   const [saveTry, setSaveTry] = useState(0);
   const [onlyWrong, setOnlyWrong] = useState(false);
-  const {full, jump} = useJump(() => setOnlyWrong(false));
+  // A topic picked under the score: just its wrong questions.
+  const [skill, setSkill] = useState<Skill | null>(null);
+  // The test's questions didn't come (no connection when it opened).
+  const [failed, setFailed] = useState(false);
+  const {full, jump} = useJump(() => {
+    setOnlyWrong(false);
+    setSkill(null);
+  });
   // A new attempt: its questions in their own order, and (unless the teacher turned it off) each one's choices too.
   const fresh = (t: Test, s: Settings | null) => newAttempt(t.questions.length, s?.shuffleChoices !== false ? choicePerms(t.questions) : undefined);
 
   useEffect(() => {
     // The settings first: whether the choices are shuffled is fixed when the attempt is made.
-    loadTest(id)?.then(async (t) => {
-      const s = await settingsReady();
-      let a = loadAttempt(owner, id, t.questions.length);
-      // A test finished before the weekly reset is gone from the results, so start afresh.
-      if (a?.finished && !inThisWeek(a.finished)) {
-        clearAttempt(owner, id);
-        a = null;
-      }
-      if (!a) {
-        if (!canRetake && taken) {
-          setTest(t);
-          setBlocked(true);
-          return;
+    loadTest(id)?.then(
+      async (t) => {
+        const s = await settingsReady();
+        let a = loadAttempt(owner, id, t.questions.length);
+        // A test finished before the weekly reset is gone from the results, so start afresh.
+        if (a?.finished && !inThisWeek(a.finished)) {
+          clearAttempt(owner, id);
+          a = null;
         }
-        a = fresh(t, s);
-        saveAttempt(owner, id, a); // so a reload keeps this order and the clock
-      }
-      setTest(t);
-      setAttempt(a);
-    });
+        if (!a) {
+          if (!canRetake && taken) {
+            setTest(t);
+            setBlocked(true);
+            return;
+          }
+          a = fresh(t, s);
+          saveAttempt(owner, id, a); // so a reload keeps this order and the clock
+        }
+        setTest(t);
+        setAttempt(a);
+      },
+      () => setFailed(true),
+    );
     // Decided once when the test opens; a retake setting changed meanwhile applies next time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, owner]);
@@ -174,7 +178,11 @@ function Runner(props: {
   useEffect(() => {
     if (!liveUid || !attempt) return;
     if (attempt.finished) return void endTestLive(liveUid);
-    void reportTestLive(liveUid, {test: id, started: attempt.started, n: answeredNow, total: attempt.answers.length, leaves: attempt.leaves ?? 0, away: attempt.away ?? 0}, document.visibilityState === 'hidden');
+    void reportTestLive(
+      liveUid,
+      {test: id, started: attempt.started, n: answeredNow, total: attempt.answers.length, leaves: attempt.leaves ?? 0, away: attempt.away ?? 0},
+      document.visibilityState === 'hidden',
+    );
     // Reported again as answers come; leaving and coming back are reported where they're counted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveUid, attempt?.started, attempt?.finished, answeredNow]);
@@ -218,7 +226,10 @@ function Runner(props: {
     if (!mistakes || !key || !attempt?.finished || !attempt.resultId || noted.current === attempt.resultId) return;
     noted.current = attempt.resultId;
     const wrong = attempt.order.filter((qi) => attempt.answers[qi] !== null && choiceAt(key, qi) !== null && attempt.answers[qi] !== choiceAt(key, qi));
-    addMistakes(wrong.map((qi) => ({s: 't', t: id, q: String(qi)})), mistakes).catch(() => {});
+    addMistakes(
+      wrong.map((qi) => ({s: 't', t: id, q: String(qi)})),
+      mistakes,
+    ).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mistakes !== null, key, attempt?.resultId]);
 
@@ -233,7 +244,16 @@ function Runner(props: {
         )}
       </CenterNote>
     );
-  if (!test || !attempt) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (failed)
+    return (
+      <CenterNote title="Тестийг ачаалж чадсангүй">
+        <p className="text-neutral-400">Интернэт холболтоо шалгаад дахин оролдоно уу. Өмнө нь бөглөсөн хариулт тань энэ төхөөрөмжид хадгалагдсан.</p>
+        <button onClick={() => location.reload()} className="mt-4 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
+          Дахин оролдох
+        </button>
+      </CenterNote>
+    );
+  if (!test || !attempt) return <Loading what="Тестийг ачаалж байна…" />;
 
   const total = test.questions.length;
   const answered = attempt.answers.filter((x) => x !== null).length;
@@ -377,7 +397,10 @@ function Runner(props: {
                     <span className="font-medium text-red-300">{missed.length} бодлого дээр алдсан</span>
                   </p>
                   <button
-                    onClick={() => setOnlyWrong((o) => !o)}
+                    onClick={() => {
+                      setOnlyWrong((o) => !o);
+                      setSkill(null);
+                    }}
                     className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700"
                     aria-pressed={onlyWrong}
                   >
@@ -385,6 +408,16 @@ function Runner(props: {
                   </button>
                 </div>
               )}
+              <SkillBreakdown
+                stats={skillStats([{test: id, answers: encode(attempt.answers), key}])}
+                percent={percent(g)}
+                picked={skill}
+                onPick={(s) => {
+                  setSkill(s);
+                  setOnlyWrong(false);
+                }}
+                notebook={mode === 'student'}
+              />
               {mode === 'student' && (
                 <p className="mt-3 text-sm text-neutral-400">
                   Дүн хадгалагдлаа.{' '}
@@ -409,7 +442,7 @@ function Runner(props: {
 
       <QuestionList full={full}>
         {attempt.order.map((qi, pos) =>
-          onlyWrong && finished && !missed.includes(qi) ? null : (
+          (onlyWrong || skill) && finished && (!missed.includes(qi) || (skill && skillOf(id, qi) !== skill)) ? null : (
             <QuestionCard
               key={qi}
               id={`q${pos}`}

@@ -12,6 +12,7 @@ import {useAllMarks, useAllProgress, useTopics} from '../../lib/topics';
 import {TESTS} from '../../tests';
 import {gradeOf, mean, type AdminData} from './data';
 import {pctOf, topicScores, useAllTopicKeys} from './WeakTopics';
+import Loading from '../../components/Loading';
 
 const cell = 'border border-neutral-700 px-2 py-1.5 print:border-neutral-400';
 
@@ -25,7 +26,7 @@ export default function Report({data, picked}: {data: AdminData; picked: string}
   const assignments = useAssignments();
   const history = useLive('history', (v) => (v ?? {}) as Record<string, History>);
   const stats = useLive('stats', (v) => (v ?? {}) as Record<string, Partial<Stats>>);
-  if (!topics || !progress || !keys || !marks || !assignments || !history || !stats) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics || !progress || !keys || !marks || !assignments || !history || !stats) return <Loading small />;
 
   const name = classes?.find((c) => c.id === picked)?.name ?? 'Бүх анги';
   const students = data.students.filter((s) => !s.profile.disabled);

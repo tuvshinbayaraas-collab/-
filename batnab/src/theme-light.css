@@ -6,7 +6,7 @@
 :root[data-theme='light'] {
   color-scheme: light;
   --color-page: #eff0f2;
-  --chart-track: #d3e3f6;
+  --chart-track: #d6defb;
   --chart-muted: #c4c4c4;
   --color-neutral-50: #0a0a0a;
   --color-neutral-100: #171717;
@@ -69,11 +69,11 @@
   --color-sky-200: oklch(44.3% 0.11 240.79);
   --color-sky-300: oklch(44.3% 0.11 240.79);
   --color-sky-400: oklch(50% 0.134 242.749);
-  --color-blue-50: oklch(28.2% 0.091 267.935);
-  --color-blue-100: oklch(37.9% 0.146 265.522);
-  --color-blue-200: oklch(42.4% 0.199 265.638);
-  --color-blue-300: oklch(42.4% 0.199 265.638);
-  --color-blue-400: oklch(48.8% 0.243 264.376);
+  --color-blue-50: oklch(28.2% 0.095 270);
+  --color-blue-100: oklch(37.9% 0.15 270);
+  --color-blue-200: oklch(42.4% 0.19 270);
+  --color-blue-300: oklch(42.4% 0.19 270);
+  --color-blue-400: oklch(48.8% 0.215 270);
   --color-indigo-50: oklch(25.7% 0.09 281.288);
   --color-indigo-100: oklch(35.9% 0.144 278.697);
   --color-indigo-200: oklch(39.8% 0.195 277.366);

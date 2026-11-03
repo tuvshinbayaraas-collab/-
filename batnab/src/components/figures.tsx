@@ -9,6 +9,9 @@ export type Linear = [number, number, number];
 
 const FONT = 13;
 
+/** Drawn larger on a computer (--fig-scale, index.css) so the numbers on it read easily; never wider than its place. */
+const figSize = (w: number) => ({width: `calc(${w}px * var(--fig-scale, 1))`, height: 'auto'});
+
 // ---------------------------------------------------------------- coordinate plots
 
 interface PlotProps {
@@ -117,7 +120,7 @@ export function Plot({x, y, scale = 18, lines = [], curve, region, fills = [], d
 
   const arrow = `arrow-${id}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="max-w-full" fill="none" stroke="currentColor" strokeWidth={1.3}>
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="max-w-full" style={figSize(w)} fill="none" stroke="currentColor" strokeWidth={1.3}>
       <defs>
         <marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" fill="currentColor" stroke="none" />
@@ -324,7 +327,7 @@ export function Geo({pts, segs = [], labels = [], marks = [], ellipses = [], tex
   });
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-full" fill="none" stroke="currentColor" strokeWidth={1.4}>
+    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-full" style={figSize(width)} fill="none" stroke="currentColor" strokeWidth={1.4}>
       {hatch.length > 0 && (
         <defs>
           <pattern id={hatchId} width="6" height="6" patternUnits="userSpaceOnUse">

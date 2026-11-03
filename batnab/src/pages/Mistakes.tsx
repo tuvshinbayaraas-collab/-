@@ -1,15 +1,16 @@
-import {NotebookPen, Sparkles} from 'lucide-react';
+import {CheckCircle2, ChevronDown, NotebookPen, RotateCcw, Sparkles} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {InactiveNote, LockedNote} from '../components/Notices';
-import {MistakeItem, mistakeExists, mistakeLabel, useLastSeen} from '../components/Practice';
+import {MistakeItem, mistakeExists, mistakeLabel, mistakeTopic, NotebookTools, useLastSeen} from '../components/Practice';
 import {choiceAt, useKeys} from '../lib/keys';
-import {addMistakes, isDue, LAST_BOX, useMistakes, type Mistake} from '../lib/mistakes';
+import {addMistakes, isDue, LAST_BOX, reopen, useMistakes, WHYS, type Mistake} from '../lib/mistakes';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {useStats} from '../lib/stats';
-import {serverNow} from '../lib/time';
+import {dayLabel, serverNow} from '../lib/time';
 import {forClassOf, readKey, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
+import Loading from '../components/Loading';
 
 const DAY = 86_400_000;
 const PAGE = 10;
@@ -18,14 +19,23 @@ const when = (next: number, now: number) => {
   return next <= now ? 'одоо' : d <= 1 ? 'маргааш' : `${d} өдрийн дараа`;
 };
 
-/** /mistakes: the mistakes notebook. Due problems first; each solved right comes back later, until it is learned. */
+type Tab = 'due' | 'all' | 'learned' | 'notes';
+
+/**
+ * /mistakes: the mistakes notebook. Due problems first; each solved right comes back later, until it is learned (the
+ * last time on a similar problem). By topic, why they went wrong, the learned ones and one's own notes to look back on.
+ */
 export default function Mistakes() {
   const session = useSession();
   const uid = isStudent(session) ? session.user!.uid : undefined;
   const mistakes = useMistakes(uid);
   const topics = useTopics();
   const stats = useStats(uid);
-  const [tab, setTab] = useState<'due' | 'all'>('due');
+  const [tab, setTab] = useState<Tab>('due');
+  // A topic picked: just its problems, in every tab.
+  const [topic, setTopic] = useState<string | null>(null);
+  // A learned problem (or one with a note) opened to look at again.
+  const [opened, setOpened] = useState<string | null>(null);
   // Every problem due during this visit stays on screen (with its outcome) once solved, though no longer due.
   const [kept, setKept] = useState<string[]>([]);
   const find = useLastSeen(mistakes);
@@ -40,19 +50,47 @@ export default function Mistakes() {
   const testIds = [...new Set((mistakes ?? []).filter((m) => m.s === 't').map((m) => m.t))];
   const keys = useKeys(testIds);
 
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Алдааны дэвтрээ харахын тулд нэвтэрнэ үү." />;
   if (!uid) return session.admin ? <p className="py-24 text-center text-neutral-400">Алдааны дэвтэр сурагчдад зориулагдсан.</p> : <InactiveNote blocked={!!session.profile?.disabled} />;
-  if (!mistakes || !topics) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!mistakes || !topics) return <Loading />;
 
   const now = serverNow();
-  const list = mistakes.filter((m) => mistakeExists(m, topics)).sort((a, b) => a.next - b.next || a.at - b.at);
+  const there = mistakes.filter((m) => mistakeExists(m, topics));
+  const inTopic = (m: Mistake) => !topic || mistakeTopic(m, topics).key === topic;
+  const list = there.filter((m) => !m.done && inTopic(m)).sort((a, b) => a.next - b.next || a.at - b.at);
+  const learned = there.filter((m) => !!m.done && inTopic(m)).sort((a, b) => b.done! - a.done!);
+  const notes = there.filter((m) => !!m.note && inTopic(m)).sort((a, b) => b.at - a.at);
   // Oldest mistakes first, in an order that stays put while they are solved (solving one moves its `next`).
   const due = [...new Set([...kept, ...list.filter((m) => isDue(m, now)).map((m) => m.id)])]
     .map(find)
-    .filter((m): m is Mistake => !!m && mistakeExists(m, topics))
+    .filter((m): m is Mistake => !!m && mistakeExists(m, topics) && inTopic(m))
     .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
   const dueCount = list.filter((m) => isDue(m, now)).length;
+  // By topic: the problems still in the notebook, most first.
+  const byTopic = new Map<string, {name: string; n: number}>();
+  for (const m of there.filter((x) => !x.done)) {
+    const t = mistakeTopic(m, topics);
+    byTopic.set(t.key, {name: t.name, n: (byTopic.get(t.key)?.n ?? 0) + 1});
+  }
+  const chips = [...byTopic.entries()].sort((a, b) => b[1].n - a[1].n);
+  // Why they went wrong (as the student said), most first, with a word on the commonest.
+  const whys = WHYS.map(([id, name, tip]) => ({id, name, tip, n: there.filter((m) => m.why === id).length}))
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.n - a.n);
+  const learnedCount = Math.max(stats?.learned ?? 0, there.filter((m) => m.done).length);
+  const tile = (t: Tab, label: string, value: number, tone = '') => (
+    <button
+      type="button"
+      onClick={() => setTab(t)}
+      aria-pressed={tab === t}
+      className={`rounded-2xl p-3 text-center sm:p-4 ${tab === t ? 'bg-neutral-800 ring-1 ring-neutral-600' : 'bg-neutral-900 hover:bg-neutral-800/70'}`}
+    >
+      <p className={`text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
+      <p className="text-xs text-neutral-400">{label}</p>
+    </button>
+  );
+  const whyName = (m: Mistake) => WHYS.find((w) => w[0] === m.why)?.[1];
 
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">
@@ -62,31 +100,79 @@ export default function Mistakes() {
         </span>
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Алдааны дэвтэр</h1>
-          <p className="text-sm text-neutral-400">Алдсан бодлого энд цуглана. Зөв бодох бүрд дараа нь (маргааш, 3 хоног, 7 хоногийн дараа) дахин гарч, 4 удаа зөв бодвол сурсанд тооцно.</p>
+          <p className="text-sm text-neutral-400">
+            Алдсан бодлого энд цуглана. Зөв бодох бүрд дараа нь (маргааш, 3 хоног, 7 хоногийн дараа) дахин гарч, сүүлд нь төстэй өөр бодлогыг зөв бодвол сурсанд тооцно.
+          </p>
         </div>
       </header>
 
       <div className="mt-5 grid grid-cols-3 gap-3">
-        <Tile label="Өнөөдөр давтах" value={dueCount} tone="text-rose-300" />
-        <Tile label="Дэвтэрт" value={list.length} />
-        <Tile label="Сурсан" value={stats?.learned ?? 0} tone="text-green-400" />
+        {tile('due', 'Өнөөдөр давтах', dueCount, 'text-rose-300')}
+        {tile('all', 'Дэвтэрт', there.filter((m) => !m.done).length)}
+        {tile('learned', 'Сурсан', learnedCount, 'text-green-400')}
       </div>
 
-      <div className="mt-5 flex rounded-full bg-neutral-900 p-1 text-sm" role="tablist">
+      {chips.length > 1 && (
+        <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] sm:flex-wrap" role="group" aria-label="Сэдвээр шүүх">
+          <button
+            type="button"
+            onClick={() => setTopic(null)}
+            aria-pressed={!topic}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${!topic ? 'bg-neutral-100 text-neutral-900' : 'bg-neutral-800 text-neutral-300'}`}
+          >
+            Бүх сэдэв
+          </button>
+          {chips.map(([key, c]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTopic(topic === key ? null : key)}
+              aria-pressed={topic === key}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${topic === key ? 'bg-rose-500/20 text-rose-100 ring-1 ring-rose-400/60' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+            >
+              {c.name} — <b className="tabular-nums">{c.n}</b> алдаа
+            </button>
+          ))}
+        </div>
+      )}
+
+      {whys.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-neutral-900 p-4 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Миний алдааны шалтгаан</p>
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {whys.map((w) => (
+              <span key={w.id}>
+                {w.name} <b className="tabular-nums">{w.n}</b>
+              </span>
+            ))}
+          </p>
+          <p className="mt-2 text-neutral-300">💡 {whys[0].tip}</p>
+        </div>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-neutral-900 p-1 text-sm sm:flex sm:rounded-full" role="tablist">
         {(
           [
             ['due', `Давтах (${dueCount})`],
             ['all', `Бүгд (${list.length})`],
+            ['learned', `Сурсан (${learned.length})`],
+            ['notes', `Тэмдэглэл (${notes.length})`],
           ] as const
         ).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-3 py-1.5 font-medium ${tab === id ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}>
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex-1 rounded-full px-3 py-1.5 font-medium ${tab === id ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}
+          >
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'due' ? (
-        !due.length ? (
+      {tab === 'due' &&
+        (!due.length ? (
           <div className="mt-6 rounded-2xl bg-neutral-900 p-8 text-center">
             <Sparkles size={28} className="mx-auto text-amber-300" />
             <p className="mt-3 font-semibold">{list.length ? 'Өнөөдөр давтах бодлого алга!' : 'Дэвтэр хоосон байна'}</p>
@@ -98,15 +184,9 @@ export default function Mistakes() {
             </p>
           </div>
         ) : (
-          <div className="mt-5 space-y-5">
+          <div className="mt-5 space-y-6">
             {due.slice(0, shown).map((m) => (
-              <MistakeItem
-                key={m.id}
-                m={m}
-                topics={topics}
-                testKey={m.s === 't' ? keys[m.t] : undefined}
-                stats={stats}
-              />
+              <MistakeItem key={m.id} m={m} topics={topics} testKey={m.s === 't' ? keys[m.t] : undefined} stats={stats} />
             ))}
             {due.length > shown && (
               <button onClick={() => setShown((n) => n + PAGE)} className="w-full rounded-full bg-neutral-800 py-2.5 text-sm font-medium hover:bg-neutral-700">
@@ -114,14 +194,19 @@ export default function Mistakes() {
               </button>
             )}
           </div>
-        )
-      ) : (
+        ))}
+
+      {tab === 'all' && (
         <ul className="mt-5 divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
           {list.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{mistakeLabel(m, topics)}</span>
-                <span className="block text-xs text-neutral-500">Дараагийн давталт: {when(m.next, now)}</span>
+                <span className="block text-xs text-neutral-500">
+                  {mistakeTopic(m, topics).name} · Дараагийн давталт: {when(m.next, now)}
+                  {m.why && ` · ${whyName(m)}`}
+                </span>
+                {m.note && <span className="mt-1 block text-xs text-amber-100/90 [overflow-wrap:anywhere]">📝 {m.note}</span>}
               </span>
               <span className="flex gap-0.5" aria-label={`${m.box} шат давсан`}>
                 {Array.from({length: LAST_BOX + 1}, (_, i) => (
@@ -133,16 +218,61 @@ export default function Mistakes() {
           {!list.length && <li className="px-4 py-6 text-center text-sm text-neutral-400">Дэвтэр хоосон байна.</li>}
         </ul>
       )}
+
+      {(tab === 'learned' || tab === 'notes') && (
+        <div className="mt-5 space-y-3">
+          {tab === 'learned' && learnedCount > learned.length && !topic && (
+            <p className="text-xs text-neutral-500">Өмнө нь сурсан {learnedCount - learned.length} бодлого энд хадгалагдаагүй (тэр үед сурсан бодлогыг дэвтрээс хасдаг байсан).</p>
+          )}
+          {(tab === 'learned' ? learned : notes).map((m) => (
+            <div key={m.id} className="rounded-2xl bg-neutral-900">
+              <button
+                type="button"
+                onClick={() => setOpened(opened === m.id ? null : m.id)}
+                aria-expanded={opened === m.id}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-neutral-800/50"
+              >
+                {m.done ? <CheckCircle2 size={18} className="shrink-0 text-green-400" /> : <NotebookPen size={18} className="shrink-0 text-rose-300" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{mistakeLabel(m, topics)}</span>
+                  <span className="block text-xs text-neutral-500">
+                    {mistakeTopic(m, topics).name}
+                    {m.done ? ` · сурсан ${dayLabel(m.done)}` : ` · давтах ${when(m.next, now)}`}
+                    {m.why && ` · ${whyName(m)}`}
+                  </span>
+                  {m.note && <span className="mt-1 block whitespace-pre-wrap text-sm text-amber-100 [overflow-wrap:anywhere]">📝 {m.note}</span>}
+                </span>
+                <ChevronDown size={16} className={`shrink-0 text-neutral-500 transition-transform ${opened === m.id ? 'rotate-180' : ''}`} />
+              </button>
+              {opened === m.id && (
+                <div className="space-y-3 border-t border-neutral-800 p-3">
+                  {m.done || !isDue(m, now) ? (
+                    <>
+                      <MistakeItem m={m} topics={topics} testKey={m.s === 't' ? keys[m.t] : undefined} stats={stats} practice />
+                      <NotebookTools m={m} />
+                    </>
+                  ) : (
+                    <MistakeItem m={m} topics={topics} testKey={m.s === 't' ? keys[m.t] : undefined} stats={stats} />
+                  )}
+                  {m.done && (
+                    <button type="button" onClick={() => void reopen(m)} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700">
+                      <RotateCcw size={15} /> Дахин дэвтэрт оруулах
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {!(tab === 'learned' ? learned : notes).length && (
+            <p className="rounded-2xl bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-400">
+              {tab === 'learned' ? 'Сурсан бодлого энд гарна.' : 'Бодлогын доорх «Тэмдэглэл нэмэх»-ээр өөртөө тайлбар үлдээгээрэй.'}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
-
-const Tile = ({label, value, tone = ''}: {label: string; value: number; tone?: string}) => (
-  <div className="rounded-2xl bg-neutral-900 p-3 text-center sm:p-4">
-    <p className={`text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
-    <p className="text-xs text-neutral-400">{label}</p>
-  </div>
-);
 
 /**
  * Mistakes made before the notebook existed (or on another device): this week's wrong test answers and wrong first

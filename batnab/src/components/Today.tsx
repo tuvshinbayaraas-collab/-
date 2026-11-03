@@ -5,6 +5,7 @@ import {forClass} from '../lib/live';
 import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
 import {usePrefs} from '../lib/prefs';
+import {useWide} from '../lib/wide';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {doneToday, liveStreak, useStats} from '../lib/stats';
@@ -46,7 +47,7 @@ export function assignmentState(a: Assignment, topics: Topic[] | null, progress:
   return {done, late: done && last > a.due, count: answered.length, total: ps.length};
 }
 
-export const assignmentTitle = (a: Assignment, topics: Topic[] | null) => (a.kind === 'test' ? testInfo(a.ref)?.title ?? a.ref : topics?.find((t) => t.id === a.ref)?.title ?? 'Устгагдсан сэдэв');
+export const assignmentTitle = (a: Assignment, topics: Topic[] | null) => (a.kind === 'test' ? (testInfo(a.ref)?.title ?? a.ref) : (topics?.find((t) => t.id === a.ref)?.title ?? 'Устгагдсан сэдэв'));
 
 /** The top of a student's home page: notes from the teacher, assignments, today's practice, the notebook, answers. */
 export default function Today({uid, classId}: {uid: string; classId?: string}) {
@@ -56,57 +57,13 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const topics = useTopics();
   const progress = useProgress(uid);
   const results = useMyResults() ?? [];
-  const stats = useStats(uid);
-  const mistakes = useMistakes(uid);
-  const questions = useMyQuestions(uid);
   const [hidden, setHidden] = useState(hiddenIds);
   const prefs = usePrefs();
   const live = useLiveQuiz();
+  const wide = useWide();
 
   const notes = (announcements ?? []).filter((a) => forClass(a.classes, classId) && a.at > now - 21 * DAY && !hidden.includes(a.id)).slice(0, 3);
   const tasks = (assignments ?? []).filter((a) => forClass(a.classes, classId) && a.due > now - 3 * DAY && (a.kind === 'test' || topics?.some((t) => t.id === a.ref)));
-  const due = (mistakes ?? []).filter((m) => isDue(m, serverNow())).length;
-  const replies = (questions ?? []).filter((q) => q.reply && !q.seen).length;
-  const streak = liveStreak(stats);
-  const today = doneToday(stats);
-  const cards = [
-    {
-      href: '/daily',
-      icon: Flame,
-      title: 'Өдрийн дасгал',
-      text: today ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх',
-      hot: !today,
-      lit: streak > 0,
-      badge: streak,
-      hotBg: 'bg-orange-500/10 hover:bg-orange-500/15',
-      tone: 'text-orange-300',
-      badgeBg: 'bg-orange-500',
-    },
-    {
-      href: '/mistakes',
-      icon: NotebookPen,
-      title: 'Алдааны дэвтэр',
-      text: due ? `${due} бодлого давтах` : 'Өнөөдөр давтах зүйл алга',
-      hot: due > 0,
-      lit: due > 0,
-      badge: due,
-      hotBg: 'bg-rose-500/10 hover:bg-rose-500/15',
-      tone: 'text-rose-300',
-      badgeBg: 'bg-rose-500',
-    },
-    {
-      href: '/questions',
-      icon: MessageCircleQuestion,
-      title: 'Асуултууд',
-      text: replies ? `Багш ${replies} асуултад хариулсан` : 'Багшаас асуух',
-      hot: replies > 0,
-      lit: replies > 0,
-      badge: replies,
-      hotBg: 'bg-sky-500/10 hover:bg-sky-500/15',
-      tone: 'text-sky-300',
-      badgeBg: 'bg-sky-500',
-    },
-  ];
   const hide = (id: string) => {
     const next = [...hidden, id].slice(-50);
     setHidden(next);
@@ -154,7 +111,11 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
               return (
                 <li key={a.id}>
                   <Link href={a.kind === 'test' ? `/test/${a.ref}` : `/topics/${a.ref}`} className="flex items-center gap-3 py-2.5">
-                    {st.done ? <CheckCircle2 size={20} className="shrink-0 text-green-400" /> : <span className={`h-5 w-5 shrink-0 rounded-full border-2 ${over ? 'border-red-400' : 'border-neutral-600'}`} />}
+                    {st.done ? (
+                      <CheckCircle2 size={20} className="shrink-0 text-green-400" />
+                    ) : (
+                      <span className={`h-5 w-5 shrink-0 rounded-full border-2 ${over ? 'border-red-400' : 'border-neutral-600'}`} />
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate font-medium ${st.done ? 'text-neutral-400 line-through decoration-neutral-600' : ''}`}>
                         {a.kind === 'test' ? 'Тест: ' : 'Сэдэв: '}
@@ -174,35 +135,96 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
         </section>
       )}
 
-      {prefs.fullCards ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {cards.map((c) => (
-            <Link key={c.href} href={c.href} className={`flex items-center gap-3 rounded-2xl p-4 ${c.hot ? c.hotBg : 'bg-neutral-900'}`}>
-              <c.icon size={22} className={c.lit ? c.tone : 'text-neutral-500'} />
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{c.title}</span>
-                <span className="block text-xs text-neutral-400">{c.text}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      ) : (
-        // Just the icons (a number when there is something to do); "Тохиргоо" can show them with their names.
-        <div className="grid grid-cols-3 gap-3">
-          {cards.map((c) => (
-            <Link
-              key={c.href}
-              href={c.href}
-              title={`${c.title}: ${c.text}`}
-              aria-label={`${c.title}: ${c.text}`}
-              className={`relative flex h-14 items-center justify-center rounded-2xl ${c.hot ? c.hotBg : 'bg-neutral-900 hover:bg-neutral-800'}`}
-            >
-              <c.icon size={24} className={c.lit ? c.tone : 'text-neutral-500'} />
-              {c.badge > 0 && <span className={`absolute right-2 top-1.5 min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold leading-5 text-black ${c.badgeBg}`}>{c.badge}</span>}
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* On a computer they're down the side of the page, with their names (Home). */}
+      {!wide && <Shortcuts uid={uid} full={prefs.fullCards} />}
+    </div>
+  );
+}
+
+/** Today's practice, the notebook and the questions, each with what's waiting there. */
+function useShortcuts(uid: string) {
+  const stats = useStats(uid);
+  const mistakes = useMistakes(uid);
+  const questions = useMyQuestions(uid);
+  const due = (mistakes ?? []).filter((m) => isDue(m, serverNow())).length;
+  const replies = (questions ?? []).filter((q) => q.reply && !q.seen).length;
+  const streak = liveStreak(stats);
+  const today = doneToday(stats);
+  return [
+    {
+      href: '/daily',
+      icon: Flame,
+      title: 'Өдрийн дасгал',
+      text: today ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх',
+      hot: !today,
+      lit: streak > 0,
+      badge: streak,
+      hotBg: 'bg-orange-500/10 hover:bg-orange-500/15',
+      tone: 'text-orange-300',
+      badgeBg: 'bg-orange-500',
+    },
+    {
+      href: '/mistakes',
+      icon: NotebookPen,
+      title: 'Алдааны дэвтэр',
+      text: due ? `${due} бодлого давтах` : 'Өнөөдөр давтах зүйл алга',
+      hot: due > 0,
+      lit: due > 0,
+      badge: due,
+      hotBg: 'bg-rose-500/10 hover:bg-rose-500/15',
+      tone: 'text-rose-300',
+      badgeBg: 'bg-rose-500',
+    },
+    {
+      href: '/questions',
+      icon: MessageCircleQuestion,
+      title: 'Асуултууд',
+      text: replies ? `Багш ${replies} асуултад хариулсан` : 'Багшаас асуух',
+      hot: replies > 0,
+      lit: replies > 0,
+      badge: replies,
+      hotBg: 'bg-sky-500/10 hover:bg-sky-500/15',
+      tone: 'text-sky-300',
+      badgeBg: 'bg-sky-500',
+    },
+  ];
+}
+
+/**
+ * The three ways in: just the icons (a number when there is something to do), or with their names (`full`, the
+ * "Тохиргоо" choice, and always down the side on a computer: `stack`).
+ */
+export function Shortcuts({uid, full, stack, className = ''}: {uid: string; full?: boolean; stack?: boolean; className?: string}) {
+  const cards = useShortcuts(uid);
+  if (full || stack)
+    return (
+      <div className={`grid gap-3 ${stack ? '' : 'sm:grid-cols-3'} ${className}`}>
+        {cards.map((c) => (
+          <Link key={c.href} href={c.href} className={`flex items-center gap-3 rounded-2xl p-4 ${c.hot ? c.hotBg : 'bg-neutral-900 hover:bg-neutral-800'}`}>
+            <c.icon size={22} className={`shrink-0 ${c.lit ? c.tone : 'text-neutral-500'}`} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">{c.title}</span>
+              <span className="block text-xs text-neutral-400">{c.text}</span>
+            </span>
+            {stack && c.badge > 0 && <span className={`min-w-6 rounded-full px-1.5 text-center text-xs font-bold leading-6 text-black ${c.badgeBg}`}>{c.badge}</span>}
+          </Link>
+        ))}
+      </div>
+    );
+  return (
+    <div className={`grid grid-cols-3 gap-3 ${className}`}>
+      {cards.map((c) => (
+        <Link
+          key={c.href}
+          href={c.href}
+          title={`${c.title}: ${c.text}`}
+          aria-label={`${c.title}: ${c.text}`}
+          className={`relative flex h-14 items-center justify-center rounded-2xl ${c.hot ? c.hotBg : 'bg-neutral-900 hover:bg-neutral-800'}`}
+        >
+          <c.icon size={24} className={c.lit ? c.tone : 'text-neutral-500'} />
+          {c.badge > 0 && <span className={`absolute right-2 top-1.5 min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold leading-5 text-black ${c.badgeBg}`}>{c.badge}</span>}
+        </Link>
+      ))}
     </div>
   );
 }

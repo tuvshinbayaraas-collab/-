@@ -4,12 +4,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 import {InstallHelpHost} from './components/GetApp';
 import GuideHost from './components/Guide';
 import Header from './components/Header';
+import {LogoMark} from './components/Logo';
 import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
 import {useDbLost} from './lib/connection';
 import {usePrefs} from './lib/prefs';
 import {loadTest} from './tests';
+import Loading from './components/Loading';
 
 // The test pages carry the questions, figures and KaTeX, so they load on first visit.
 const TestPage = lazy(() => import('./pages/TestPage'));
@@ -111,14 +113,21 @@ export default function App() {
       <OfflineBar />
       <main className="flex-1 px-4 pb-10 pt-4 sm:px-6">
         <ErrorBoundary resetKey={path}>
-          <Suspense fallback={<p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>}>{page}</Suspense>
+          <Suspense fallback={<Loading />}>{page}</Suspense>
         </ErrorBoundary>
       </main>
       {path !== '/credits' && (
-        <footer className="px-4 pb-8 text-center text-xs text-neutral-500">
-          <Link href="/credits" onPointerEnter={warmCredits} onTouchStart={warmCredits} onFocus={warmCredits} className="hover:text-neutral-300">
-            © {new Date().getFullYear()} Batnab · Бүтээсэн: Баттүшиг
-          </Link>
+        <footer className="border-t border-neutral-800/80 px-4 sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 py-5 text-xs text-neutral-500 sm:flex-row sm:justify-between">
+            <p className="flex items-center gap-2">
+              <LogoMark size={18} />
+              <span className="font-semibold text-neutral-300">Batnab</span>
+              <span>· Ангийн математикийн тест, дасгал</span>
+            </p>
+            <Link href="/credits" onPointerEnter={warmCredits} onTouchStart={warmCredits} onFocus={warmCredits} className="hover:text-neutral-300">
+              © {new Date().getFullYear()} Batnab · Бүтээсэн: Баттүшиг
+            </Link>
+          </div>
         </footer>
       )}
       <GuideHost />

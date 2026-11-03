@@ -10,6 +10,7 @@ import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import {dayKey, doneToday, liveStreak, practised, useStats} from '../lib/stats';
 import {forClassOf, problemNo, useProgress, useTopics, verdict} from '../lib/topics';
+import Loading from '../components/Loading';
 
 const SIZE = 5;
 type Saved = {items: string[]; done: string[]};
@@ -96,10 +97,10 @@ export default function Daily() {
     practised(stats, saved!.items.length).catch(() => {});
   }, [finished, stats, saved]);
 
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Өдрийн дасгал хийхийн тулд нэвтэрнэ үү." />;
   if (!uid) return session.admin ? <p className="py-24 text-center text-neutral-400">Өдрийн дасгал сурагчдад зориулагдсан.</p> : <InactiveNote blocked={!!session.profile?.disabled} />;
-  if (!saved || !topics || !mistakes || !progress) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!saved || !topics || !mistakes || !progress) return <Loading />;
 
   const streak = liveStreak(stats);
   return (

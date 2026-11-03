@@ -38,11 +38,12 @@ import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useNow} from '../lib/time';
 import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, useTopics, type Letter} from '../lib/topics';
+import Loading from '../components/Loading';
 
 /** /live: the teacher runs the quiz (on the board), a student plays it on their phone. */
 export default function Live() {
   const session = useSession();
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Шууд тэмцээнд оролцохын тулд нэвтэрнэ үү." />;
   if (session.admin) return <Host />;
   if (!session.profile || session.profile.disabled) return <InactiveNote blocked={!!session.profile?.disabled} />;
@@ -82,7 +83,7 @@ const Countdown = ({left, dur, big}: {left: number; dur: number; big?: boolean})
 function Host() {
   const state = useLiveQuizState();
   const quiz = state?.q ?? null;
-  if (!state) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!state) return <Loading />;
   if (!quiz) return <Setup />;
   return <Board quiz={quiz} />;
 }
@@ -103,7 +104,7 @@ function Setup() {
   const teamMode = teamBy === 'class' && !byClass ? 'none' : teamBy;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  if (!topics) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics) return <Loading />;
   const usable = topics.filter((t) => quizzable(t).length > 0);
   const t = usable.find((x) => x.id === tid) ?? null;
   const problems = t ? quizzable(t) : [];
@@ -588,7 +589,7 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
   const [typed, setTyped] = useState('');
   useEffect(() => setTyped(''), [quiz?.cur]);
 
-  if (!state) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!state) return <Loading />;
   const me = quiz ? players.find((p) => p.uid === uid) : undefined;
   // Not for this class, or left open and forgotten (and not joined): nothing to join.
   if (!quiz || !forClass(quiz.classes, classId) || (!me && !liveOn(quiz, now)))

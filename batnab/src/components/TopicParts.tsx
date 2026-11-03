@@ -5,13 +5,22 @@ import {auth} from '../lib/firebase';
 import {answer, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
 import VideoEmbed from './VideoEmbed';
 import MathText from './MathText';
+import HelpLadder from './HelpLadder';
 import ZoomView from './ZoomView';
 
 /** Text with $math$; each line its own line. */
 export function Rich({text, className = ''}: {text: string; className?: string}) {
   return (
     <div className={`space-y-2 leading-relaxed [overflow-wrap:anywhere] ${className}`}>
-      {text.split(/\n/).map((line, i) => (line.trim() ? <p key={i}><MathText text={line} /></p> : <div key={i} className="h-1" />))}
+      {text.split(/\n/).map((line, i) =>
+        line.trim() ? (
+          <p key={i}>
+            <MathText text={line} />
+          </p>
+        ) : (
+          <div key={i} className="h-1" />
+        ),
+      )}
     </div>
   );
 }
@@ -116,12 +125,23 @@ function PickPhoto({file, onFile, disabled, label = 'Бодолтын зураг
       {url ? (
         <span className="relative">
           <img src={url} alt="Илгээх бодолтын зураг" className="h-20 w-auto rounded-lg bg-white object-contain ring-1 ring-neutral-700" />
-          <button type="button" onClick={() => onFile(null)} disabled={disabled} aria-label="Зургийг авах" className="absolute -right-2 -top-2 rounded-full bg-neutral-700 p-1 text-neutral-100 hover:bg-neutral-600">
+          <button
+            type="button"
+            onClick={() => onFile(null)}
+            disabled={disabled}
+            aria-label="Зургийг авах"
+            className="absolute -right-2 -top-2 rounded-full bg-neutral-700 p-1 text-neutral-100 hover:bg-neutral-600"
+          >
             <X size={12} />
           </button>
         </span>
       ) : (
-        <button type="button" onClick={() => input.current?.click()} disabled={disabled} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50"
+        >
           <Camera size={15} /> {label}
         </button>
       )}
@@ -160,8 +180,14 @@ export function ProblemView(props: {
   review?: (right: boolean) => void;
   ask?: string;
   heading?: string;
+  /**
+   * With `review`: wrong, the right answer and the solution wait behind a hint (the solution's first sentence), then
+   * the whole solution, with a try again first.
+   */
+  stepped?: boolean;
 }) {
-  const {tid, p, num, teacher, onOutcome, review, ask, heading, mark} = props;
+  const {tid, p, num, teacher, onOutcome, review, ask, heading, mark, stepped} = props;
+  const [help, setHelp] = useState(0);
   const first = review ? undefined : props.first;
   const [pick, setPick] = useState<string>('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -248,6 +274,9 @@ export function ProblemView(props: {
     </>
   );
   const ring = !done || v === null ? '' : ok ? 'ring-1 ring-green-500/40' : 'ring-1 ring-red-500/40';
+  // The notebook, wrong: help a step at a time before the answer.
+  const ladder = !!(review && stepped && v === false && help < 2);
+  const firstStep = p.sol ? p.sol.split(/(?<=[.!?])\s+|\n+/).find((x) => x.trim()) : undefined;
   const fromTeacher = counted && mark;
 
   return (
@@ -257,7 +286,9 @@ export function ProblemView(props: {
         {practice && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-400">дасгал</span>}
         {!p.k && !first && !practice && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] text-violet-200">багш шалгана</span>}
         {first && !practice && (
-          <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${ok ? 'bg-green-500/15 text-green-300' : v === false ? 'bg-red-500/15 text-red-300' : waiting ? 'bg-violet-500/15 text-violet-200' : 'bg-neutral-800 text-neutral-400'}`}>
+          <span
+            className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${ok ? 'bg-green-500/15 text-green-300' : v === false ? 'bg-red-500/15 text-red-300' : waiting ? 'bg-violet-500/15 text-violet-200' : 'bg-neutral-800 text-neutral-400'}`}
+          >
             {ok ? 'Зөв бодсон' : v === false ? 'Алдсан' : waiting ? 'Багш шалгаж байна' : 'Бодсон'}
           </span>
         )}
@@ -333,10 +364,17 @@ export function ProblemView(props: {
           )}
           {!done && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button disabled={busy || (!value && !(photoAlone && photo && !first))} className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:bg-neutral-800 disabled:text-neutral-500">
+              <button
+                disabled={busy || (!value && !(photoAlone && photo && !first))}
+                className="rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:bg-neutral-800 disabled:text-neutral-500"
+              >
                 {busy ? (byTeacher ? 'Илгээж байна…' : 'Шалгаж байна…') : byTeacher ? 'Багшид илгээх' : 'Шалгах'}
               </button>
-              {!practice && !first && !teacher && <span className="text-xs text-neutral-500">{byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}</span>}
+              {!practice && !first && !teacher && (
+                <span className="text-xs text-neutral-500">
+                  {byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}
+                </span>
+              )}
             </div>
           )}
         </form>
@@ -355,7 +393,15 @@ export function ProblemView(props: {
           ) : (
             <p className={`flex flex-wrap items-center gap-2 font-semibold ${ok ? 'text-green-400' : 'text-red-300'}`}>
               {ok ? <Check size={18} /> : <X size={18} />}
-              {fromTeacher ? (ok ? 'Багш: зөв!' : `Багш: буруу.${shownKey ? ` Зөв хариулт: ${shownKey}` : ''}`) : ok ? 'Зөв! Гайхалтай.' : `Буруу. Зөв хариулт: ${shownKey}`}
+              {fromTeacher
+                ? ok
+                  ? 'Багш: зөв!'
+                  : `Багш: буруу.${shownKey ? ` Зөв хариулт: ${shownKey}` : ''}`
+                : ok
+                  ? 'Зөв! Гайхалтай.'
+                  : ladder
+                    ? 'Буруу. Маргааш дахин гарна.'
+                    : `Буруу. Зөв хариулт: ${shownKey}`}
             </p>
           )}
           {fromTeacher && mark.note && (
@@ -363,7 +409,16 @@ export function ProblemView(props: {
               <MessageSquare size={16} className="mt-0.5 shrink-0 text-neutral-400" /> <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{mark.note}</span>
             </p>
           )}
-          {solution && (
+          {review && stepped && v === false && (
+            <HelpLadder
+              hint={firstStep && firstStep.trim() !== p.sol?.trim() ? firstStep : undefined}
+              help={help}
+              setHelp={setHelp}
+              onRetry={again}
+              last={<span className="sr-only">Зөв хариулт ба бодолт</span>}
+            />
+          )}
+          {solution && !ladder && (
             <details open={v === false} className="rounded-xl bg-neutral-800/50 p-3">
               <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-amber-200">
                 <Lightbulb size={16} /> {p.sol || p.solImg ? `Бодолт${p.vid ? ' · видео' : ''}` : 'Видео тайлбар'}

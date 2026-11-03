@@ -6,6 +6,7 @@ import {deleteQuestion, markSeen, useMyQuestions, type Question} from '../lib/cl
 import {formatDate} from '../lib/results';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
+import Loading from '../components/Loading';
 
 /** Where a question was asked from, as a link back to it. */
 export const questionHref = (q: Question) => (q.ctx.s === 'p' ? `/topics/${q.ctx.t}` : '/mistakes');
@@ -19,10 +20,10 @@ export default function Questions() {
     for (const q of questions ?? []) if (q.reply && !q.seen) markSeen(q.uid, q.id).catch(() => {});
   }, [questions]);
 
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Асуултаа харахын тулд нэвтэрнэ үү." />;
   if (!uid) return session.admin ? <p className="py-24 text-center text-neutral-400">Сурагчдын асуулт багшийн самбарын «Асуулт» хэсэгт байна.</p> : <InactiveNote blocked={!!session.profile?.disabled} />;
-  if (!questions) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!questions) return <Loading />;
 
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">

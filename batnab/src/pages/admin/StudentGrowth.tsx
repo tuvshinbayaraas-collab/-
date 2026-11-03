@@ -26,7 +26,7 @@ export default function StudentGrowth({uid, data}: {uid: string; data: AdminData
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         <Tile icon={<Flame size={16} className="text-orange-300" />} label="Өдрийн дасгал" value={`🔥 ${liveStreak(stats)}`} sub={`хамгийн их ${stats?.best ?? 0}`} />
-        <Tile icon={<NotebookPen size={16} className="text-rose-300" />} label="Алдааны дэвтэр" value={mistakes?.length ?? '—'} sub={`${mistakes?.filter((m) => isDue(m)).length ?? 0} давтах · ${stats?.learned ?? 0} сурсан`} />
+        <Tile icon={<NotebookPen size={16} className="text-rose-300" />} label="Алдааны дэвтэр" value={mistakes?.filter((m) => !m.done).length ?? '—'} sub={`${mistakes?.filter((m) => isDue(m)).length ?? 0} давтах · ${stats?.learned ?? 0} сурсан`} />
         <Tile icon={<BookOpen size={16} className="text-violet-300" />} label="Сэдэв" value={scores.length} sub="эхэлсэн" />
       </div>
       {scores.length > 0 && (

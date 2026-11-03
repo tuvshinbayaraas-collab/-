@@ -8,6 +8,7 @@ import {addMistakes, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {forClassOf, problemNo, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
+import Loading from '../components/Loading';
 
 /** /topics/{id}: the lesson, then the problems one under another. */
 export default function TopicView({id}: {id: string}) {
@@ -17,10 +18,10 @@ export default function TopicView({id}: {id: string}) {
   const marks = useMarks(session.user && !session.admin ? session.user.uid : undefined);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const mistakes = useMistakes(session.user && !session.admin ? session.user.uid : undefined);
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Сэдвийг үзэхийн тулд нэвтэрнэ үү." />;
   if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
-  if (!topics || !progress || !marks) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics || !progress || !marks) return <Loading />;
 
   const t = topics.find((x) => x.id === id);
   if (!t || (!session.admin && !forClassOf(t, session.profile?.class)))

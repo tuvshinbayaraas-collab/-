@@ -570,6 +570,15 @@
           "at": {
             ".validate": "newData.isNumber()"
           },
+          "why": {
+            ".validate": "newData.isString() && newData.val().matches(/^(formula|calc|read|guess)$/)"
+          },
+          "note": {
+            ".validate": "newData.isString() && newData.val().length <= 300"
+          },
+          "done": {
+            ".validate": "newData.isNumber()"
+          },
           "$other": {
             ".validate": false
           }

@@ -4,6 +4,7 @@ import {useClasses} from '../lib/classes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {forClassOf, useProgress, useTopics} from '../lib/topics';
+import Loading from '../components/Loading';
 
 /** /topics: the lessons and problems the teacher has opened for the student's class (the teacher sees drafts too). */
 export default function Topics() {
@@ -11,7 +12,7 @@ export default function Topics() {
   const topics = useTopics();
   const progress = useProgress(session.user && !session.admin ? session.user.uid : undefined);
   const classes = useClasses();
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Сэдвүүдийг үзэхийн тулд нэвтэрнэ үү." />;
   if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
 
@@ -30,7 +31,7 @@ export default function Topics() {
       </header>
 
       {!shown ? (
-        <p className="py-16 text-center text-neutral-400">Ачаалж байна…</p>
+        <Loading small />
       ) : !shown.length ? (
         <p className="mt-8 rounded-2xl bg-neutral-900 p-6 text-center text-neutral-400">Багш одоогоор сэдэв оруулаагүй байна.</p>
       ) : (

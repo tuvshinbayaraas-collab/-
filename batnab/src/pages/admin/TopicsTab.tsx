@@ -6,6 +6,7 @@ import {createTopic, setTopicOrder, useAllMarks, useAllProgress, useTopics} from
 import type {AdminData} from './data';
 import {waitingIn} from './TopicCheck';
 import {useAllTopicKeys} from './WeakTopics';
+import Loading from '../../components/Loading';
 
 /** The teacher's topics: each with its lesson and problems; drafts stay hidden from students. */
 export default function TopicsTab({data}: {data: AdminData}) {
@@ -15,7 +16,7 @@ export default function TopicsTab({data}: {data: AdminData}) {
   const marks = useAllMarks();
   const keys = useAllTopicKeys();
   const [busy, setBusy] = useState(false);
-  if (!topics) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!topics) return <Loading small />;
 
   const add = async () => {
     setBusy(true);

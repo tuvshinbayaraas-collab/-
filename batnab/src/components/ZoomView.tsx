@@ -1,5 +1,5 @@
 import {Minus, Plus, X} from 'lucide-react';
-import {useEffect, useRef, useState, type PointerEvent} from 'react';
+import {useEffect, useRef, useState, type PointerEvent, type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 
 const MAX = 6;
@@ -10,12 +10,13 @@ type Point = {x: number; y: number};
 /**
  * A picture on the whole screen, to read up close: two fingers or the mouse wheel zoom in where they are, a double
  * tap (double click) zooms in and back out, dragging moves the zoomed picture. A tap beside the picture or Esc closes.
+ * `url`: an image; or `children`: a drawing (a test's figure, its choices), shown as large as the screen allows.
  */
-export default function ZoomView({url, onClose}: {url: string; onClose: () => void}) {
+export default function ZoomView({url, children, label = 'Зураг', onClose}: {url?: string; children?: ReactNode; label?: string; onClose: () => void}) {
   const [view, setView] = useState<View>(ONE);
   const [smooth, setSmooth] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const img = useRef<HTMLImageElement>(null);
+  const img = useRef<HTMLElement>(null);
   const current = useRef(ONE);
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<{d: number; at: Point; from: View} | null>(null);
@@ -68,7 +69,7 @@ export default function ZoomView({url, onClose}: {url: string; onClose: () => vo
     }
     if (!pointers.current.size) {
       moved.current = false;
-      onPicture.current = e.target === img.current;
+      onPicture.current = !!img.current?.contains(e.target as Node);
     }
     pointers.current.set(e.pointerId, rel(e));
     begin();
@@ -137,7 +138,7 @@ export default function ZoomView({url, onClose}: {url: string; onClose: () => vo
   const btn = 'flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900/85 text-neutral-100 hover:bg-neutral-800 disabled:opacity-40';
   // On top of everything, also when opened from inside a panel.
   return createPortal(
-    <div className="fixed inset-0 z-[70] bg-black/90" role="dialog" aria-modal="true" aria-label="Зураг">
+    <div className="fixed inset-0 z-[70] bg-black/90" role="dialog" aria-modal="true" aria-label={label}>
       <div
         ref={box}
         onPointerDown={down}
@@ -146,14 +147,29 @@ export default function ZoomView({url, onClose}: {url: string; onClose: () => vo
         onPointerCancel={up}
         className={`flex h-full w-full touch-none select-none items-center justify-center overflow-hidden p-3 ${zoomed ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
       >
-        <img
-          ref={img}
-          src={url}
-          alt=""
-          draggable={false}
-          className="max-h-full max-w-full rounded-lg bg-white object-contain"
-          style={{transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`, transition: smooth ? 'transform 0.18s ease-out' : 'none'}}
-        />
+        {url !== undefined ? (
+          <img
+            ref={(el) => {
+              img.current = el;
+            }}
+            src={url}
+            alt=""
+            draggable={false}
+            className="max-h-full max-w-full rounded-lg bg-white object-contain"
+            style={{transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`, transition: smooth ? 'transform 0.18s ease-out' : 'none'}}
+          />
+        ) : (
+          // A drawing at the screen's size: its own lines and text scale with it, so they stay sharp.
+          <div
+            ref={(el) => {
+              img.current = el;
+            }}
+            className="max-h-full w-[min(94vw,56rem)] overflow-hidden rounded-xl bg-neutral-900 p-4 text-neutral-100 sm:p-6 [&_svg]:mx-auto [&_svg]:h-auto! [&_svg]:max-h-[78vh] [&_svg]:w-full!"
+            style={{transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`, transition: smooth ? 'transform 0.18s ease-out' : 'none'}}
+          >
+            {children}
+          </div>
+        )}
       </div>
       <button onClick={onClose} aria-label="Хаах" className={`${btn} absolute right-3 top-3`}>
         <X size={20} />
@@ -162,7 +178,11 @@ export default function ZoomView({url, onClose}: {url: string; onClose: () => vo
         <button onClick={() => step(1 / 1.5)} disabled={!zoomed} aria-label="Жижигрүүлэх" className={btn}>
           <Minus size={18} />
         </button>
-        <button onClick={() => apply(ONE, true)} className="h-10 min-w-16 rounded-full bg-neutral-900/85 px-3 text-sm font-semibold tabular-nums text-neutral-100 hover:bg-neutral-800" aria-label="Анхны хэмжээ">
+        <button
+          onClick={() => apply(ONE, true)}
+          className="h-10 min-w-16 rounded-full bg-neutral-900/85 px-3 text-sm font-semibold tabular-nums text-neutral-100 hover:bg-neutral-800"
+          aria-label="Анхны хэмжээ"
+        >
           {Math.round(view.s * 100)}%
         </button>
         <button onClick={() => step(1.5)} disabled={view.s >= MAX} aria-label="Томруулах" className={btn}>

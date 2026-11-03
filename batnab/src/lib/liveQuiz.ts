@@ -60,7 +60,7 @@ export interface LivePlayer {
 }
 
 /** Team colours: a team's tile, dot and bar. */
-export const TEAM_COLORS = ['bg-red-500', 'bg-blue-500', 'bg-amber-500', 'bg-green-500', 'bg-pink-500', 'bg-cyan-500'];
+export const TEAM_COLORS = ['bg-red-500', 'bg-sky-600', 'bg-amber-500', 'bg-green-500', 'bg-pink-500', 'bg-cyan-500'];
 const TEAM_NAMES = ['Улаан', 'Цэнхэр', 'Шар', 'Ногоон', 'Ягаан', 'Хөх'];
 
 /** Teams for a new quiz: `n` coloured ones, or one per class among those given. */
@@ -265,4 +265,4 @@ export function ranking(players: LivePlayer[], scores: Record<string, LiveScore>
   return list.map((r) => ({...r, place: 1 + list.filter((x) => x.score > r.score).length}));
 }
 
-export const LIVE_COLORS: Record<Letter, string> = {A: 'bg-red-500', B: 'bg-blue-500', C: 'bg-amber-500', D: 'bg-green-500', E: 'bg-violet-500'};
+export const LIVE_COLORS: Record<Letter, string> = {A: 'bg-red-500', B: 'bg-sky-600', C: 'bg-amber-500', D: 'bg-green-500', E: 'bg-violet-500'};

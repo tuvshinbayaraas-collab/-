@@ -1,10 +1,12 @@
 import {ArrowLeft} from 'lucide-react';
 import {useEffect, useState} from 'react';
+import Loading from '../components/Loading';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
 import AskButton from '../components/Ask';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
+import SkillBreakdown from '../components/SkillBreakdown';
 import {formatDuration} from '../lib/attempt';
 import {choiceAt, grade, percent, useKeys} from '../lib/keys';
 import {asResult, awayTimes, awayTotal, useExamAnswer, useExamEvents, useExams} from '../lib/exams';
@@ -12,7 +14,9 @@ import AwayList from '../components/AwayList';
 import {formatDate, useResult} from '../lib/results';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
+import {skillStats} from '../lib/skills';
 import {useNow} from '../lib/time';
+import {skillOf, type Skill} from '../tests/skills';
 import {loadTest, testInfo} from '../tests';
 import type {Test} from '../tests/types';
 
@@ -39,13 +43,23 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const [onlyWrong, setOnlyWrong] = useState(false);
   const info = testInfo(testId);
 
+  const [failed, setFailed] = useState(false);
+  const [skill, setSkill] = useState<Skill | null>(null);
   useEffect(() => {
-    loadTest(testId)?.then(setTest);
+    loadTest(testId)?.then(setTest, () => setFailed(true));
   }, [testId]);
 
   if (!info) return <CenterNote title="Ийм тест олдсонгүй" />;
   if (session.ready && !session.user) return <LockedNote />;
-  if (!session.ready || result === undefined || !test) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (failed)
+    return (
+      <CenterNote title="Тестийг ачаалж чадсангүй">
+        <button onClick={() => location.reload()} className="mt-2 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
+          Дахин оролдох
+        </button>
+      </CenterNote>
+    );
+  if (!session.ready || result === undefined || !test) return <Loading what="Хариултыг ачаалж байна…" />;
   if (!result) return <CenterNote title="Энэ дүн олдсонгүй" />;
   if (isExam && !session.admin && exam && now <= exam.end) return <CenterNote title="Шалгалтын дүн шалгалт дууссаны дараа гарна" />;
 
@@ -110,18 +124,35 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
               </span>{' '}
               {!reveal && <span className="text-neutral-400">{missed.map((i) => i + 1).join(', ')}</span>}
             </p>
-            <button onClick={() => setOnlyWrong((o) => !o)} aria-pressed={onlyWrong} className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700">
+            <button
+              onClick={() => {
+                setOnlyWrong((o) => !o);
+                setSkill(null);
+              }}
+              aria-pressed={onlyWrong}
+              className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700"
+            >
               {onlyWrong ? 'Бүх бодлогыг харах' : 'Зөвхөн алдсанаа харах'}
             </button>
           </div>
         )}
-        <p className="mt-2 text-sm text-neutral-500">
-          Бодлогууд номын дарааллаар харагдаж байна.
-        </p>
+        {g && (
+          <SkillBreakdown
+            stats={skillStats([{test: testId, answers: result.answers, key}])}
+            percent={percent(g)}
+            picked={skill}
+            onPick={(s) => {
+              setSkill(s);
+              setOnlyWrong(false);
+            }}
+            notebook={!session.admin}
+          />
+        )}
+        <p className="mt-2 text-sm text-neutral-500">Бодлогууд номын дарааллаар харагдаж байна.</p>
       </div>
       <QuestionList>
         {test.questions.map((q, i) =>
-          onlyWrong && !missed.includes(i) ? null : (
+          (onlyWrong || skill) && (!missed.includes(i) || (skill && skillOf(testId, i) !== skill)) ? null : (
             <QuestionCard
               key={i}
               num={i + 1}

@@ -8,6 +8,7 @@ import {dayLabel} from '../lib/time';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {TESTS, testInfo} from '../tests';
+import Loading from '../components/Loading';
 
 /**
  * A classmate's profile as others see it, opened from the leaderboard: nickname (or login name), photo, this week's
@@ -23,7 +24,7 @@ export default function PublicProfile({uid}: {uid: string}) {
 
   if (session.ready && !session.user) return <LockedNote />;
   if (settings && !settings.leaderboard) return <CenterNote title="Leaderboard одоогоор хаалттай байна" />;
-  if (!allowed || !board || !medals) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!allowed || !board || !medals) return <Loading />;
 
   // Only the tests where the student is in the top 3 this week; someone who is in no top 3 has no profile here.
   const mine = TESTS.flatMap((t) => {

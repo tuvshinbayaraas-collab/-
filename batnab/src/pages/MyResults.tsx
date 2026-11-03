@@ -1,9 +1,12 @@
 import {ChevronRight, RefreshCw} from 'lucide-react';
+import Loading from '../components/Loading';
 import {InactiveNote, LockedNote} from '../components/Notices';
+import SkillBreakdown from '../components/SkillBreakdown';
 import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
 import {formatDuration} from '../lib/attempt';
 import {grade, percent, useKeys} from '../lib/keys';
 import {formatDate, useMyResults} from '../lib/results';
+import {skillStats} from '../lib/skills';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {TESTS, testInfo} from '../tests';
@@ -19,6 +22,12 @@ export default function MyResults() {
 
   const graded = (results ?? []).map((r) => ({r, g: grade(r.answers, keys[r.test], testInfo(r.test)!.count)}));
   const taken = TESTS.filter((t) => graded.some((x) => x.r.test === t.id));
+  // The newest graded attempt at each test: what the student knows now.
+  const latest = taken
+    .map((t) => graded.filter((x) => x.r.test === t.id && x.g).sort((a, b) => b.r.at - a.r.at)[0])
+    .filter((x) => !!x)
+    .map((x) => ({test: x.r.test, answers: x.r.answers, key: keys[x.r.test], g: x.g!}));
+  const latestScore = latest.reduce((a, x) => ({score: a.score + x.g.score, total: a.total + x.g.total}), {score: 0, total: 0});
 
   return (
     <div className="mx-auto max-w-3xl py-6">
@@ -27,7 +36,7 @@ export default function MyResults() {
         <RefreshCw size={14} /> Энэ долоо хоногийн дүн. Баасан гараг бүрийн 24:00-д шинээр эхэлнэ ({untilReset()} үлдлээ).
       </p>
       {results === null ? (
-        <p className="mt-6 text-neutral-400">Ачаалж байна…</p>
+        <Loading what="Дүнг ачаалж байна…" small />
       ) : !results.length ? (
         <p className="mt-6 text-neutral-400">
           Одоогоор дүн алга.{' '}
@@ -46,13 +55,19 @@ export default function MyResults() {
                 <div key={t.id} className="rounded-2xl bg-neutral-900 p-4">
                   <p className="text-sm text-neutral-400">{t.title}</p>
                   <p className={`mt-1 text-2xl font-bold ${perfect ? perfectText('test') : ''}`}>{best === null ? '—' : `${best}%`}</p>
-                  <p className="text-xs text-neutral-500">
-                    шилдэг • {mine.length} удаа
-                  </p>
+                  <p className="text-xs text-neutral-500">шилдэг • {mine.length} удаа</p>
                 </div>
               );
             })}
           </div>
+
+          {latest.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-neutral-900 p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Юуг давтах вэ</h2>
+              <p className="mt-1 text-xs text-neutral-500">Тест бүрийн сүүлийн оролдлогоор, сэдэв бүрт хэдийг зөв бодсон.</p>
+              <SkillBreakdown stats={skillStats(latest)} percent={Math.round((latestScore.score / Math.max(1, latestScore.total)) * 100)} notebook />
+            </div>
+          )}
 
           <h2 className="mb-2 mt-8 text-sm font-semibold uppercase tracking-wide text-neutral-400">Бүх оролдлого</h2>
           <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">

@@ -6,12 +6,13 @@ import {TESTS} from '../../tests';
 import {untilReset} from '../../lib/week';
 import BackupSection from './Backup';
 import {download, resultsCsv, type AdminData} from './data';
+import Loading from '../../components/Loading';
 
 export default function SettingsTab({data}: {data: AdminData}) {
   const settings = useSettings();
   const [error, setError] = useState('');
   const [saved, flash] = useSavedNote();
-  if (!settings) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!settings) return <Loading small />;
 
   const change = <K extends keyof Settings>(name: K, value: Settings[K]) => {
     setError('');

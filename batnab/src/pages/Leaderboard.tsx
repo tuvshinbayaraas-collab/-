@@ -11,6 +11,7 @@ import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {untilReset} from '../lib/week';
 import {TESTS, testInfo} from '../tests';
+import Loading from '../components/Loading';
 
 type Tab = 'test' | 'overall';
 
@@ -35,7 +36,7 @@ export default function Leaderboard() {
 
   if (session.ready && !session.user) return <LockedNote title="Leaderboard" text="Leaderboard-ийг харахын тулд нэвтэрнэ үү." />;
   if (settings && !settings.leaderboard) return <CenterNote title="Leaderboard одоогоор хаалттай байна" />;
-  if (!session.ready || !settings || (signedIn && !board)) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready || !settings || (signedIn && !board)) return <Loading />;
   if (!signedIn || !board) return <CenterNote title="Leaderboard-ийг харах боломжгүй" />;
 
   const list = tab === 'test' ? ranking(board[test] ?? []) : overall(board);

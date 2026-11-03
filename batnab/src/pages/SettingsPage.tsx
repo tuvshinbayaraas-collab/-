@@ -13,6 +13,7 @@ import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {lightSupported, useTheme, type Theme} from '../lib/theme';
 import {testInfo} from '../tests';
+import Loading from '../components/Loading';
 
 /** The menu's "Тохиргоо": the user's own settings, saved to their account. */
 export default function SettingsPage() {
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   const {theme, setTheme} = useTheme();
 
   if (session.ready && !session.user) return <LockedNote text="Тохиргоогоо өөрчлөхийн тулд нэвтэрнэ үү." />;
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.profile || session.profile.disabled) return <InactiveNote blocked={!!session.profile?.disabled} />;
   const profile = session.profile;
 

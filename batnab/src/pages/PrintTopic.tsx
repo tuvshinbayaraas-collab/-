@@ -6,6 +6,7 @@ import {useLive} from '../lib/live';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {LETTER_CODES, LETTER_LABELS, problemNo, useTopicImage, useTopics, type Letter, type Problem} from '../lib/topics';
+import Loading from '../components/Loading';
 
 type Space = 'none' | 'small' | 'big';
 const SPACE: Record<Space, string> = {none: '', small: 'h-24', big: 'h-56'};
@@ -40,7 +41,7 @@ export default function PrintTopic({id}: {id: string}) {
       return n;
     });
 
-  if (!session.ready || !topics) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready || !topics) return <Loading />;
   if (!session.admin) return <LockedNote title="Зөвхөн багш хэвлэнэ" />;
   const t = topics.find((x) => x.id === id);
   if (!t) return <CenterNote title="Ийм сэдэв олдсонгүй" />;

@@ -1,13 +1,17 @@
 import {AlertTriangle, Check, CloudOff, Timer, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
+import Loading from '../components/Loading';
 import QuestionCard from '../components/QuestionCard';
+import SkillBreakdown from '../components/SkillBreakdown';
 import {QuestionList, useJump} from '../components/QuestionList';
 import {choicePerms, formatDuration, formatTime, shuffled} from '../lib/attempt';
 import {examEvent, examState, saveExam, type Exam, type ExamAnswer} from '../lib/exams';
 import {choiceAt, encode, grade, percent, useKeys} from '../lib/keys';
 import {ask, useLeaveCounter} from '../lib/leaves';
 import {usePrefs} from '../lib/prefs';
+import {skillStats} from '../lib/skills';
+import {skillOf, type Skill} from '../tests/skills';
 import {Link, setNavGuard} from '../lib/router';
 import {settingsReady} from '../lib/settings';
 import {clock, serverNow, useNow} from '../lib/time';
@@ -53,7 +57,12 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [onlyWrong, setOnlyWrong] = useState(false);
-  const {full, jump} = useJump(() => setOnlyWrong(false));
+  const [skill, setSkill] = useState<Skill | null>(null);
+  const [failed, setFailed] = useState(false);
+  const {full, jump} = useJump(() => {
+    setOnlyWrong(false);
+    setSkill(null);
+  });
   const prefs = usePrefs();
   const [submitted, setSubmitted] = useState(false);
   const now = useNow(1000);
@@ -67,19 +76,22 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
 
   useEffect(() => {
     // The settings first: whether the choices are shuffled is fixed when the attempt is made.
-    loadTest(id)?.then(async (t) => {
-      const shuffleChoices = (await settingsReady()).shuffleChoices;
-      const n = t.questions.length;
-      let a = load(key, n);
-      if (!a) {
-        a = {order: shuffled(n), answers: Array(n).fill(null), leaves: 0, away: 0, started: serverNow(), ...(shuffleChoices ? {perms: choicePerms(t.questions)} : {})};
-        // Opened on another device before: carry on from what the server has.
-        if (saved) a = {...a, answers: a.answers.map((_, i) => choiceAt(saved.answers, i)), leaves: saved.leaves, away: saved.away};
-        keep(key, a);
-      }
-      setTest(t);
-      setAttempt(a);
-    });
+    loadTest(id)?.then(
+      async (t) => {
+        const shuffleChoices = (await settingsReady()).shuffleChoices;
+        const n = t.questions.length;
+        let a = load(key, n);
+        if (!a) {
+          a = {order: shuffled(n), answers: Array(n).fill(null), leaves: 0, away: 0, started: serverNow(), ...(shuffleChoices ? {perms: choicePerms(t.questions)} : {})};
+          // Opened on another device before: carry on from what the server has.
+          if (saved) a = {...a, answers: a.answers.map((_, i) => choiceAt(saved.answers, i)), leaves: saved.leaves, away: saved.away};
+          keep(key, a);
+        }
+        setTest(t);
+        setAttempt(a);
+      },
+      () => setFailed(true),
+    );
     // The saved copy only seeds a fresh device; later updates come from this page itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, key]);
@@ -91,9 +103,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     if (!a) return queue.current;
     setStatus('saving');
     queue.current = queue.current
-      .then(() =>
-        saveExam(id, {answers: encode(a.answers), leaves: a.leaves, away: a.away, seconds: (serverNow() - a.started) / 1000, done: finish}, !hasRecord.current),
-      )
+      .then(() => saveExam(id, {answers: encode(a.answers), leaves: a.leaves, away: a.away, seconds: (serverNow() - a.started) / 1000, done: finish}, !hasRecord.current))
       .then(() => {
         hasRecord.current = true;
         setStatus('saved');
@@ -174,7 +184,17 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const keys = useKeys(ended && saved ? [id] : []);
   const answerKey = ended ? keys[id] : undefined;
 
-  if (!test || !attempt) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (failed)
+    return (
+      <div className="py-24 text-center">
+        <p className="font-semibold">Шалгалтыг ачаалж чадсангүй</p>
+        <p className="mt-1 text-sm text-neutral-400">Интернэт холболтоо шалгаад дахин оролдоно уу. Хугацаа тань үргэлжилж байгаа тул яаравчлаарай.</p>
+        <button onClick={() => location.reload()} className="mt-4 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
+          Дахин оролдох
+        </button>
+      </div>
+    );
+  if (!test || !attempt) return <Loading what="Шалгалтыг ачаалж байна…" />;
 
   const total = test.questions.length;
   const shown = done || ended ? (saved ? saved.answers : encode(attempt.answers)) : encode(attempt.answers);
@@ -280,8 +300,8 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
             </p>
           ) : (
             <p>
-              Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл
-              сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
+              Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа
+              хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
             </p>
           )}
         </div>
@@ -342,11 +362,28 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
                   <p className="text-sm">
                     <span className="font-medium text-red-300">{missed.length} бодлого дээр алдсан</span>
                   </p>
-                  <button onClick={() => setOnlyWrong((o) => !o)} aria-pressed={onlyWrong} className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700">
+                  <button
+                    onClick={() => {
+                      setOnlyWrong((o) => !o);
+                      setSkill(null);
+                    }}
+                    aria-pressed={onlyWrong}
+                    className="rounded-full bg-neutral-800 px-3.5 py-1 text-sm font-medium hover:bg-neutral-700"
+                  >
                     {onlyWrong ? 'Бүх бодлогыг харах' : 'Зөвхөн алдсанаа харах'}
                   </button>
                 </div>
               )}
+              <SkillBreakdown
+                stats={skillStats([{test: id, answers: shown, key: answerKey}])}
+                percent={percent(g)}
+                picked={skill}
+                onPick={(s) => {
+                  setSkill(s);
+                  setOnlyWrong(false);
+                }}
+                notebook
+              />
             </div>
           )}
           {ended && (
@@ -359,7 +396,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
 
       <QuestionList full={full}>
         {attempt.order.map((qi, pos) =>
-          onlyWrong && finished && !missed.includes(qi) ? null : (
+          (onlyWrong || skill) && finished && (!missed.includes(qi) || (skill && skillOf(id, qi) !== skill)) ? null : (
             <QuestionCard
               key={qi}
               id={`q${pos}`}
@@ -397,7 +434,9 @@ export function ExamWait({id, exam, now}: {id: string; exam: Exam; now: number})
         {clock(exam.start)}–{clock(exam.end)}. Эхлэхэд үлдсэн хугацаа:
       </p>
       <p className="mt-2 text-4xl font-bold tabular-nums">{formatTime((exam.start - now) / 1000)}</p>
-      <p className="mt-4 text-sm text-neutral-500">Цаг болоход бодлогууд энд автоматаар гарч ирнэ. Шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож багшид шууд харагдана.</p>
+      <p className="mt-4 text-sm text-neutral-500">
+        Цаг болоход бодлогууд энд автоматаар гарч ирнэ. Шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож багшид шууд харагдана.
+      </p>
     </div>
   );
 }

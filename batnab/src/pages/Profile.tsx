@@ -15,6 +15,7 @@ import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {testInfo} from '../tests';
+import Loading from '../components/Loading';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const card = 'rounded-2xl bg-neutral-900';
@@ -32,7 +33,7 @@ export default function Profile() {
   const session = useSession();
   const {profile} = session;
   const [open, setOpen] = useState<Open>(null);
-  if (!session.ready) return <p className="py-24 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote />;
   if (!profile || profile.disabled) return <InactiveNote blocked={!!profile?.disabled} />;
 

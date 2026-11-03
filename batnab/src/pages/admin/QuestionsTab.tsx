@@ -5,11 +5,12 @@ import {formatDate} from '../../lib/results';
 import {Link} from '../../lib/router';
 import {Rich} from '../../components/TopicParts';
 import type {AdminData} from './data';
+import Loading from '../../components/Loading';
 
 /** Students' questions about problems: unanswered first; the answer shows on the student's "Асуултууд" page. */
 export default function QuestionsTab({data}: {data: AdminData}) {
   const all = useAllQuestions();
-  if (!all) return <p className="py-10 text-center text-neutral-400">Ачаалж байна…</p>;
+  if (!all) return <Loading small />;
   const names = new Map(data.students.map((s) => [s.uid, s.profile.name]));
   const list = all.filter((q) => names.has(q.uid));
   const open = list.filter((q) => !q.reply).length;
