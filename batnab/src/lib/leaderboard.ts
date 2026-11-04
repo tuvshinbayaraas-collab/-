@@ -1,9 +1,8 @@
 // The weekly leaderboard: leaderboard/{weekStart}/{testId}/{uid} = each student's best attempt at a test this week.
 // A student adds their own score after handing in a test (the rules tie it to one of their results from this week);
 // the teacher's dashboard recomputes every entry from the results and the key, so a wrong score doesn't last.
-// "Хамгийн өндөр оноо" runs over a round of two weeks (lib/week.ts): when a round is over the dashboard turns its top 3
-// into that round's medals (medals/{uid}/{roundStart}, with `round`), then its weeks' entries go. Weeks before the
-// first round were rounds of their own (their medals have no `round`).
+// When a week is over the dashboard turns the top 3 of "Шилдэг оноогоор" into that week's medals (medals/{uid}/{weekStart},
+// with `round`: the week's number from 31 October 2026, which gives its animal; none before), then its entries go.
 // pub/{uid}/photo carries the photo (or ready-made picture) of students on the leaderboard, so the podium can show it.
 import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
@@ -34,13 +33,13 @@ export interface Medal {
   test: string;
   score: number;
   total: number;
-  /** The two-week round's number; none for a weekly medal from before rounds. */
+  /** The medal week's number (its animal); none for one from before the animals. */
   round?: number;
 }
 
 /**
- * Each round has its animal, the twelve of the Mongolian year in turn from the Horse (2026's), on its gold, silver
- * and bronze: «Морины алт», «Хонины мөнгө»… so every round's medals are its own.
+ * Each medal week has its animal, the twelve of the Mongolian year in turn from the Horse (2026's), on its gold,
+ * silver and bronze: «Морины алт», «Хонины мөнгө»… so every week's medals are its own.
  */
 export const ANIMALS: [name: string, of: string, sign: string][] = [
   ['Морь', 'Морины', '🐴'],
@@ -270,8 +269,6 @@ const day = (ts: number) => {
 };
 /** "10.10–10.16" (Saturday to Friday). */
 export const weekLabel = (start: number) => `${day(start)}–${day(start + 6 * 86400000)}`;
-/** "10.31–11.13": a round, Saturday to its last Friday. */
-export const roundLabel = (start: number) => `${day(start)}–${day(start + roundLength(start) - 86400000)}`;
 
 export const PLACES = {
   1: {name: 'Алт', ring: 'ring-amber-400', badge: 'bg-amber-400 text-black', text: 'text-amber-300', block: 'bg-amber-400/15'},
@@ -279,7 +276,7 @@ export const PLACES = {
   3: {name: 'Хүрэл', ring: 'ring-orange-600', badge: 'bg-orange-600 text-white', text: 'text-orange-300', block: 'bg-orange-600/15'},
 } as const;
 
-/** A medal's name: «Морины алт» for a round's, «Алт» for a weekly one. */
+/** A medal's name: «Морины алт» with its week's animal, «Алт» from before the animals. */
 export const medalName = (m: Pick<Medal, 'place' | 'round'>) => (m.round ? `${animalOf(m.round)[1]} ${PLACES[m.place].name.toLowerCase()}` : PLACES[m.place].name);
 
 export const percentOf = (e: {score: number; total: number}) => percent({score: e.score, total: e.total, count: e.total});

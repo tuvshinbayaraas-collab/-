@@ -119,7 +119,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
       id: `md:${m.week}`,
       kind: 'medal',
       at: m.week + roundLength(m.week),
-      text: `${PLACES[m.place]} ${m.round ? `${medalName(m)} — ${m.round}-р тойргийн` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
+      text: `${PLACES[m.place]} ${m.round ? `${medalName(m)} —` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
       href: '/profile',
     });
   if (liveOn(live, now) && forClass(live.classes, classId))

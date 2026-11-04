@@ -15,19 +15,19 @@ export const inThisWeek = (at: number, now = Date.now()) => at >= weekStart(now)
 /** "2 өдөр 5 цаг", "3 цаг 10 мин", "12 мин" until the next reset. */
 export const untilReset = (now = Date.now()) => until(nextReset(now), now);
 
-// "Хамгийн өндөр оноо" runs in rounds of two weeks (the per-test boards stay weekly): at the end of a round its top 3
-// get that round's medals. The first round began Saturday 31 October 2026; weeks before it were rounds of their own.
-export const ROUND = 2 * WEEK;
+// "Шилдэг оноогоор" gives medals every week: from the week of Saturday 31 October 2026 each week has its number (and
+// with it its animal, lib/leaderboard: the 1st the Horse's), the weeks before it none.
+export const ROUND = WEEK;
 export const ROUND_ANCHOR = 1_793_376_000_000;
 
-/** The start of the round `at` falls in (a week of its own before the first round). */
-export const roundStart = (at = Date.now()) => (at < ROUND_ANCHOR ? weekStart(at) : ROUND_ANCHOR + Math.floor((at - ROUND_ANCHOR) / ROUND) * ROUND);
-/** How long the round starting at `start` lasts. */
-export const roundLength = (start: number) => (start < ROUND_ANCHOR ? WEEK : ROUND);
-/** Rounds counted from 1 (0 for the weekly ones before). */
+/** The start of the medal week `at` falls in. */
+export const roundStart = (at = Date.now()) => weekStart(at);
+/** How long a medal week lasts. */
+export const roundLength = (_start: number) => ROUND;
+/** Medal weeks counted from 1 (0 for the weeks before). */
 export const roundNo = (start: number) => (start < ROUND_ANCHOR ? 0 : Math.floor((start - ROUND_ANCHOR) / ROUND) + 1);
-/** The week starts of the round starting at `start`. */
-export const roundWeeks = (start: number) => (start < ROUND_ANCHOR ? [start] : [start, start + WEEK]);
+/** The week starts of the medal week starting at `start` (just that one). */
+export const roundWeeks = (start: number) => [start];
 
 /** "2 өдөр 5 цаг" until `end`. */
 export function until(end: number, now = Date.now()) {

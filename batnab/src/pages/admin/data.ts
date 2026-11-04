@@ -165,8 +165,8 @@ export function leaderboardFixes(
     const photo = shown.has(uid) ? (pubOf(users[uid]?.photo, photos)?.photo ?? null) : null;
     if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
   }
-  // Finished rounds: medals for the top 3 of "Хамгийн өндөр оноо" over the round (its animal's, lib/leaderboard), then
-  // its weeks' entries go. A round's first week stays until the round is over.
+  // Finished weeks: medals for the top 3 of "Шилдэг оноогоор" (the week's animal's, lib/leaderboard), then the week's
+  // entries go.
   for (const r of finishedRounds(leaderboard)) {
     r.ranking
       .filter((e) => users[e.uid])

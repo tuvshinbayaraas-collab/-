@@ -55,7 +55,7 @@ export default function PublicProfile({uid}: {uid: string}) {
         <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{name}</h1>
         {top > 0 && top <= 3 && (
           <p className={`mt-2 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
-            {leader ? 'Энэ тойргийн тэргүүлэгч' : `«Шилдэг оноогоор» ${top}-р байр`}
+            {leader ? 'Энэ долоо хоногийн тэргүүлэгч' : `«Шилдэг оноогоор» ${top}-р байр`}
           </p>
         )}
       </section>

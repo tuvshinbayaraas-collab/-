@@ -1,5 +1,5 @@
 import {useId} from 'react';
-import {animalOf, medalName, PLACES, roundLabel, weekLabel, type Medal} from '../lib/leaderboard';
+import {animalOf, medalName, PLACES, weekLabel, type Medal} from '../lib/leaderboard';
 import {testInfo} from '../tests';
 
 /** The metals: a disc's light and dark, its rim, and the ribbon's two colours. */
@@ -10,8 +10,8 @@ const METAL = {
 } as const;
 
 /**
- * A medal as drawn: a two-colour ribbon and a metal disc, a round's medal with its animal and number («Морины алт»,
- * №1), a weekly one from before rounds with its place.
+ * A medal as drawn: a two-colour ribbon and a metal disc, with its week's animal and number («Морины алт», №1); one from
+ * before the animals, with its place.
  */
 export function MedalArt({place, round, size = 64}: {place: 1 | 2 | 3; round?: number; size?: number}) {
   const id = useId();
@@ -51,10 +51,10 @@ export function MedalArt({place, round, size = 64}: {place: 1 | 2 | 3; round?: n
 /** A medal with its name, when it was won and (`detail`) with what. */
 export default function MedalBadge({m, detail}: {m: Medal; detail?: boolean}) {
   return (
-    <li className="flex flex-col items-center text-center" title={m.round ? `${m.round}-р тойрог · ${roundLabel(m.week)}` : weekLabel(m.week)}>
+    <li className="flex flex-col items-center text-center" title={weekLabel(m.week)}>
       <MedalArt place={m.place} round={m.round} size={56} />
       <span className={`mt-1.5 text-sm font-semibold ${PLACES[m.place].text}`}>{medalName(m)}</span>
-      <span className="text-xs text-neutral-400">{m.round ? `${m.round}-р тойрог · ${roundLabel(m.week)}` : weekLabel(m.week)}</span>
+      <span className="text-xs text-neutral-400">{weekLabel(m.week)}</span>
       {detail && (
         <span className="text-[11px] text-neutral-500">
           {testInfo(m.test)?.title} · {m.score}/{m.total}
