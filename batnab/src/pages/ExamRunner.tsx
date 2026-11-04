@@ -1,4 +1,4 @@
-import {AlertTriangle, Check, CloudOff, Timer, X} from 'lucide-react';
+import {Check, CloudOff, Timer} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {isPerfect, perfectText, PerfectTitle, ResultCard} from '../components/Perfect';
 import Loading from '../components/Loading';
@@ -132,11 +132,10 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  // Leaving the page (another tab or app, another window, closing it, another page of the site) is counted, sent to
-  // the teacher as it happens, and told to the student on coming back. Not once handed in (unless that failed: the
-  // exam is still on for them then).
+  // Leaving the page (another tab or app, another window, closing it, another page of the site) is counted and sent to
+  // the teacher as it happens, quietly: the student isn't shown how often (as in a practice test). Not once handed in
+  // (unless that failed: the exam is still on for them then).
   const counting = active && (!submitted || status === 'error');
-  const [notice, setNotice] = useState<{n: number; ms: number} | null>(null);
   useLeaveCounter(
     counting,
     (why) => {
@@ -146,15 +145,9 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     (ms) => {
       change((a) => ({...a, away: a.away + ms}), true);
       examEvent(id, {k: 'b', ms});
-      setNotice({n: latest.current?.leaves ?? 1, ms});
     },
     {store: `${key}.out`, onWhy: (why) => examEvent(id, {k: 'o', w: why})},
   );
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 12_000);
-    return () => clearTimeout(t);
-  }, [notice]);
   // Going to another page of the site, closing or reloading this one: asked first (and counted if so).
   useEffect(() => {
     if (!counting) return;
@@ -205,7 +198,6 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   const correctOf = (qi: number) => (g ? choiceAt(answerKey, qi) : null);
   const missed = attempt.order.filter((qi) => correctOf(qi) !== null && chosen(qi) !== correctOf(qi));
   const left = exam.end - now;
-  const leaves = saved && (done || ended) ? saved.leaves : attempt.leaves;
 
   const choose = (qi: number, ci: number) => {
     const picked = attempt.answers[qi] !== ci;
@@ -237,11 +229,6 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
           {!finished && (
             <span className={`flex items-center gap-1 text-sm font-semibold tabular-nums ${left < 5 * 60_000 ? 'text-red-400' : 'text-neutral-200'}`}>
               <Timer size={15} /> {formatTime(left / 1000)} үлдлээ
-            </span>
-          )}
-          {leaves > 0 && (
-            <span className="flex items-center gap-1 text-sm text-amber-300">
-              <AlertTriangle size={14} /> {leaves} удаа гарсан
             </span>
           )}
           {!finished && (
@@ -280,30 +267,12 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
         </div>
       </div>
 
-      {notice && !finished && (
-        <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/15 px-4 py-3 text-sm text-red-100">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-300" />
-          <p className="min-w-0 flex-1">
-            <span className="font-semibold">Та шалгалтын хуудаснаас гарлаа</span> ({notice.n} дахь удаа, {formatDuration(notice.ms / 1000)} гадуур). Энэ нь багшид шууд харагдаж байна.
-          </p>
-          <button onClick={() => setNotice(null)} aria-label="Хаах" className="rounded-full p-1 text-red-200 hover:bg-red-500/20">
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       {!finished && (
-        <div className={`mt-4 rounded-xl px-4 py-3 text-sm ${leaves ? 'bg-red-500/10 text-red-200' : 'bg-neutral-900 text-neutral-300'}`}>
-          {leaves ? (
-            <p className="flex items-start gap-2">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" /> Та шалгалтын үеэр хуудаснаас {leaves} удаа гарсан байна. Багш үүнийг харж байгаа.
-            </p>
-          ) : (
-            <p>
-              Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа
-              хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
-            </p>
-          )}
+        <div className="mt-4 rounded-xl bg-neutral-900 px-4 py-3 text-sm text-neutral-300">
+          <p>
+            Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа
+            хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
+          </p>
         </div>
       )}
 

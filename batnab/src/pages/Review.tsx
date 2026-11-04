@@ -32,7 +32,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const practice = useResult(!isExam ? uid : undefined, testId, id);
   const examAnswer = useExamAnswer(testId, isExam ? uid : undefined);
   const exam = useExams()?.[testId];
-  const events = useExamEvents(isExam && uid ? testId : null, uid);
+  // When and how long they were away: the teacher's to see (counted quietly, as in a practice test).
+  const events = useExamEvents(isExam && uid && session.admin ? testId : null, uid);
   const times = uid ? awayTimes(events?.[uid] ?? []) : [];
   const now = useNow(isExam ? 5000 : 0);
   const result = isExam ? (examAnswer === undefined ? undefined : examAnswer && uid ? asResult(testId, uid, examAnswer) : null) : practice;
@@ -86,8 +87,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         </h1>
         <p className="text-sm text-neutral-400">
           {formatDate(result.at)} • {formatDuration(result.seconds)}
-          {isExam && away.leaves > 0 && ` • хуудаснаас ${away.leaves} удаа гарсан (нийт ${formatDuration(away.ms / 1000)})`}
-          {/* Counted quietly during a practice test: the teacher sees it, the student doesn't. */}
+          {isExam && session.admin && away.leaves > 0 && ` • хуудаснаас ${away.leaves} удаа гарсан (нийт ${formatDuration(away.ms / 1000)})`}
+          {/* Counted quietly: the teacher sees it, the student doesn't. */}
           {!isExam && session.admin && !!result.leaves && ` • хуудаснаас ${result.leaves} удаа гарсан${result.away ? ` (нийт ${formatDuration(result.away / 1000)})` : ''}`}
         </p>
         {times.length > 0 && (
