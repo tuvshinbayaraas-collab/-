@@ -313,13 +313,19 @@
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (root.child('settings/leaderboard').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
-        "$week": {
-          ".validate": "$week.matches(/^[0-9]{13}$/) && newData.hasChildren(['place', 'test', 'score', 'total'])",
+        "$key": {
+          ".validate": "newData.hasChildren(['place', 'score', 'total']) && (($key.matches(/^[0-9]{13}$/) && (newData.child('top').val() === true || newData.hasChild('test'))) || ($key.matches(/^[0-9]{13}_[0-9]{1,2}[AB]$/) && newData.hasChild('test') && newData.child('top').val() !== true && $key.endsWith('_' + newData.child('test').val())))",
           "place": {
             ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 3"
           },
           "test": {
             ".validate": "newData.isString() && newData.val().matches(/^[0-9]{1,2}[AB]$/)"
+          },
+          "top": {
+            ".validate": "newData.isBoolean()"
+          },
+          "tests": {
+            ".validate": "newData.isNumber() && newData.val() >= 1"
           },
           "score": {
             ".validate": "newData.isNumber()"

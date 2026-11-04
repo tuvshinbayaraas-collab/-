@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
-import {compare, finishedRounds, parseWeek, publicName, pubOf, weekKey, type Entry} from '../../lib/leaderboard';
+import {compare, finishedWeeks, medalData, parseWeek, publicName, pubOf, weekKey, weekMedals, type Entry} from '../../lib/leaderboard';
 import {archiveOps, type History} from '../../lib/history';
 import {flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
@@ -165,14 +165,11 @@ export function leaderboardFixes(
     const photo = shown.has(uid) ? (pubOf(users[uid]?.photo, photos)?.photo ?? null) : null;
     if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
   }
-  // Finished weeks: medals for the top 3 of "Шилдэг оноогоор" (the week's animal's, lib/leaderboard), then the week's
-  // entries go.
-  for (const r of finishedRounds(leaderboard)) {
-    r.ranking
-      .filter((e) => users[e.uid])
-      .slice(0, 3)
-      .forEach((e, i) => (ops[`medals/${e.uid}/${r.key}`] = {place: i + 1, test: e.test, score: e.score, total: e.total, ...(r.round ? {round: r.round} : {})}));
-    for (const w of r.weeks) ops[`leaderboard/${w}`] = null;
+  // Finished weeks: medals for each test's top 3 (the week's animal's, lib/leaderboard) and «Шилдэг» orders for the top 3
+  // of the sum, then the week's entries go.
+  for (const w of finishedWeeks(leaderboard)) {
+    for (const {uid, m} of weekMedals(w, (uid) => !!users[uid])) ops[`medals/${uid}/${m.key}`] = medalData(m);
+    ops[`leaderboard/${w.week}`] = null;
   }
   return ops;
 }

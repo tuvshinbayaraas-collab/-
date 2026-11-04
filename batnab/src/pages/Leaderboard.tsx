@@ -2,8 +2,8 @@ import {ArrowRight, CircleHelp, Crown, Trophy} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
-import {animalOf, overall, PLACES, percentOf, ranking, usePhotos, useRoundBoard, useWeekBoard, type Entry} from '../lib/leaderboard';
-import {MedalArt} from '../components/MedalBadge';
+import {animalOf, overall, PLACES, percentOf, ranking, usePhotos, useWeekBoard, type Entry} from '../lib/leaderboard';
+import {MedalArt, OrderArt} from '../components/MedalBadge';
 import {serverNow} from '../lib/time';
 import {useKeys} from '../lib/keys';
 import {usePrefs} from '../lib/prefs';
@@ -11,15 +11,16 @@ import {useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {roundNo, roundStart, untilReset} from '../lib/week';
+import {untilReset, weekNo, weekStart} from '../lib/week';
 import {TESTS, testInfo} from '../tests';
 import Loading from '../components/Loading';
 
 type Tab = 'test' | 'overall';
 
 /**
- * This week's top 3 on a podium, by test or by best score (the one with medals: this week's animal's, in the podium's
- * corner), and where the student stands; the rules of the order behind "?".
+ * This week's top 3 on a podium, by test (each test's top 3 get this week's animal medals) or by every test's best added
+ * up (the top 3 get the «Шилдэг» orders), the prize in the podium's corner, and where the student stands; the rules of
+ * the order behind "?".
  */
 export default function Leaderboard() {
   const session = useSession();
@@ -32,7 +33,6 @@ export default function Leaderboard() {
   const signedIn = session.ready && !!session.user && (session.admin || (!!session.profile && !session.profile.disabled));
   const on = signedIn && !!settings?.leaderboard;
   const board = useWeekBoard(on);
-  const round = useRoundBoard(on);
   const results = useMyResults();
   const keys = useKeys(results ? results.map((r) => r.test) : []);
 
@@ -44,18 +44,18 @@ export default function Leaderboard() {
 
   if (session.ready && !session.user) return <LockedNote title="Leaderboard" text="Leaderboard-ийг харахын тулд нэвтэрнэ үү." />;
   if (settings && !settings.leaderboard) return <CenterNote title="Leaderboard одоогоор хаалттай байна" />;
-  if (!session.ready || !settings || (signedIn && (!board || !round))) return <Loading />;
-  if (!signedIn || !board || !round) return <CenterNote title="Leaderboard-ийг харах боломжгүй" />;
+  if (!session.ready || !settings || (signedIn && !board)) return <Loading />;
+  if (!signedIn || !board) return <CenterNote title="Leaderboard-ийг харах боломжгүй" />;
 
-  const list = tab === 'test' ? ranking(board[test] ?? []) : overall(round);
+  const sum = tab === 'overall';
+  const list = sum ? overall(board) : ranking(board[test] ?? []);
   const uid = session.user!.uid;
   const mine = list.findIndex((e) => e.uid === uid);
   const counts = Object.fromEntries(TESTS.map((t) => [t.id, ranking(board[t.id] ?? []).length]));
   // The student's own results behind this tab (to explain why they aren't on it).
   const taken = (results ?? []).filter((r) => tab === 'overall' || r.test === test);
-  const start = roundStart(serverNow());
-  const no = roundNo(start);
-  const animalOf_ = animalOf(no)[1];
+  const no = weekNo(weekStart(serverNow()));
+  const prize = sum ? 'Шилдэгийн одон' : no ? `${animalOf(no)[1].toLowerCase()} медаль` : 'медаль';
 
   return (
     <div className="mx-auto max-w-xl py-4 sm:py-6">
@@ -116,7 +116,22 @@ export default function Leaderboard() {
         </div>
       )}
 
-      <Podium top={list.slice(0, 3)} showTest={tab === 'overall'} me={uid} medal={tab === 'overall' && no > 0 ? no : 0} />
+      <Podium
+        top={list.slice(0, 3)}
+        sum={sum}
+        me={uid}
+        badge={
+          sum ? (
+            <>
+              <OrderArt place={1} size={20} /> Шилдэгийн одон
+            </>
+          ) : no > 0 ? (
+            <>
+              <MedalArt place={1} round={no} size={20} /> Энэ долоо хоногийн медаль
+            </>
+          ) : null
+        }
+      />
 
       <p className="mt-3 text-center text-xs text-neutral-500">
         {list.length ? `${list.length} сурагч оролцож байна` : tab === 'test' ? 'Энэ долоо хоногт энэ тестийг хараахан хэн ч өгөөгүй байна.' : 'Энэ долоо хоногт хараахан хэн ч оноо аваагүй байна.'}
@@ -153,8 +168,8 @@ export default function Leaderboard() {
               e={list[mine]}
               place={mine + 1}
               gap={mine >= 3 ? list[2].score - list[mine].score : 0}
-              showTest={tab === 'overall'}
-              note={mine < 3 ? (tab === 'test' ? 'Эхний 3-т байна!' : `Эхний 3-т байна! Долоо хоногийн эцэс хүртэл хадгалбал ${animalOf_.toLowerCase()} медаль авна.`) : undefined}
+              sum={sum}
+              note={mine < 3 ? `Эхний 3-т байна! Долоо хоногийн эцэс хүртэл хадгалбал ${prize} авна.` : undefined}
             />
           )}
         </div>
@@ -163,7 +178,7 @@ export default function Leaderboard() {
   );
 }
 
-function MyRow({e, place, gap, showTest, note}: {e: Entry; place: number; gap: number; showTest: boolean; note?: string}) {
+function MyRow({e, place, gap, sum, note}: {e: Entry; place: number; gap: number; sum: boolean; note?: string}) {
   const look = place <= 3 ? PLACES[place as 1 | 2 | 3] : null;
   return (
     <div className="flex items-center gap-3">
@@ -171,8 +186,8 @@ function MyRow({e, place, gap, showTest, note}: {e: Entry; place: number; gap: n
       <div className="min-w-0 flex-1">
         <p className={`font-semibold ${look ? look.text : ''}`}>Таны байр: {place}</p>
         <p className="text-neutral-400">
-          {e.score}/{e.total} ({percentOf(e)}%){showTest && ` · ${testInfo(e.test)?.title}`}
-          {note ? ` · ${note}` : ` · ${gap > 0 ? `эхний 3-т орохын тулд ${gap} оноо дутуу` : 'оноо тэнцүү, гэхдээ өмнө нь авсан нь дээр'}`}
+          {sum ? `Нийт ${e.score} оноо · ${e.tests?.length ?? 1} тест` : `${e.score}/${e.total} (${percentOf(e)}%)`}
+          {note ? ` · ${note}` : ` · ${gap > 0 ? `эхний 3-т орохын тулд ${gap} оноо дутуу` : sum ? 'оноо тэнцүү: 1 оноо нэмбэл эхний 3-т орно' : 'оноо тэнцүү, гэхдээ өмнө нь авсан нь дээр'}`}
         </p>
       </div>
     </div>
@@ -186,8 +201,8 @@ const Who = ({uid, children}: {uid: string; children: ReactNode}) => (
   </Link>
 );
 
-/** 2nd, 1st, 3rd side by side; the winner stands highest. */
-function Podium({top, showTest, me, medal}: {top: Entry[]; showTest: boolean; me: string; medal: number}) {
+/** 2nd, 1st, 3rd side by side, the winner highest; `badge`: the prize, in the top-right corner. */
+function Podium({top, sum, me, badge}: {top: Entry[]; sum: boolean; me: string; badge: ReactNode}) {
   const photos = usePhotos(top.map((e) => e.uid));
   const slots = [
     {place: 2, h: 'h-16', size: 56},
@@ -195,13 +210,10 @@ function Podium({top, showTest, me, medal}: {top: Entry[]; showTest: boolean; me
     {place: 3, h: 'h-12', size: 56},
   ] as const;
   return (
-    <div className={`relative mt-5 grid grid-cols-3 items-end gap-2 overflow-hidden rounded-3xl bg-neutral-900 px-3 pb-0 ${medal ? 'pt-12' : 'pt-6'}`}>
-      {medal > 0 && (
-        <span
-          className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-400/10 py-0.5 pl-1 pr-2.5 text-[11px] font-semibold text-amber-200"
-          title={`${animalOf(medal)[1]} алт, мөнгө, хүрэл — эхний 3-т`}
-        >
-          <MedalArt place={1} round={medal} size={20} /> Энэ долоо хоногийн медаль
+    <div className={`relative mt-5 grid grid-cols-3 items-end gap-2 overflow-hidden rounded-3xl bg-neutral-900 px-3 pb-0 ${badge ? 'pt-12' : 'pt-6'}`}>
+      {badge && (
+        <span className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-400/10 py-0.5 pl-1 pr-2.5 text-[11px] font-semibold text-amber-200" title="Эхний 3-т">
+          {badge}
         </span>
       )}
       {slots.map(({place, h, size}) => {
@@ -223,8 +235,8 @@ function Podium({top, showTest, me, medal}: {top: Entry[]; showTest: boolean; me
                 <p className="mt-3 text-sm font-semibold">—</p>
               </>
             )}
-            <p className="text-xs text-neutral-400">{e ? `${e.score}/${e.total} · ${percentOf(e)}%` : ' '}</p>
-            {showTest && e && <p className="w-full truncate text-[11px] text-neutral-500">{testInfo(e.test)?.title}</p>}
+            <p className="text-xs text-neutral-400">{e ? (sum ? `${e.score} оноо` : `${e.score}/${e.total} · ${percentOf(e)}%`) : ' '}</p>
+            {sum && e && <p className="w-full truncate text-[11px] text-neutral-500">{e.tests?.length ?? 1} тест</p>}
             {e && (
               <Link href={`/u/${e.uid}`} className="mt-1 text-[11px] font-medium text-blue-400 hover:underline">
                 Профайл харах
@@ -254,16 +266,16 @@ function Rules({onClose}: {onClose: () => void}) {
         <p className="font-semibold">Эрэмбийн дүрэм</p>
         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-neutral-300 marker:text-neutral-500">
           <li>
-            <b>Тест тус бүрээр</b>: тест бүрт энэ долоо хоногт өгсөн оролдлогуудаас тань хамгийн сайн нэг нь.
+            <b>Тест тус бүрээр</b>: тест бүрт энэ долоо хоногт өгсөн оролдлогуудаас тань хамгийн сайн нэг нь. Эрэмбэ: эхлээд <b>хувь</b>, тэнцвэл <b>зөв хариултын тоо</b>, түүнд ч тэнцвэл тэр оноог{' '}
+            <b>түрүүлж авсан</b> нь дээр.
           </li>
           <li>
-            <b>Шилдэг оноогоор</b>: энэ долоо хоногт аль ч тестээр авсан хамгийн сайн <b>нэг</b> дүн тань (нийлбэр биш).
+            <b>Шилдэг оноогоор</b>: энэ долоо хоногт өгсөн бүх тестийн тань хамгийн сайн оноог <b>нийлүүлнэ</b> — олон тест өгөх тусам нэмэгдэнэ. Эрэмбэ: эхлээд <b>нийт оноо</b>, тэнцвэл <b>хувь</b>,
+            түүнд ч тэнцвэл <b>түрүүлж хүрсэн</b> нь дээр.
           </li>
           <li>
-            Эрэмбэ: эхлээд <b>хувь</b>, тэнцвэл <b>зөв хариултын тоо</b>, түүнд ч тэнцвэл тэр оноог <b>түрүүлж авсан</b> нь дээр.
-          </li>
-          <li>
-            <b>Медаль</b>: долоо хоног бүрийн эцэст «Шилдэг оноогоор»-ын эхний 3 нь тэр долоо хоногийн амьтны (12 жилийн дарааллаар) алт, мөнгө, хүрэл медаль авна.
+            <b>Медаль</b>: долоо хоног бүрийн эцэст тест бүрийн эхний 3 нь тэр долоо хоногийн амьтны (12 жилийн дарааллаар) алт, мөнгө, хүрэл медаль, «Шилдэг оноогоор»-ын эхний 3 нь
+            <b> Шилдэгийн одон</b> (алтан, мөнгөн, хүрэл) авна.
           </li>
           <li>0 оноо, түлхүүргүй тестийн оноо орохгүй. Бусдад зөвхөн nickname харагдана.</li>
         </ul>

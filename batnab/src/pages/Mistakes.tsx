@@ -84,7 +84,7 @@ export default function Mistakes() {
       type="button"
       onClick={() => setTab(t)}
       aria-pressed={tab === t}
-      className={`rounded-2xl p-3 text-center sm:p-4 ${tab === t ? 'bg-neutral-800 ring-1 ring-neutral-600' : 'bg-neutral-900 hover:bg-neutral-800/70'}`}
+      className={`min-w-0 rounded-2xl px-1.5 py-3 text-center sm:p-4 ${tab === t ? 'bg-neutral-800 ring-1 ring-neutral-600' : 'bg-neutral-900 hover:bg-neutral-800/70'}`}
     >
       <p className={`text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
       <p className="text-xs text-neutral-400">{label}</p>
@@ -106,14 +106,15 @@ export default function Mistakes() {
         </div>
       </header>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {tile('due', 'Өнөөдөр давтах', dueCount, 'text-rose-300')}
         {tile('all', 'Дэвтэрт', there.filter((m) => !m.done).length)}
         {tile('learned', 'Сурсан', learnedCount, 'text-green-400')}
+        {tile('notes', 'Тэмдэглэл', notes.length, 'text-amber-300')}
       </div>
 
       {chips.length > 1 && (
-        <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] sm:flex-wrap" role="group" aria-label="Сэдвээр шүүх">
+        <div className="-mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden" role="group" aria-label="Сэдвээр шүүх">
           <button
             type="button"
             onClick={() => setTopic(null)}
@@ -150,26 +151,6 @@ export default function Mistakes() {
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-neutral-900 p-1 text-sm sm:flex sm:rounded-full" role="tablist">
-        {(
-          [
-            ['due', `Давтах (${dueCount})`],
-            ['all', `Бүгд (${list.length})`],
-            ['learned', `Сурсан (${learned.length})`],
-            ['notes', `Тэмдэглэл (${notes.length})`],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={`flex-1 rounded-full px-3 py-1.5 font-medium ${tab === id ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {tab === 'due' &&
         (!due.length ? (

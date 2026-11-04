@@ -1,8 +1,10 @@
 // The weekly leaderboard: leaderboard/{weekStart}/{testId}/{uid} = each student's best attempt at a test this week.
 // A student adds their own score after handing in a test (the rules tie it to one of their results from this week);
 // the teacher's dashboard recomputes every entry from the results and the key, so a wrong score doesn't last.
-// When a week is over the dashboard turns the top 3 of "Шилдэг оноогоор" into that week's medals (medals/{uid}/{weekStart},
-// with `round`: the week's number from 31 October 2026, which gives its animal; none before), then its entries go.
+// When a week is over the dashboard turns its top 3 into medals, then its entries go: each test's top 3 get the week's
+// animal medals (medals/{uid}/{weekStart}_{test}, with `round`: the week's number from 31 October 2026, which gives its
+// animal), the top 3 of "Шилдэг оноогоор" (every test's best added up) the «Шилдэг» orders (medals/{uid}/{weekStart},
+// `top`). Older medals at medals/{uid}/{weekStart} without `top` were for the week's best single score.
 // pub/{uid}/photo carries the photo (or ready-made picture) of students on the leaderboard, so the podium can show it.
 import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
@@ -12,7 +14,7 @@ import {percent, type Grade} from './keys';
 import type {Profile} from './session';
 import {photosAllowed} from './settings';
 import {serverNow} from './time';
-import {roundLength, roundNo, roundStart, roundWeeks, weekStart} from './week';
+import {weekNo, weekStart} from './week';
 
 export interface Entry {
   uid: string;
@@ -24,22 +26,30 @@ export interface Entry {
   /** The result it comes from. */
   rid: string;
   at: number;
+  /** «Шилдэг оноогоор»: the tests added up (`test` is then ''). */
+  tests?: string[];
 }
 
 export interface Medal {
-  /** Start of the round (or, before rounds, the week) it was won in. */
+  /** Its key under medals/{uid}: the week's start, and for a test's medal "_" and the test. */
+  key: string;
+  /** Start of the week it was won in. */
   week: number;
   place: 1 | 2 | 3;
+  /** The test it was won in ('' for a «Шилдэг» order). */
   test: string;
   score: number;
   total: number;
-  /** The medal week's number (its animal); none for one from before the animals. */
+  /** The week's number (its animal); none from before the animals. */
   round?: number;
+  /** A «Шилдэг оноогоор» order: `tests` tests' scores added up. */
+  top?: boolean;
+  tests?: number;
 }
 
 /**
- * Each medal week has its animal, the twelve of the Mongolian year in turn from the Horse (2026's), on its gold,
- * silver and bronze: «Морины алт», «Хонины мөнгө»… so every week's medals are its own.
+ * Each week has its animal, the twelve of the Mongolian year in turn from the Horse (2026's), on the tests' gold, silver
+ * and bronze: «Морины алт», «Хонины мөнгө»… so every week's medals are its own.
  */
 export const ANIMALS: [name: string, of: string, sign: string][] = [
   ['Морь', 'Морины', '🐴'],
@@ -57,24 +67,36 @@ export const ANIMALS: [name: string, of: string, sign: string][] = [
 ];
 export const animalOf = (round: number) => ANIMALS[(Math.max(1, round) - 1) % ANIMALS.length];
 
-/** The rounds over by `now`'s week (each with its weeks and its whole "Хамгийн өндөр оноо" ranking), oldest first. */
-export function finishedRounds(tree: Record<string, Record<string, Record<string, Partial<Entry>>>> | null, now = serverNow()) {
+/** The weeks over by `now`, oldest first: each with its number, each test's ranking and the «Шилдэг оноогоор» one. */
+export function finishedWeeks(tree: Record<string, Record<string, Record<string, Partial<Entry>>>> | null, now = serverNow()) {
   const thisWeek = weekStart(now);
-  const by = new Map<number, string[]>();
-  for (const w of Object.keys(tree ?? {})) {
-    const r = roundStart(Number(w));
-    if (r + roundLength(r) > thisWeek) continue;
-    by.set(r, [...(by.get(r) ?? []), w]);
-  }
-  return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([key, weeks]) => ({key, round: roundNo(key), weeks, ranking: overall(mergeWeeks(weeks.map((w) => parseWeek(tree![w]))))}));
+  return Object.keys(tree ?? {})
+    .map(Number)
+    .filter((w) => w < thisWeek)
+    .sort((a, b) => a - b)
+    .map((week) => {
+      const byTest = parseWeek(tree![week]);
+      return {week, no: weekNo(week), byTest: Object.fromEntries(Object.entries(byTest).map(([t, list]) => [t, ranking(list)])), sum: overall(byTest)};
+    });
 }
 
-/** Several weeks' entries put together, by test. */
-const mergeWeeks = (weeks: Record<string, Entry[]>[]) => {
-  const out: Record<string, Entry[]> = {};
-  for (const w of weeks) for (const [test, list] of Object.entries(w)) (out[test] ??= []).push(...list);
+/** A finished week's medals: the top 3 of each test and of the sum, among the students `counts` keeps. */
+export function weekMedals(w: ReturnType<typeof finishedWeeks>[number], counts: (uid: string) => boolean = () => true) {
+  const out: {uid: string; m: Medal}[] = [];
+  const top3 = (list: Entry[]) => list.filter((e) => counts(e.uid)).slice(0, 3);
+  for (const [test, list] of Object.entries(w.byTest))
+    top3(list).forEach((e, i) =>
+      out.push({uid: e.uid, m: {key: `${w.week}_${test}`, week: w.week, place: (i + 1) as 1 | 2 | 3, test, score: e.score, total: e.total, ...(w.no ? {round: w.no} : {})}}),
+    );
+  top3(w.sum).forEach((e, i) =>
+    out.push({uid: e.uid, m: {key: String(w.week), week: w.week, place: (i + 1) as 1 | 2 | 3, test: '', score: e.score, total: e.total, top: true, tests: e.tests?.length ?? 1}}),
+  );
   return out;
-};
+}
+
+/** What is stored for a medal (database.rules.json: medals). */
+export const medalData = (m: Medal) =>
+  m.top ? {place: m.place, score: m.score, total: m.total, top: true, tests: m.tests ?? 1} : {place: m.place, test: m.test, score: m.score, total: m.total, ...(m.round ? {round: m.round} : {})};
 
 export const weekKey = (now = serverNow()) => String(weekStart(now));
 
@@ -82,6 +104,8 @@ const pct = (e: {score: number; total: number}) => e.score / e.total;
 
 /** Leaderboard order: higher percentage, then more right answers; on a tie, whoever got the score first. */
 export const compare = (a: Entry, b: Entry) => pct(b) - pct(a) || b.score - a.score || a.at - b.at;
+/** «Шилдэг оноогоор» order: more points in all, then fewer wrong (a higher percentage); on a tie, whoever got there first. */
+export const compareSum = (a: Entry, b: Entry) => b.score - a.score || pct(b) - pct(a) || a.at - b.at;
 
 /** The name classmates see: the nickname, or else the login name — never the real name. */
 export const publicName = (p: Pick<Profile, 'nickname' | 'username'>) => p.nickname?.trim() || `@${p.username}`;
@@ -99,36 +123,20 @@ export const parseWeek = (tree: Record<string, Record<string, Partial<Entry>>> |
 /** One test's ranking. A score of 0 doesn't place (it would "win" an empty board). */
 export const ranking = (entries: Entry[]) => entries.filter((e) => e.score > 0).sort(compare);
 
-/** "Хамгийн өндөр оноо": each student once, with their best score in any test. */
+/** «Шилдэг оноогоор»: each student once, with their best score in every test they took this week added up. */
 export function overall(byTest: Record<string, Entry[]>) {
-  const best = new Map<string, Entry>();
+  const sum = new Map<string, Entry>();
   for (const e of Object.values(byTest).flat()) {
-    const b = best.get(e.uid);
-    if (!b || compare(e, b) < 0) best.set(e.uid, e);
-  }
-  return ranking([...best.values()]);
-}
-
-/** This round's entries (both its weeks), by test, for "Хамгийн өндөр оноо": null while loading. */
-export function useRoundBoard(enabled = true) {
-  const start = roundStart(serverNow());
-  const weeks = roundWeeks(start).filter((w) => w <= serverNow());
-  const [trees, setTrees] = useState<{start: number; byWeek: Record<string, Record<string, Entry[]>>} | null>(null);
-  const sig = weeks.join(',');
-  useEffect(() => {
-    if (!enabled) return;
-    setTrees({start, byWeek: {}});
-    const stops = sig.split(',').map((w) =>
-      onValue(
-        ref(db, `leaderboard/${w}`),
-        (s) => setTrees((t) => ({start, byWeek: {...(t?.start === start ? t.byWeek : {}), [w]: parseWeek(s.val())}})),
-        () => setTrees((t) => ({start, byWeek: {...(t?.start === start ? t.byWeek : {}), [w]: {}}})),
-      ),
+    if (e.score <= 0) continue;
+    const s = sum.get(e.uid);
+    sum.set(
+      e.uid,
+      s
+        ? {...s, score: s.score + e.score, total: s.total + e.total, seconds: s.seconds + e.seconds, at: Math.max(s.at, e.at), name: e.at > s.at ? e.name : s.name, tests: [...(s.tests ?? []), e.test]}
+        : {...e, test: '', rid: '', tests: [e.test]},
     );
-    return () => stops.forEach((f) => f());
-  }, [sig, start, enabled]);
-  if (!trees || trees.start !== start || weeks.some((w) => !trees.byWeek[w])) return null;
-  return mergeWeeks(weeks.map((w) => trees.byWeek[w]));
+  }
+  return [...sum.values()].sort(compareSum);
 }
 
 /** This week's leaderboard, by test: null while loading. */
@@ -211,7 +219,7 @@ export async function refreshMine(profile: Profile) {
   });
 }
 
-/** The student's medals: the ones already awarded, plus finished weeks the teacher's dashboard hasn't turned into medals yet. */
+/** The student's medals, newest first: the ones awarded, plus finished weeks the teacher's dashboard hasn't turned into medals yet. */
 export function useMedals(uid: string | undefined, enabled: boolean) {
   const [awarded, setAwarded] = useState<Medal[] | null>(null);
   const [pending, setPending] = useState<Medal[]>([]);
@@ -221,16 +229,18 @@ export function useMedals(uid: string | undefined, enabled: boolean) {
       ref(db, `medals/${uid}`),
       (s) =>
         setAwarded(
-          Object.entries((s.val() ?? {}) as Record<string, Partial<Medal>>).flatMap(([week, m]) =>
+          Object.entries((s.val() ?? {}) as Record<string, Partial<Medal>>).flatMap(([key, m]) =>
             m && [1, 2, 3].includes(Number(m.place))
               ? [
                   {
-                    week: Number(week),
+                    key,
+                    week: Number(key.split('_')[0]),
                     place: Number(m.place) as 1 | 2 | 3,
-                    test: String(m.test),
+                    test: m.top === true ? '' : String(m.test ?? key.split('_')[1] ?? ''),
                     score: Number(m.score),
                     total: Number(m.total),
                     ...(Number(m.round) > 0 ? {round: Number(m.round)} : {}),
+                    ...(m.top === true ? {top: true, tests: Number(m.tests) || 1} : {}),
                   },
                 ]
               : [],
@@ -240,15 +250,7 @@ export function useMedals(uid: string | undefined, enabled: boolean) {
     );
     const stopPending = onValue(
       ref(db, 'leaderboard'),
-      (s) => {
-        const out: Medal[] = [];
-        for (const r of finishedRounds(s.val())) {
-          const top = r.ranking.slice(0, 3);
-          const i = top.findIndex((e) => e.uid === uid);
-          if (i >= 0) out.push({week: r.key, place: (i + 1) as 1 | 2 | 3, test: top[i].test, score: top[i].score, total: top[i].total, ...(r.round ? {round: r.round} : {})});
-        }
-        setPending(out);
-      },
+      (s) => setPending(finishedWeeks(s.val()).flatMap((w) => weekMedals(w).flatMap((x) => (x.uid === uid ? [x.m] : [])))),
       () => setPending([]),
     );
     return () => {
@@ -257,8 +259,8 @@ export function useMedals(uid: string | undefined, enabled: boolean) {
     };
   }, [uid, enabled]);
   if (!awarded) return null;
-  const weeks = new Set(awarded.map((m) => m.week));
-  return [...awarded, ...pending.filter((m) => !weeks.has(m.week))].sort((a, b) => b.week - a.week);
+  const have = new Set(awarded.map((m) => m.key));
+  return [...awarded, ...pending.filter((m) => !have.has(m.key))].sort((a, b) => b.week - a.week || Number(!!b.top) - Number(!!a.top) || a.place - b.place || a.test.localeCompare(b.test));
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -276,7 +278,10 @@ export const PLACES = {
   3: {name: 'Хүрэл', ring: 'ring-orange-600', badge: 'bg-orange-600 text-white', text: 'text-orange-300', block: 'bg-orange-600/15'},
 } as const;
 
-/** A medal's name: «Морины алт» with its week's animal, «Алт» from before the animals. */
-export const medalName = (m: Pick<Medal, 'place' | 'round'>) => (m.round ? `${animalOf(m.round)[1]} ${PLACES[m.place].name.toLowerCase()}` : PLACES[m.place].name);
+/** The «Шилдэг оноогоор» orders' names. */
+export const ORDERS = {1: 'Алтан одон', 2: 'Мөнгөн одон', 3: 'Хүрэл одон'} as const;
+
+/** A medal's name: «Алтан одон» for «Шилдэг»'s, «Морины алт» with its week's animal, «Алт» from before the animals. */
+export const medalName = (m: Pick<Medal, 'place' | 'round' | 'top'>) => (m.top ? ORDERS[m.place] : m.round ? `${animalOf(m.round)[1]} ${PLACES[m.place].name.toLowerCase()}` : PLACES[m.place].name);
 
 export const percentOf = (e: {score: number; total: number}) => percent({score: e.score, total: e.total, count: e.total});

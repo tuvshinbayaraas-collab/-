@@ -8,7 +8,7 @@ import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
 import {medalName, useMedals} from './leaderboard';
-import {roundLength} from './week';
+import {WEEK} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
@@ -116,10 +116,12 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
   for (const m of medals ?? [])
     notes.push({
-      id: `md:${m.week}`,
+      id: `md:${m.key}`,
       kind: 'medal',
-      at: m.week + roundLength(m.week),
-      text: `${PLACES[m.place]} ${m.round ? `${medalName(m)} —` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
+      at: m.week + WEEK,
+      text: m.top
+        ? `${PLACES[m.place]} ${medalName(m)} — «Шилдэг оноогоор» ${m.place}-р байр (${m.score} оноо, ${m.tests ?? 1} тест)`
+        : `${PLACES[m.place]} ${m.round ? `${medalName(m)} —` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
       href: '/profile',
     });
   if (liveOn(live, now) && forClass(live.classes, classId))

@@ -68,7 +68,7 @@ function Growth({uid}: {uid: string}) {
   );
 }
 
-/** Leaderboard medals: each round's gold, silver and bronze (its animal's), and the weekly ones from before rounds. */
+/** Leaderboard medals: each week's tests' gold, silver and bronze (its animal's) and the «Шилдэг» orders. */
 function Medals({uid}: {uid: string}) {
   const settings = useSettings();
   const medals = useMedals(uid, true);
@@ -81,7 +81,7 @@ function Medals({uid}: {uid: string}) {
       {medals.length ? (
         <ul className="mt-4 grid grid-cols-3 gap-3">
           {medals.map((m) => (
-            <MedalBadge key={m.week} m={m} detail />
+            <MedalBadge key={m.key} m={m} detail />
           ))}
         </ul>
       ) : (
@@ -90,7 +90,7 @@ function Medals({uid}: {uid: string}) {
           <Link href="/leaderboard" className="text-blue-400 hover:underline">
             leaderboard
           </Link>
-          -ийн «Шилдэг оноогоор» долоо хоногийн эцэст эхний 3-т орвол тэр долоо хоногийн амьтны алт, мөнгө, хүрэл медаль энд нэмэгдэнэ.
+          -д долоо хоногийн эцэст тестийн эхний 3-т орвол тэр долоо хоногийн амьтны медаль, «Шилдэг оноогоор»-ын эхний 3-т орвол Шилдэгийн одон энд нэмэгдэнэ.
         </p>
       )}
     </section>
