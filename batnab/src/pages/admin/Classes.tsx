@@ -34,13 +34,13 @@ export function ClassBar({data, picked}: {data: AdminData; picked: string}) {
   return (
     <>
       {!classes.length ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-neutral-700 p-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
-            <School size={20} />
+        <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-dashed border-neutral-700 p-4 sm:flex-row sm:items-center">
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
+              <School size={20} />
+            </span>
+            <span className="min-w-0 text-sm text-neutral-300">Ангиа үүсгээрэй. {data.students.length > 0 && `Одоо бүртгэлтэй ${data.students.length} сурагч тэр ангид орно.`}</span>
           </span>
-          <p className="min-w-0 flex-1 text-sm text-neutral-300">
-            Ангиа үүсгээрэй. {data.students.length > 0 && `Одоо бүртгэлтэй ${data.students.length} сурагч тэр ангид орно.`}
-          </p>
           <button onClick={() => setCreating(true)} className={`${primary} flex items-center gap-1.5`}>
             <Plus size={16} /> Шинэ анги үүсгэх
           </button>

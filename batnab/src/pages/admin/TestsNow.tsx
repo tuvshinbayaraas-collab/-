@@ -30,7 +30,7 @@ export default function TestsNow({data}: {data: AdminData}) {
           const away = x.away + (x.out ? Math.max(0, now - x.out) : 0);
           return (
             <li key={x.uid} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 ${x.out ? 'bg-red-500/10' : ''}`}>
-              <Link href={`/admin/student/${x.uid}`} className="min-w-0 flex-1 hover:opacity-80">
+              <Link href={`/admin/student/${x.uid}`} className="min-w-0 basis-full hover:opacity-80 sm:flex-1 sm:basis-auto">
                 <StudentName student={byUid.get(x.uid)!} sub={`${testInfo(x.test)!.title} • ${x.n}/${x.total} хариулсан • ${formatDuration(Math.max(0, now - x.started) / 1000)}`} />
               </Link>
               {x.out > 0 && (

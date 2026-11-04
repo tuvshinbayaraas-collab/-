@@ -98,7 +98,14 @@ export default function SettingsPage() {
             </p>
           ) : (
             <>
-              {toggle('lbOff', 'amber', <Trophy size={18} />, 'Оноогоо leaderboard-д харуулах', 'Асаалттай үед бусад сурагчид таны nickname, зураг, оноог харна. Жинхэнэ нэр тань харагдахгүй. Унтраавал энэ долоо хоногийн оноо тань leaderboard-оос хасагдаж, медаль авахгүй.', true)}
+              {toggle(
+                'lbOff',
+                'amber',
+                <Trophy size={18} />,
+                'Оноогоо leaderboard-д харуулах',
+                'Асаалттай үед бусад сурагчид таны nickname, зураг, оноог харна. Жинхэнэ нэр тань харагдахгүй. Унтраавал энэ долоо хоногийн оноо тань leaderboard-оос хасагдаж, медаль авахгүй.',
+                true,
+              )}
               {toggle('lbHideRank', 'amber', <Medal size={18} />, 'Тест дуусахад байраа харуулах', 'Тестээ дуусгасны дараа leaderboard-ийн хэддүгээрт явааг тань харуулна.', true)}
             </>
           )}
@@ -119,7 +126,7 @@ export default function SettingsPage() {
               {lightSupported ? 'Бараан эсвэл гэрэлтэй (проектор, хэвлэхэд тохиромжтой). Энэ төхөөрөмж дээр хадгалагдана.' : 'Энэ хөтөч гэрэлтэй загварыг харуулж чадахгүй (шинэчлэхэд болно).'}
             </span>
           </span>
-          <div className="flex w-full rounded-full bg-neutral-800 p-1 text-sm sm:w-auto" role="radiogroup" aria-label="Загвар">
+          <div className="grid w-full grid-cols-3 rounded-full bg-neutral-800 p-1 text-sm sm:flex sm:w-auto" role="radiogroup" aria-label="Загвар">
             {THEMES.map(([t, label, icon]) => (
               <button
                 key={t}
@@ -128,7 +135,8 @@ export default function SettingsPage() {
                 aria-checked={theme === t}
                 disabled={t !== 'dark' && !lightSupported}
                 onClick={() => setTheme(t)}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 font-medium disabled:opacity-40 sm:flex-none ${theme === t ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
+                title={t === 'auto' ? 'Төхөөрөмжийн өдөр/шөнийн тохиргоог дагана' : undefined}
+                className={`flex min-w-0 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 font-medium disabled:opacity-40 sm:px-3 ${theme === t ? 'bg-neutral-600 text-neutral-50' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
                 {icon} {label}
               </button>
@@ -175,7 +183,7 @@ export default function SettingsPage() {
 const THEMES: [Theme, string, ReactNode][] = [
   ['dark', 'Бараан', <Moon key="d" size={14} />],
   ['light', 'Гэрэлтэй', <Sun key="l" size={14} />],
-  ['auto', 'Төхөөрөмжийн', <Monitor key="a" size={14} />],
+  ['auto', 'Автомат', <Monitor key="a" size={14} />],
 ];
 
 const TONES = {
@@ -195,6 +203,4 @@ function Group({title, children}: {title: string; children: ReactNode}) {
   );
 }
 
-const Icon = ({tone, children}: {tone: Tone; children: ReactNode}) => (
-  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TONES[tone]}`}>{children}</span>
-);
+const Icon = ({tone, children}: {tone: Tone; children: ReactNode}) => <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TONES[tone]}`}>{children}</span>;

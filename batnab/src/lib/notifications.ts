@@ -7,7 +7,8 @@ import {assignmentState, assignmentTitle} from '../components/Today';
 import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
-import {useMedals} from './leaderboard';
+import {medalName, useMedals} from './leaderboard';
+import {roundLength} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
@@ -92,7 +93,8 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   for (const n of announcements.filter((x) => forClass(x.classes, classId))) notes.push({id: `n:${n.id}`, kind: 'news', at: n.at, text: `Багшийн мэдээ: ${n.text}`, href: '/'});
   for (const [test, e] of Object.entries(exams ?? {})) {
     const title = testInfo(test)?.title ?? test;
-    if (now <= e.end) notes.push({id: `e:${test}:${e.start}`, kind: 'exam', at: e.createdAt || e.start - DAY, text: `Шалгалт товлогдлоо: ${title} · ${dayLabel(e.start)} ${clock(e.start)}`, href: `/test/${test}`});
+    if (now <= e.end)
+      notes.push({id: `e:${test}:${e.start}`, kind: 'exam', at: e.createdAt || e.start - DAY, text: `Шалгалт товлогдлоо: ${title} · ${dayLabel(e.start)} ${clock(e.start)}`, href: `/test/${test}`});
     if (now >= e.start && now <= e.end) notes.push({id: `s:${test}:${e.start}`, kind: 'exam', at: e.start, text: `Шалгалт эхэллээ: ${title}`, href: `/test/${test}`});
   }
   for (const [tid, byPid] of Object.entries(marks)) {
@@ -101,12 +103,27 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     for (const [pid, m] of Object.entries(byPid ?? {})) {
       const i = t.problems.findIndex((p) => p.id === pid);
       if (i < 0 || typeof m?.at !== 'number') continue;
-      notes.push({id: `m:${tid}/${pid}`, kind: 'mark', at: m.at, ok: m.ok, text: `Багш шалгалаа: ${t.title} · ${problemNo(t.problems[i], i)}-р бодлого — ${m.ok ? 'зөв' : 'буруу'}${m.note ? `: «${m.note}»` : ''}`, href: `/topics/${tid}`});
+      notes.push({
+        id: `m:${tid}/${pid}`,
+        kind: 'mark',
+        at: m.at,
+        ok: m.ok,
+        text: `Багш шалгалаа: ${t.title} · ${problemNo(t.problems[i], i)}-р бодлого — ${m.ok ? 'зөв' : 'буруу'}${m.note ? `: «${m.note}»` : ''}`,
+        href: `/topics/${tid}`,
+      });
     }
   }
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
-  for (const m of medals ?? []) notes.push({id: `md:${m.week}`, kind: 'medal', at: m.week + 7 * DAY, text: `${PLACES[m.place]} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`, href: '/profile'});
-  if (liveOn(live, now) && forClass(live.classes, classId)) notes.push({id: `l:${live.startedAt}`, kind: 'live', at: live.startedAt, text: `Шууд тэмцээн эхэллээ: ${live.title}. Нэгдээрэй!`, href: '/live'});
+  for (const m of medals ?? [])
+    notes.push({
+      id: `md:${m.week}`,
+      kind: 'medal',
+      at: m.week + roundLength(m.week),
+      text: `${PLACES[m.place]} ${m.round ? `${medalName(m)} — ${m.round}-р тойргийн` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
+      href: '/profile',
+    });
+  if (liveOn(live, now) && forClass(live.classes, classId))
+    notes.push({id: `l:${live.startedAt}`, kind: 'live', at: live.startedAt, text: `Шууд тэмцээн эхэллээ: ${live.title}. Нэгдээрэй!`, href: '/live'});
   return notes.filter((n) => n.at > now - KEEP && n.at <= now + 60_000).sort((a, b) => b.at - a.at);
 }
 
@@ -122,7 +139,9 @@ function useTeacherNotes(on: boolean): Note[] | null {
   if (!questions || !topics || !progress || !marks || !keys || !users) return null;
   const notes: Note[] = [];
   // Not a deleted student's (their question can't be answered from the dashboard any more).
-  for (const q of questions) if (!q.reply && users[q.uid] && !users[q.uid].disabled) notes.push({id: `q:${q.uid}/${q.id}`, kind: 'question', at: q.at, text: `Шинэ асуулт: ${users[q.uid]?.name ?? 'Сурагч'} — ${q.ctx.label}`, href: '/admin?tab=questions'});
+  for (const q of questions)
+    if (!q.reply && users[q.uid] && !users[q.uid].disabled)
+      notes.push({id: `q:${q.uid}/${q.id}`, kind: 'question', at: q.at, text: `Шинэ асуулт: ${users[q.uid]?.name ?? 'Сурагч'} — ${q.ctx.label}`, href: '/admin?tab=questions'});
   for (const t of topics) {
     let n = 0;
     let last = 0;

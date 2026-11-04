@@ -327,6 +327,9 @@
           "total": {
             ".validate": "newData.isNumber()"
           },
+          "round": {
+            ".validate": "newData.isNumber() && newData.val() >= 1"
+          },
           "$other": {
             ".validate": false
           }

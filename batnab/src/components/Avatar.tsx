@@ -2,7 +2,8 @@ import {useState} from 'react';
 import {avatarOf} from '../lib/avatars';
 import {useSettings} from '../lib/settings';
 
-const AVATAR_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
+// Deep enough for the white letter on them (4.5:1 and up).
+const AVATAR_COLORS = ['#dc2626', '#c2410c', '#b45309', '#15803d', '#0f766e', '#0369a1', '#7c3aed', '#db2777'];
 
 function avatarColor(name: string): string {
   let h = 0;

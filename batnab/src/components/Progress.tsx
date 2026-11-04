@@ -7,7 +7,8 @@ import {weekStart} from '../lib/week';
 import {testInfo} from '../tests';
 
 const DAY = 86_400_000;
-const BAR = '#3987e5'; // categorical slot 1 (dark), validated on the #171717 surface
+// The site's own blue (index.css): 4.9:1 on the dark card, 3.7:1 on the light one.
+const BAR = 'var(--color-blue-500)';
 const short = (ts: number) => {
   const d = new Date(ts);
   return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;

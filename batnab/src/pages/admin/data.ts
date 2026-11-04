@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
-import {compare, overall, parseWeek, publicName, pubOf, weekKey, type Entry} from '../../lib/leaderboard';
+import {compare, finishedRounds, parseWeek, publicName, pubOf, weekKey, type Entry} from '../../lib/leaderboard';
 import {archiveOps, type History} from '../../lib/history';
 import {flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
@@ -68,7 +68,15 @@ export function useAdminData() {
         const have = (h.val() ?? {}) as Record<string, History>;
         const ops: Record<string, unknown> = {};
         for (const uid of new Set(old.map((r) => r.uid)))
-          Object.assign(ops, archiveOps(uid, old.filter((r) => r.uid === uid), Object.fromEntries(TESTS.map((t) => [t.id, typeof keys[t.id] === 'string' ? keys[t.id] : null])), have[uid] ?? {}));
+          Object.assign(
+            ops,
+            archiveOps(
+              uid,
+              old.filter((r) => r.uid === uid),
+              Object.fromEntries(TESTS.map((t) => [t.id, typeof keys[t.id] === 'string' ? keys[t.id] : null])),
+              have[uid] ?? {},
+            ),
+          );
         if (Object.keys(ops).length) return update(ref(db), ops);
       })
       .catch(() => {});
@@ -157,14 +165,14 @@ export function leaderboardFixes(
     const photo = shown.has(uid) ? (pubOf(users[uid]?.photo, photos)?.photo ?? null) : null;
     if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
   }
-  // Finished weeks: medals for the top 3 of "Хамгийн өндөр оноо", then the week's entries go.
-  for (const [w, tree] of Object.entries(leaderboard)) {
-    if (w >= week) continue;
-    overall(parseWeek(tree))
+  // Finished rounds: medals for the top 3 of "Хамгийн өндөр оноо" over the round (its animal's, lib/leaderboard), then
+  // its weeks' entries go. A round's first week stays until the round is over.
+  for (const r of finishedRounds(leaderboard)) {
+    r.ranking
       .filter((e) => users[e.uid])
       .slice(0, 3)
-      .forEach((e, i) => (ops[`medals/${e.uid}/${w}`] = {place: i + 1, test: e.test, score: e.score, total: e.total}));
-    ops[`leaderboard/${w}`] = null;
+      .forEach((e, i) => (ops[`medals/${e.uid}/${r.key}`] = {place: i + 1, test: e.test, score: e.score, total: e.total, ...(r.round ? {round: r.round} : {})}));
+    for (const w of r.weeks) ops[`leaderboard/${w}`] = null;
   }
   return ops;
 }

@@ -305,7 +305,7 @@ function ClassTable({data}: {data: AdminData}) {
                           {p === null ? '?' : p}
                         </Link>
                       ) : (
-                        <span className="block py-1.5 text-xs text-neutral-600">—</span>
+                        <span className="block py-1.5 text-xs text-neutral-500">—</span>
                       )}
                     </td>
                   );

@@ -1,7 +1,8 @@
 import {ArrowLeft, Crown, Medal as MedalIcon} from 'lucide-react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
-import {overall, PLACES, percentOf, ranking, usePhotos, useMedals, useWeekBoard, weekLabel} from '../lib/leaderboard';
+import {overall, PLACES, percentOf, ranking, usePhotos, useMedals, useRoundBoard, useWeekBoard} from '../lib/leaderboard';
+import MedalBadge from '../components/MedalBadge';
 import {formatDuration} from '../lib/attempt';
 import {Link} from '../lib/router';
 import {dayLabel} from '../lib/time';
@@ -19,12 +20,13 @@ export default function PublicProfile({uid}: {uid: string}) {
   const settings = useSettings();
   const allowed = session.ready && !!session.user && (session.admin || (!!session.profile && !session.profile.disabled)) && !!settings?.leaderboard;
   const board = useWeekBoard(allowed);
+  const round = useRoundBoard(allowed);
   const photos = usePhotos(allowed ? [uid] : []);
   const medals = useMedals(uid, allowed);
 
   if (session.ready && !session.user) return <LockedNote />;
   if (settings && !settings.leaderboard) return <CenterNote title="Leaderboard одоогоор хаалттай байна" />;
-  if (!allowed || !board || !medals) return <Loading />;
+  if (!allowed || !board || !round || !medals) return <Loading />;
 
   // Only the tests where the student is in the top 3 this week; someone who is in no top 3 has no profile here.
   const mine = TESTS.flatMap((t) => {
@@ -33,9 +35,11 @@ export default function PublicProfile({uid}: {uid: string}) {
       .findIndex((e) => e.uid === uid);
     return i < 0 ? [] : [{e: ranking(board[t.id] ?? [])[i], place: i + 1}];
   });
-  if (!mine.length) return <CenterNote title="Энэ сурагч энэ долоо хоногт эхний 3-т ороогүй байна" />;
-  const name = mine[0].e.name;
-  const top = overall(board).findIndex((e) => e.uid === uid) + 1;
+  // "Хамгийн өндөр оноо" over the round (both its weeks).
+  const roundRank = overall(round);
+  const top = roundRank.findIndex((e) => e.uid === uid) + 1;
+  if (!mine.length && !(top > 0 && top <= 3)) return <CenterNote title="Энэ сурагч одоогоор эхний 3-т ороогүй байна" />;
+  const name = mine[0]?.e.name ?? roundRank[top - 1].name;
   const leader = top === 1;
 
   return (
@@ -51,7 +55,7 @@ export default function PublicProfile({uid}: {uid: string}) {
         <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{name}</h1>
         {top > 0 && top <= 3 && (
           <p className={`mt-2 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
-            {leader ? 'Энэ долоо хоногийн тэргүүлэгч' : `«Хамгийн өндөр оноо»-нд ${top}-р байр`}
+            {leader ? 'Энэ тойргийн тэргүүлэгч' : `«Шилдэг оноогоор» ${top}-р байр`}
           </p>
         )}
       </section>
@@ -87,11 +91,7 @@ export default function PublicProfile({uid}: {uid: string}) {
         {medals.length ? (
           <ul className="mt-4 grid grid-cols-3 gap-3">
             {medals.map((m) => (
-              <li key={m.week} className="flex flex-col items-center text-center">
-                <span className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-extrabold ${PLACES[m.place].badge}`}>{m.place}</span>
-                <span className={`mt-2 text-sm font-semibold ${PLACES[m.place].text}`}>{PLACES[m.place].name}</span>
-                <span className="text-xs text-neutral-400">{weekLabel(m.week)}</span>
-              </li>
+              <MedalBadge key={m.week} m={m} />
             ))}
           </ul>
         ) : (

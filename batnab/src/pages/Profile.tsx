@@ -9,13 +9,13 @@ import Sheet from '../components/Sheet';
 import {saveNickname, savePhoto} from '../lib/accounts';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
-import {PLACES, refreshMine, useMedals, weekLabel} from '../lib/leaderboard';
+import {refreshMine, useMedals} from '../lib/leaderboard';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {testInfo} from '../tests';
 import Loading from '../components/Loading';
+import MedalBadge from '../components/MedalBadge';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const card = 'rounded-2xl bg-neutral-900';
@@ -68,7 +68,7 @@ function Growth({uid}: {uid: string}) {
   );
 }
 
-/** Weekly leaderboard medals: gold, silver, bronze for the top 3 of each week. */
+/** Leaderboard medals: each round's gold, silver and bronze (its animal's), and the weekly ones from before rounds. */
 function Medals({uid}: {uid: string}) {
   const settings = useSettings();
   const medals = useMedals(uid, true);
@@ -80,27 +80,17 @@ function Medals({uid}: {uid: string}) {
       </h2>
       {medals.length ? (
         <ul className="mt-4 grid grid-cols-3 gap-3">
-          {medals.map((m) => {
-            const look = PLACES[m.place];
-            return (
-              <li key={m.week} className="flex flex-col items-center text-center">
-                <span className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-extrabold ${look.badge}`}>{m.place}</span>
-                <span className={`mt-2 text-sm font-semibold ${look.text}`}>{look.name}</span>
-                <span className="text-xs text-neutral-400">{weekLabel(m.week)}</span>
-                <span className="text-[11px] text-neutral-500">
-                  {testInfo(m.test)?.title} · {m.score}/{m.total}
-                </span>
-              </li>
-            );
-          })}
+          {medals.map((m) => (
+            <MedalBadge key={m.week} m={m} detail />
+          ))}
         </ul>
       ) : (
         <p className="mt-1 text-sm text-neutral-400">
-          Долоо хоногийн{' '}
+          
           <Link href="/leaderboard" className="text-blue-400 hover:underline">
             leaderboard
           </Link>
-          -ийн эхний 3 байрт орвол энд алт, мөнгө, хүрэл медаль нэмэгдэнэ.
+          -ийн «Шилдэг оноогоор» 2 долоо хоногийн тойргийн эцэст эхний 3-т орвол тэр тойргийн амьтны алт, мөнгө, хүрэл медаль энд нэмэгдэнэ.
         </p>
       )}
     </section>
