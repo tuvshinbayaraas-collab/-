@@ -35,7 +35,9 @@ export default function TextProblems({problems, onApply, onClose}: {problems: Pr
   const parsed = parseProblems(text);
   const have = new Set(problems.map((p, i) => problemNo(p, i)));
   const filling = replace ? parsed.filter((p) => have.has(p.no)).length : 0;
-  const warned = parsed.map((p) => ({p, w: problemWarnings(p)})).filter((x) => x.w.length);
+  const seen = new Map<number, number>();
+  for (const p of parsed) seen.set(p.no, (seen.get(p.no) ?? 0) + 1);
+  const warned = parsed.map((p) => ({p, w: [...(seen.get(p.no)! > 1 ? ['дугаар давхацсан'] : []), ...problemWarnings(p)]})).filter((x) => x.w.length);
   return (
     <Sheet title="Бодлогуудыг текстээр оруулах" sub="Номын бодлогуудыг дугаар, өгүүлбэр, a)–e) сонголттойгоор бичиж эсвэл хуулж буулгана. Томьёог $…$ дотор." onClose={onClose} wide>
       <div className="grid gap-4 md:grid-cols-2">
@@ -72,8 +74,8 @@ export default function TextProblems({problems, onApply, onClose}: {problems: Pr
           )}
           {warned.length > 0 && (
             <ul className="space-y-0.5 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-200">
-              {warned.map(({p, w}) => (
-                <li key={p.no} className="[overflow-wrap:anywhere]">
+              {warned.map(({p, w}, i) => (
+                <li key={i} className="[overflow-wrap:anywhere]">
                   {p.no}-р бодлого: {w.join('; ')}
                 </li>
               ))}

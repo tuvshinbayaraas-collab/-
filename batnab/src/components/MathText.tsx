@@ -18,17 +18,22 @@ export default function MathText({text, className, display}: {text: string; clas
         .split(DOLLAR)
         .join('$')
         .replace(/[&<>]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c]!);
-    return parts
-      .map((part, i) => {
-        if (!isMath(part)) return plain(part);
-        const math = katex.renderToString((display ? '\\displaystyle ' : '') + part.slice(1, -1).split(DOLLAR).join('\\$'), {throwOnError: false});
-        // A Mongolian ending on short math ("$x$-ийг", "$0$-ээс") stays on its line (a long formula may still wrap).
-        const suffix = part.length <= 14 ? /^-[\p{L}]+/u.exec(parts[i + 1] ?? '') : null;
-        if (!suffix) return math;
+    let html = '';
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!isMath(part)) {
+        html += plain(part);
+        continue;
+      }
+      const math = katex.renderToString((display ? '\\displaystyle ' : '') + part.slice(1, -1).split(DOLLAR).join('\\$'), {throwOnError: false});
+      // A Mongolian ending on short math ("$x$-ийг", "$0$-ээс") stays on its line (a long formula may still wrap).
+      const suffix = part.length <= 14 ? /^-\p{L}+/u.exec(parts[i + 1] ?? '') : null;
+      if (suffix) {
+        html += `<span style="white-space:nowrap">${math}${plain(suffix[0])}</span>`;
         parts[i + 1] = parts[i + 1].slice(suffix[0].length);
-        return `<span style="white-space:nowrap">${math}${plain(suffix[0])}</span>`;
-      })
-      .join('');
+      } else html += math;
+    }
+    return html;
   }, [text, display]);
   return <span className={className} dangerouslySetInnerHTML={{__html: html}} />;
 }

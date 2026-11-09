@@ -1,30 +1,4 @@
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  BarChart3,
-  Check,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  ChevronUp,
-  ClipboardCheck,
-  Copy,
-  Eye,
-  ImagePlus,
-  Images,
-  ListChecks,
-  Pencil,
-  Plus,
-  RotateCcw,
-  ScanText,
-  Printer,
-  School,
-  Trash2,
-  Type,
-  Video,
-  X,
-  Zap,
-} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, Printer, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {Rich, TopicPicture} from '../../components/TopicParts';
@@ -67,8 +41,7 @@ import TopicCheck, {waitingIn} from './TopicCheck';
 import Loading from '../../components/Loading';
 
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
-const addButton =
-  'flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300';
+const addButton = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300';
 const icon = 'rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-25';
 
 /** /admin/topic/{id}: write the lesson and the problems, then open the topic to students; see how they did. */
@@ -90,17 +63,7 @@ export default function TopicEditor({id, data}: {id: string; data: AdminData}) {
 }
 
 const snapshot = (t: Topic, k: Record<string, string>) =>
-  JSON.stringify([
-    t.title.trim(),
-    t.intro?.trim() ?? '',
-    t.published,
-    Object.keys(t.classes ?? {}).sort(),
-    t.lesson,
-    t.problems,
-    Object.entries(k)
-      .filter(([, v]) => v)
-      .sort(),
-  ]);
+  JSON.stringify([t.title.trim(), t.intro?.trim() ?? '', t.published, Object.keys(t.classes ?? {}).sort(), t.lesson, t.problems, Object.entries(k).filter(([, v]) => v).sort()]);
 
 function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>; data: AdminData}) {
   const topics = useTopics();
@@ -233,13 +196,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               ['results', 'Үр дүн', BarChart3],
             ] as const
           ).map(([m, label, I]) => (
-            <button
-              key={m}
-              role="tab"
-              aria-selected={mode === m}
-              onClick={() => setMode(m)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium sm:px-4 ${mode === m ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}
-            >
+            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium sm:px-4 ${mode === m ? 'bg-neutral-700 text-neutral-50' : 'text-neutral-400'}`}>
               <I size={15} /> {label}
               {m === 'check' && waiting > 0 && <span className="rounded-full bg-violet-500 px-1.5 text-[11px] font-bold leading-4 text-black">{waiting}</span>}
             </button>
@@ -305,7 +262,8 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
 
           <section className="space-y-3">
             <h2 className="flex flex-wrap items-center gap-2 font-semibold">
-              Бодлого ({draft.problems.length}){open > 0 && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-200">{open} нь багш шалгана</span>}
+              Бодлого ({draft.problems.length})
+              {open > 0 && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-200">{open} нь багш шалгана</span>}
               <span className="ml-auto flex flex-wrap gap-2">
                 {draft.problems.length > 1 && (
                   <button onClick={() => setBulk(true)} className={`${small} font-normal`}>
@@ -319,9 +277,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 )}
               </span>
             </h2>
-            {draft.problems.length > 0 && (
-              <p className="-mt-1 text-xs text-neutral-500">Зөв хариултын үсэг дээр дарна (дахин дарвал арилна). Хариултгүй бодлогын сурагчдын хариулт «Шалгах»-д ирж, та зөв, бурууг нь тэмдэглэнэ.</p>
-            )}
+            {draft.problems.length > 0 && <p className="-mt-1 text-xs text-neutral-500">Зөв хариултын үсэг дээр дарна (дахин дарвал арилна). Хариултгүй бодлогын сурагчдын хариулт «Шалгах»-д ирж, та зөв, бурууг нь тэмдэглэнэ.</p>}
             {draft.problems.map((p, i) => (
               <ProblemEditor
                 key={p.id}
@@ -363,8 +319,8 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               </button>
             </div>
             <p className="text-xs text-neutral-500">
-              «Зургаас бодлогууд»: номын хуудасны зургийг (хэд хэдийг ч болно) оруулбал дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ; хариултыг нь тэнд нь сонгож болно. «Текстээр
-              оруулах»: бодлогуудыг бичвэрээр (томьёо $…$ дотор) нэг дор оруулна — утсан дээр ч тод уншигдана; ижил дугаартай бодлогын оронд орвол хариулт нь хэвээр.
+              «Зургаас бодлогууд»: номын хуудасны зургийг (хэд хэдийг ч болно) оруулбал дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ; хариултыг нь тэнд нь сонгож болно.
+              «Текстээр оруулах»: бодлогуудыг бичвэрээр (томьёо $…$ дотор) нэг дор оруулна — утсан дээр ч тод уншигдана; ижил дугаартай бодлогын оронд орвол хариулт нь хэвээр.
             </p>
             <input
               ref={pagesRef}
@@ -411,11 +367,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
           <span className={`min-w-0 flex-1 text-sm ${error ? 'text-red-400' : 'text-amber-300'}`}>
             {error ? `Хадгалж чадсангүй: ${error}` : busy ? 'Хадгалж байна…' : draft.title.trim() ? 'Удахгүй өөрөө хадгална…' : 'Сэдвийн нэрийг бичнэ үү'}
           </span>
-          <button
-            onClick={() => save(true)}
-            disabled={busy || !dirty || !draft.title.trim()}
-            className="flex items-center gap-1.5 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50"
-          >
+          <button onClick={() => save(true)} disabled={busy || !dirty || !draft.title.trim()} className="flex items-center gap-1.5 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
             <Check size={16} /> {busy ? 'Хадгалж байна…' : 'Хадгалах'}
           </button>
         </div>
@@ -512,7 +464,7 @@ function Lesson({topic, onChange, onAdd, onUploaded}: {topic: Topic; onChange: (
     <section className="space-y-3">
       <div>
         <h2 className="font-semibold">Хичээл</h2>
-        <p className="text-sm text-neutral-400">Сэдвийн тайлбар, жишээ, томьёо. Томьёог $…$ дотор бичнэ: $\log_2 8 = 3$, $x^2$, $\frac{'{1}{2}'}$.</p>
+        <p className="text-sm text-neutral-400">Сэдвийн тайлбар, жишээ, томьёо. Томьёог $…$ дотор бичнэ: $\log_2 8 = 3$, $x^2$, $\frac{"{1}{2}"}$.</p>
       </div>
       {blocks.map((b, i) => (
         <div key={i} className="rounded-2xl bg-neutral-900 p-4">
@@ -882,13 +834,7 @@ function ProblemEditor(props: {
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          <MathArea
-            value={p.text}
-            onChange={(text) => onChange((x) => ({...x, text}))}
-            max={2000}
-            placeholder="Бодлогын өгүүлбэр (томьёо $…$ дотор). Зургийн дэлгэцийн агшныг энд шууд Ctrl+V хийж болно."
-            onImage={pasteImage}
-          />
+          <MathArea value={p.text} onChange={(text) => onChange((x) => ({...x, text}))} max={2000} placeholder="Бодлогын өгүүлбэр (томьёо $…$ дотор). Зургийн дэлгэцийн агшныг энд шууд Ctrl+V хийж болно." onImage={pasteImage} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <ImageSlot
             tid={tid}
@@ -903,8 +849,7 @@ function ProblemEditor(props: {
             <p className="text-sm text-neutral-300">Зөв хариулт</p>
             <AnswerPicker p={p} answer={answer} onAnswer={onAnswer} onKind={kind} />
             <p className="text-xs text-neutral-500">
-              {p.kind === 'choice' ? 'Зөв үсэг дээр дарна (дахин дарвал арилна).' : 'Хоосон зай, том жижиг үсэг, таслал ба цэгийг ялгахгүй харьцуулна.'} Хоосон орхивол сурагчдын хариулт «Шалгах»-д
-              ирж, та шалгана.
+              {p.kind === 'choice' ? 'Зөв үсэг дээр дарна (дахин дарвал арилна).' : 'Хоосон зай, том жижиг үсэг, таслал ба цэгийг ялгахгүй харьцуулна.'} Хоосон орхивол сурагчдын хариулт «Шалгах»-д ирж, та шалгана.
             </p>
             {p.kind === 'choice' &&
               (choiceTexts ? (
@@ -1034,10 +979,7 @@ function Results({topic, answers, data}: {topic: Topic; answers: Record<string, 
                   {r.done}/{n} бодсон
                 </span>
                 <button
-                  onClick={() =>
-                    confirm(`${r.s.profile.name}-ийн энэ сэдвийн хариултыг устгаж, дахин эхнээс нь бодуулах уу?`) &&
-                    resetProgress(r.s.uid, topic.id).catch((e) => alert(`Алдаа: ${(e as Error).message}`))
-                  }
+                  onClick={() => confirm(`${r.s.profile.name}-ийн энэ сэдвийн хариултыг устгаж, дахин эхнээс нь бодуулах уу?`) && resetProgress(r.s.uid, topic.id).catch((e) => alert(`Алдаа: ${(e as Error).message}`))}
                   disabled={!r.done}
                   aria-label="Дахин бодуулах"
                   title="Дахин бодуулах"
