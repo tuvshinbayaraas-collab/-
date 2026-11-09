@@ -7,6 +7,7 @@ import VideoEmbed from './VideoEmbed';
 import MathText from './MathText';
 import HelpLadder from './HelpLadder';
 import ZoomView from './ZoomView';
+import {trimmed, type Trimmed} from '../lib/trim';
 
 /** Text with $math$; each line its own line. */
 export function Rich({text, className = ''}: {text: string; className?: string}) {
@@ -25,11 +26,30 @@ export function Rich({text, className = ''}: {text: string; className?: string})
   );
 }
 
-/** A topic picture: a grey box while it loads; a tap opens it full screen, to zoom in. */
-export function TopicPicture({tid, iid, className = ''}: {tid: string; iid: string; className?: string}) {
+/** `url`'s picture with its empty paper cut away (lib/trim); null while that is worked out. */
+function useTrimmed(url: string | null | undefined) {
+  const [t, setT] = useState<{from: string; to: Trimmed} | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let live = true;
+    trimmed(url).then((to) => live && setT({from: url, to}));
+    return () => {
+      live = false;
+    };
+  }, [url]);
+  return url && t?.from === url ? t.to : null;
+}
+
+/**
+ * A topic picture: a grey box while it loads; a tap opens it full screen, to zoom in. `trim` (a problem's or its
+ * solution's picture): the empty paper around the print cut away and the picture as wide as the card (up to twice its
+ * size, and not taller than most of the screen), so the print is as big as it can be.
+ */
+export function TopicPicture({tid, iid, className = '', trim}: {tid: string; iid: string; className?: string; trim?: boolean}) {
   const url = useTopicImage(tid, iid);
   const [big, setBig] = useState(false);
-  if (url === undefined) return <div className={`h-40 animate-pulse rounded-xl bg-neutral-800 ${className}`} aria-label="Зураг ачаалж байна" />;
+  const cut = useTrimmed(trim ? url : null);
+  if (url === undefined || (trim && url && !cut)) return <div className={`h-40 animate-pulse rounded-xl bg-neutral-800 ${className}`} aria-label="Зураг ачаалж байна" />;
   if (!url)
     return (
       <div className={`flex h-24 items-center justify-center gap-2 rounded-xl bg-neutral-800/60 text-sm text-neutral-500 ${className}`}>
@@ -39,9 +59,13 @@ export function TopicPicture({tid, iid, className = ''}: {tid: string; iid: stri
   return (
     <>
       <button type="button" onClick={() => setBig(true)} className={`block overflow-hidden rounded-xl bg-white ${className}`} aria-label="Зургийг томоор харах">
-        <img src={url} alt="" className="mx-auto max-h-[28rem] w-auto max-w-full object-contain" />
+        {cut?.width ? (
+          <img src={cut.url} alt="" className="mx-auto block h-auto w-full" style={{maxWidth: `min(${cut.width * 2}px, calc(80vh * ${(cut.width / cut.height).toFixed(4)}))`}} />
+        ) : (
+          <img src={cut?.url ?? url} alt="" className="mx-auto max-h-[28rem] w-auto max-w-full object-contain" />
+        )}
       </button>
-      {big && <ZoomView url={url} onClose={() => setBig(false)} />}
+      {big && <ZoomView url={cut?.url ?? url} onClose={() => setBig(false)} />}
     </>
   );
 }
@@ -269,7 +293,7 @@ export function ProblemView(props: {
   const solution = (p.sol || p.solImg || p.vid) && (
     <>
       {p.sol && <Rich text={p.sol} className="mt-2 text-sm text-neutral-200" />}
-      {p.solImg && <TopicPicture tid={tid} iid={p.solImg} className="mt-2 w-full" />}
+      {p.solImg && <TopicPicture tid={tid} iid={p.solImg} className="-mx-2 mt-2 w-[calc(100%+1rem)] sm:mx-0 sm:w-full" trim />}
       {p.vid && <VideoEmbed link={p.vid} className="mt-2" />}
     </>
   );
@@ -294,7 +318,7 @@ export function ProblemView(props: {
         )}
       </div>
       {p.text && <Rich text={p.text} className="mt-2" />}
-      {p.img && <TopicPicture tid={tid} iid={p.img} className="mt-3 w-full" />}
+      {p.img && <TopicPicture tid={tid} iid={p.img} className="-mx-2 mt-3 w-[calc(100%+1rem)] sm:mx-0 sm:w-full" trim />}
 
       {teacher && !p.k && !practice ? (
         <p className="mt-4 rounded-xl bg-neutral-800/50 p-3 text-sm text-neutral-300">Сурагчид энэ бодлогын хариултаа танд илгээнэ: сэдвийн «Шалгах» хэсэгт зөв, бурууг нь тэмдэглэнэ.</p>
