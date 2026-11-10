@@ -1,8 +1,9 @@
 // Classes ("11_6 анги"): classes/{id} = {name, createdAt}; a student's class is users/{uid}/class. The teacher picks a
 // class at the top of the dashboard and every tab shows only that class (or all of them).
-import {onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
+import {push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useSyncExternalStore} from 'react';
 import {db} from './firebase';
+import {sharedLive} from './live';
 
 export interface ClassInfo {
   id: string;
@@ -10,41 +11,18 @@ export interface ClassInfo {
   createdAt: number;
 }
 
-let list: ClassInfo[] | null = null;
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-let started = false;
-
-function start() {
-  if (started) return;
-  started = true;
-  onValue(
-    ref(db, 'classes'),
-    (s) => {
-      const v = (s.val() ?? {}) as Record<string, Partial<ClassInfo>>;
-      list = Object.entries(v)
-        .filter(([, c]) => typeof c?.name === 'string')
-        .map(([id, c]) => ({id, name: c.name!, createdAt: typeof c.createdAt === 'number' ? c.createdAt : 0}))
-        .sort((a, b) => a.name.localeCompare(b.name, 'mn', {numeric: true}));
-      emit();
-    },
-    () => {
-      list = [];
-      emit();
-    },
-  );
-}
+const classes = sharedLive(
+  'classes',
+  (v) =>
+    Object.entries((v ?? {}) as Record<string, Partial<ClassInfo>>)
+      .filter(([, c]) => typeof c?.name === 'string')
+      .map(([id, c]) => ({id, name: c.name!, createdAt: typeof c.createdAt === 'number' ? c.createdAt : 0}))
+      .sort((a, b) => a.name.localeCompare(b.name, 'mn', {numeric: true})),
+  [] as ClassInfo[],
+);
 
 /** All classes, by name; null while loading. */
-export const useClasses = () =>
-  useSyncExternalStore(
-    (l) => {
-      start();
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => list,
-  );
+export const useClasses = classes.use;
 
 const cleanName = (name: string) => name.trim().replace(/\s+/g, ' ').slice(0, 30);
 

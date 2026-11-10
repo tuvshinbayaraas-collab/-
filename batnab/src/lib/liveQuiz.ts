@@ -13,7 +13,7 @@
 import {get, onValue, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {auth, db} from './firebase';
-import {useLive} from './live';
+import {useLive, useSignIns} from './live';
 import {serverNow} from './time';
 import {readKey, verdict, type Letter, type Problem, type Topic} from './topics';
 
@@ -139,6 +139,7 @@ export const liveOn = (q: LiveQuiz | null | undefined, now = serverNow()): q is 
 /** Whether the quiz has loaded (`useLiveQuiz` is null both while loading and with none). */
 export function useLiveQuizState(on = true) {
   const [state, setState] = useState<{q: LiveQuiz | null} | null>(null);
+  const signIns = useSignIns();
   useEffect(() => {
     if (!on) return;
     return onValue(
@@ -146,7 +147,7 @@ export function useLiveQuizState(on = true) {
       (s) => setState({q: parse(s.val())}),
       () => setState({q: null}),
     );
-  }, [on]);
+  }, [on, signIns]);
   return state;
 }
 

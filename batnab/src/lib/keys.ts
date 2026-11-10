@@ -4,6 +4,7 @@ import {onValue, ref, set} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {CODES} from '../tests/types';
 import {db} from './firebase';
+import {useSignIns} from './live';
 
 /** Answers (or a key) in the stored form. */
 export const encode = (choices: (number | null)[]) => choices.map((x) => (x === null ? '-' : CODES[x])).join('');
@@ -41,6 +42,7 @@ export const percent = (g: Grade) => Math.round((g.score / g.total) * 100);
 export function useKeys(testIds: string[]) {
   const [keys, setKeys] = useState<Record<string, string | null>>({});
   const sig = [...new Set(testIds)].sort().join(',');
+  const signIns = useSignIns();
   useEffect(() => {
     const stops = sig
       .split(',')
@@ -53,7 +55,7 @@ export function useKeys(testIds: string[]) {
         ),
       );
     return () => stops.forEach((f) => f());
-  }, [sig]);
+  }, [sig, signIns]);
   return keys;
 }
 

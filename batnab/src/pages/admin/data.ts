@@ -3,6 +3,7 @@ import {get, onValue, ref, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
 import {db} from '../../lib/firebase';
+import {useSignIns} from '../../lib/live';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
 import {compare, finishedWeeks, medalData, parseWeek, publicName, pubOf, weekKey, weekMedals, type Entry} from '../../lib/leaderboard';
 import {archiveOps, type History} from '../../lib/history';
@@ -89,6 +90,7 @@ export function useAdminData() {
     const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub, settings.photos);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
   }, [raw, settings?.leaderboard, settings?.photos]);
+  const signIns = useSignIns();
   useEffect(() => {
     const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>
       onValue(
@@ -97,8 +99,12 @@ export function useAdminData() {
         (e) => setRaw((r) => ({...r, [path]: {}, error: e.message})),
       ),
     );
-    return () => stops.forEach((f) => f());
-  }, []);
+    return () => {
+      stops.forEach((f) => f());
+      // Someone else signed in: everything is read again from nothing (a refusal before isn't kept).
+      setRaw({});
+    };
+  }, [signIns]);
 
   if (!raw.users || !raw.admins || !raw.results || !raw.keys || !raw.exams || !raw.examAnswers) return {data: null, error: raw.error};
   const students = Object.entries(raw.users)

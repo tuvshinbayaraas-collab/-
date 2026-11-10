@@ -10,6 +10,7 @@ import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {TESTS} from '../tests';
 import {auth, db} from './firebase';
+import {useSignIns} from './live';
 import {percent, type Grade} from './keys';
 import type {Profile} from './session';
 import {photosAllowed} from './settings';
@@ -143,6 +144,7 @@ export function overall(byTest: Record<string, Entry[]>) {
 export function useWeekBoard(enabled = true) {
   const [board, setBoard] = useState<{week: string; byTest: Record<string, Entry[]>} | null>(null);
   const week = weekKey();
+  const signIns = useSignIns();
   useEffect(() => {
     if (!enabled) return;
     return onValue(
@@ -150,7 +152,7 @@ export function useWeekBoard(enabled = true) {
       (s) => setBoard({week, byTest: parseWeek(s.val())}),
       () => setBoard({week, byTest: {}}),
     );
-  }, [week, enabled]);
+  }, [week, enabled, signIns]);
   return board?.week === week ? board.byTest : null;
 }
 
@@ -158,6 +160,7 @@ export function useWeekBoard(enabled = true) {
 export function usePhotos(uids: string[]) {
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const sig = uids.join(',');
+  const signIns = useSignIns();
   useEffect(() => {
     const stops = sig
       .split(',')
@@ -170,7 +173,7 @@ export function usePhotos(uids: string[]) {
         ),
       );
     return () => stops.forEach((f) => f());
-  }, [sig]);
+  }, [sig, signIns]);
   return photos;
 }
 

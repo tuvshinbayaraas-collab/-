@@ -11,9 +11,9 @@
 //                             the teacher hasn't checked it yet); the answer then carries `w: true` (its text may
 //                             be empty), so the teacher's page knows there is one without loading every photo.
 import {get, onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
-import {useEffect, useState, useSyncExternalStore} from 'react';
+import {useEffect, useState} from 'react';
 import {auth, db} from './firebase';
-import {useLive} from './live';
+import {sharedLive, useLive, useSignIns} from './live';
 import {loadImage} from './photo';
 
 /** A part of the lesson: text, a picture, or a video (a YouTube, Google Drive… link). */
@@ -75,38 +75,17 @@ function parse(id: string, v: Partial<Topic> | null): Topic | null {
   };
 }
 
-let topics: Topic[] | null = null;
-const listeners = new Set<() => void>();
-let started = false;
-function start() {
-  if (started) return;
-  started = true;
-  onValue(
-    ref(db, 'topics'),
-    (s) => {
-      const v = (s.val() ?? {}) as Record<string, Partial<Topic>>;
-      topics = Object.entries(v)
-        .flatMap(([id, t]) => parse(id, t) ?? [])
-        .sort((a, b) => a.order - b.order);
-      listeners.forEach((l) => l());
-    },
-    () => {
-      topics = [];
-      listeners.forEach((l) => l());
-    },
-  );
-}
+const topics = sharedLive(
+  'topics',
+  (v) =>
+    Object.entries((v ?? {}) as Record<string, Partial<Topic>>)
+      .flatMap(([id, t]) => parse(id, t) ?? [])
+      .sort((a, b) => a.order - b.order),
+  [] as Topic[],
+);
 
 /** Every topic the reader may see (the teacher: all, drafts too), in the teacher's order; null while loading. */
-export const useTopics = () =>
-  useSyncExternalStore(
-    (l) => {
-      start();
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => topics,
-  );
+export const useTopics = topics.use;
 
 /** Whether a student of `classId` sees the topic. */
 export const forClassOf = (t: Topic, classId: string | undefined) => t.published && (!t.classes || !Object.keys(t.classes).length || (!!classId && !!t.classes[classId]));
@@ -267,6 +246,7 @@ export const resetProgress = (uid: string, tid: string) => update(ref(db), {[`to
 /** The teacher's copy of a topic's keys; null while loading. */
 export function useTopicKeys(tid: string) {
   const [keys, setKeys] = useState<Record<string, string> | null>(null);
+  const signIns = useSignIns();
   useEffect(
     () =>
       onValue(
@@ -274,7 +254,7 @@ export function useTopicKeys(tid: string) {
         (s) => setKeys((s.val() ?? {}) as Record<string, string>),
         () => setKeys({}),
       ),
-    [tid],
+    [tid, signIns],
   );
   return keys;
 }
@@ -304,6 +284,7 @@ export function useProgress(uid: string | undefined) {
 /** Everyone's answers, for the teacher (`on` false: not read). */
 export function useAllProgress(on = true) {
   const [p, setP] = useState<Record<string, Progress> | null>(null);
+  const signIns = useSignIns();
   useEffect(
     () =>
       on
@@ -313,7 +294,7 @@ export function useAllProgress(on = true) {
             () => setP({}),
           )
         : undefined,
-    [on],
+    [on, signIns],
   );
   return p;
 }
@@ -345,6 +326,7 @@ export function useMarks(uid: string | undefined) {
 /** Every student's marks (uid → tid → pid), for the teacher (`on` false: not read). */
 export function useAllMarks(on = true) {
   const [m, setM] = useState<Record<string, Marks> | null>(null);
+  const signIns = useSignIns();
   useEffect(
     () =>
       on
@@ -354,7 +336,7 @@ export function useAllMarks(on = true) {
             () => setM({}),
           )
         : undefined,
-    [on],
+    [on, signIns],
   );
   return m;
 }

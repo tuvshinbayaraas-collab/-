@@ -9,6 +9,7 @@ import {onIdTokenChanged} from 'firebase/auth';
 import {onValue, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState, useSyncExternalStore} from 'react';
 import {auth, db, emulators, firebaseConfig} from './firebase';
+import {useSignIns} from './live';
 import type {LeaveWhy} from './leaves';
 import type {Result} from './results';
 
@@ -164,7 +165,7 @@ export function examEvent(test: string, e: {k: 'o' | 'b'; w?: LeaveWhy; ms?: num
 /** The comings and goings in an exam: uid → events (oldest first). One student's when `uid` is given; none for null. */
 export function useExamEvents(test: string | null, uid?: string) {
   const [state, setState] = useState<{key: string; value: Record<string, ExamEvent[]>} | null>(null);
-  const key = `${test}/${uid ?? ''}`;
+  const key = `${useSignIns()}|${test}/${uid ?? ''}`;
   useEffect(
     () =>
       test === null
