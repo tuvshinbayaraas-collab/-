@@ -39,8 +39,33 @@ const pick = (classes?: Record<string, true>) => (classes && Object.keys(classes
 export const useAssignments = () =>
   useLive('assignments', (v) => entries<Omit<Assignment, 'id'>>(v).filter((a) => (a.kind === 'topic' || a.kind === 'test') && typeof a.due === 'number').sort((a, b) => a.due - b.due));
 
-export const createAssignment = (a: Pick<Assignment, 'kind' | 'ref' | 'due' | 'classes'>) =>
-  set(push(ref(db, 'assignments')), {kind: a.kind, ref: a.ref, due: a.due, classes: pick(a.classes), createdAt: serverTimestamp()});
+/**
+ * Gives an assignment. `open` (a topic's): the classes its topic is open to from now on (null: every class), so the
+ * classes it is given to can see the topic; set in the same write. Undefined: the topic stays as it is.
+ */
+export function createAssignment(a: Pick<Assignment, 'kind' | 'ref' | 'due' | 'classes'>, open?: Record<string, true> | null) {
+  const id = push(ref(db, 'assignments')).key!;
+  return update(ref(db), {
+    [`assignments/${id}`]: {kind: a.kind, ref: a.ref, due: a.due, classes: pick(a.classes), createdAt: serverTimestamp()},
+    ...(a.kind === 'topic' && open !== undefined ? {[`topics/${a.ref}/classes`]: pick(open ?? undefined)} : {}),
+  });
+}
+
+/** Opens a topic to these classes too (null: to every class). */
+export const openTopicTo = (tid: string, classes: Record<string, true> | null) => set(ref(db, `topics/${tid}/classes`), pick(classes ?? undefined));
+
+/**
+ * The classes an assignment is given to that can't see its topic (the topic is open to other classes only): their
+ * names, and the classes the topic should be open to for them to see it (null: every class). None: nothing to do.
+ */
+export function topicGap(classes: Record<string, true> | undefined, topic: {classes?: Record<string, true>}, all: {id: string; name: string}[]) {
+  const open = topic.classes && Object.keys(topic.classes).length ? topic.classes : null;
+  if (!open) return null;
+  const to = pick(classes);
+  const shut = to ? Object.keys(to).filter((id) => !open[id]) : all.map((c) => c.id).filter((id) => !open[id]);
+  if (!shut.length) return null;
+  return {names: shut.map((id) => all.find((c) => c.id === id)?.name ?? '').filter(Boolean), open: to ? {...open, ...to} : null};
+}
 
 export const deleteAssignment = (id: string) => set(ref(db, `assignments/${id}`), null);
 

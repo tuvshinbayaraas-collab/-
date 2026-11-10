@@ -413,6 +413,10 @@ function ClassPicker({value, onChange}: {value?: Record<string, true>; onChange:
       <button type="button" onClick={() => onChange(undefined)} className={chip(!ids.length)}>
         Бүх анги
       </button>
+      {/* Classes deleted since: still set, so nobody else sees it ("Бүх анги" or a class takes them off). */}
+      {ids.some((id) => !classes.some((c) => c.id === id)) && (
+        <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm text-amber-200">Устгасан анги{ids.every((id) => !classes.some((c) => c.id === id)) && ': хэнд ч харагдахгүй'}</span>
+      )}
       {classes.map((c) => {
         const on = ids.includes(c.id);
         return (
@@ -420,7 +424,7 @@ function ClassPicker({value, onChange}: {value?: Record<string, true>; onChange:
             key={c.id}
             type="button"
             onClick={() => {
-              const next = on ? ids.filter((x) => x !== c.id) : [...ids, c.id];
+              const next = (on ? ids.filter((x) => x !== c.id) : [...ids, c.id]).filter((x) => classes.some((k) => k.id === x));
               onChange(next.length ? Object.fromEntries(next.map((x) => [x, true as const])) : undefined);
             }}
             className={chip(on)}

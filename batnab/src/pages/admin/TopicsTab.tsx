@@ -82,7 +82,7 @@ export default function TopicsTab({data}: {data: AdminData}) {
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${t.published ? 'bg-green-500/15 text-green-300' : 'bg-amber-500/15 text-amber-300'}`}>{t.published ? 'Нээлттэй' : 'Ноорог'}</span>
                     </span>
                     <span className="mt-0.5 block text-sm text-neutral-400">
-                      {t.lesson.length ? 'Хичээлтэй' : 'Хичээлгүй'} · {t.problems.length} бодлого · {ids.length ? classNames(ids) : 'Бүх анги'}
+                      {t.lesson.length ? 'Хичээлтэй' : 'Хичээлгүй'} · {t.problems.length} бодлого · {ids.length ? classNames(ids) || 'устгасан ангид (хэнд ч харагдахгүй)' : 'Бүх анги'}
                     </span>
                   </span>
                   <span className="w-16 shrink-0 text-right">

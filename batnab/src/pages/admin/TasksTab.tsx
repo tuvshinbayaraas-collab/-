@@ -1,7 +1,7 @@
-import {CheckCircle2, ChevronDown, ClipboardList, Megaphone, School, Send, Timer, Trash2} from 'lucide-react';
+import {CheckCircle2, ChevronDown, ClipboardList, Megaphone, School, Send, Timer, Trash2, TriangleAlert} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {assignmentState, assignmentTitle, dueLeft} from '../../components/Today';
-import {createAssignment, deleteAnnouncement, deleteAssignment, postAnnouncement, useAnnouncements, useAssignments} from '../../lib/classroom';
+import {createAssignment, deleteAnnouncement, deleteAssignment, openTopicTo, postAnnouncement, topicGap, useAnnouncements, useAssignments} from '../../lib/classroom';
 import {useClasses} from '../../lib/classes';
 import {forClass} from '../../lib/live';
 import {clock, dayLabel, useNow} from '../../lib/time';
@@ -97,6 +97,8 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
   const [to, setTo] = useState<string[]>(picked ? [picked] : []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Said after an assignment opened its topic to more classes.
+  const [note, setNote] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   // A student's times opened under an assignment (assignment id/uid).
   const [timeOpen, setTimeOpen] = useState<string | null>(null);
@@ -111,8 +113,13 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
     if (!chosen || !at) return;
     setBusy(true);
     setError('');
+    setNote('');
     try {
-      await createAssignment({kind, ref: chosen, due: at, classes: asMap(to)});
+      // A topic open to other classes only: opened to the ones it is given to as well, or they wouldn't see it.
+      const t = kind === 'topic' ? topics?.find((x) => x.id === chosen) : undefined;
+      const gap = t ? topicGap(asMap(to), t, classes) : null;
+      await createAssignment({kind, ref: chosen, due: at, classes: asMap(to)}, gap ? gap.open : undefined);
+      if (gap && t) setNote(`«${t.title}» сэдвийг ${gap.open ? `${gap.names.join(', ')} ангид` : 'бүх ангид'} ч нээлээ (өмнө нь зөвхөн ${Object.keys(t.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean).join(', ') || 'цөөн'} ангид нээлттэй байсан).`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -161,6 +168,7 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
         )}
         <Targets value={to} onChange={setTo} />
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {note && <p className="text-sm text-green-300">{note}</p>}
         <button disabled={busy || !chosen || !due} className={primary}>
           <ClipboardList size={16} /> {busy ? 'Өгч байна…' : 'Даалгавар өгөх'}
         </button>
@@ -198,6 +206,27 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
                     <Trash2 size={15} />
                   </button>
                 </div>
+                {(() => {
+                  // Its topic shut to some of the classes it is given to (or a draft): those students don't see it.
+                  const t = a.kind === 'topic' ? topics?.find((x) => x.id === a.ref) : undefined;
+                  if (!t) return null;
+                  if (!t.published)
+                    return (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
+                        <TriangleAlert size={13} className="shrink-0" /> Сэдэв нь ноорог (сурагчдад нээгээгүй): сурагчид харахгүй.
+                      </p>
+                    );
+                  const gap = topicGap(a.classes, t, classes);
+                  if (!gap) return null;
+                  return (
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-300">
+                      <TriangleAlert size={13} className="shrink-0" /> Сэдэв нь {gap.names.join(', ')} ангид хаалттай: тэд энэ даалгаврыг харахгүй.
+                      <button type="button" onClick={() => openTopicTo(t.id, gap.open).catch((e) => alert(e.message))} className="rounded-full bg-amber-500/15 px-2.5 py-0.5 font-medium text-amber-200 hover:bg-amber-500/25">
+                        Сэдвийг {gap.open ? `${gap.names.join(', ')} ангид` : 'бүх ангид'} нээх
+                      </button>
+                    </p>
+                  );
+                })()}
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-800">
                   <div className="h-full rounded-full bg-[#3987e5]" style={{width: `${rows.length ? (done.length / rows.length) * 100 : 0}%`}} />
                 </div>
