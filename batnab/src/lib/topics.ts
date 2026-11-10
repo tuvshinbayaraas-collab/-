@@ -236,12 +236,13 @@ export const deleteTopic = (tid: string, uids: string[] = []) =>
     [`topics/${tid}`]: null,
     [`topicKeys/${tid}`]: null,
     [`topicImages/${tid}`]: null,
-    ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`].map((k) => [k, null]))),
+    ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`, `timeOn/${uid}/p${tid}`].map((k) => [k, null]))),
   });
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});
 
-export const resetProgress = (uid: string, tid: string) => update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null, [`topicWork/${uid}/${tid}`]: null});
+export const resetProgress = (uid: string, tid: string) =>
+  update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null, [`topicWork/${uid}/${tid}`]: null, [`timeOn/${uid}/p${tid}`]: null});
 
 /** The teacher's copy of a topic's keys; null while loading. */
 export function useTopicKeys(tid: string) {

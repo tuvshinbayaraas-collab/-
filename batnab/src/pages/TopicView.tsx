@@ -1,5 +1,5 @@
 import {ArrowLeft, BookOpen, ListChecks, Pencil} from 'lucide-react';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectTitle, ResultCard} from '../components/Perfect';
 import {ProblemView, Rich, TopicPicture, type Outcome} from '../components/TopicParts';
@@ -7,6 +7,7 @@ import VideoEmbed from '../components/VideoEmbed';
 import {addMistakes, useMistakes} from '../lib/mistakes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
+import {topicTimeKey, useTimeOn} from '../lib/timeOn';
 import {forClassOf, problemNo, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
 import Loading from '../components/Loading';
 
@@ -18,6 +19,14 @@ export default function TopicView({id}: {id: string}) {
   const marks = useMarks(session.user && !session.admin ? session.user.uid : undefined);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const mistakes = useMistakes(session.user && !session.admin ? session.user.uid : undefined);
+  const list = useRef<HTMLOListElement>(null);
+  // How long they spend here, and on each problem until it is answered: for the teacher only (lib/timeOn).
+  const student = !!session.user && !session.admin && !!session.profile && !session.profile.disabled;
+  const open = !!topics?.some((x) => x.id === id && forClassOf(x, session.profile?.class));
+  useTimeOn(student && open ? `timeOn/${session.user!.uid}/${topicTimeKey(id)}` : null, () => {
+    const kids = list.current ? [...list.current.children] : [];
+    return (topics?.find((x) => x.id === id)?.problems ?? []).map((p, i) => ({el: kids[i] ?? null, key: p.id, open: !!progress && !progress[id]?.[p.id]}));
+  });
   if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Сэдвийг үзэхийн тулд нэвтэрнэ үү." />;
   if (!session.admin && (!session.profile || session.profile.disabled)) return <InactiveNote blocked={!!session.profile?.disabled} />;
@@ -97,7 +106,7 @@ export default function TopicView({id}: {id: string}) {
               </p>
             </ResultCard>
           )}
-          <ol className="space-y-4">
+          <ol ref={list} className="space-y-4">
             {t.problems.map((p, i) => (
               <ProblemView
                 key={p.id}

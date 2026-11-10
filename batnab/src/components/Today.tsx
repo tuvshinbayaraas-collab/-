@@ -10,7 +10,7 @@ import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {doneToday, liveStreak, useStats} from '../lib/stats';
 import {clock, dayLabel, serverNow, useNow} from '../lib/time';
-import {useProgress, useTopics, type Progress, type Topic} from '../lib/topics';
+import {forClassOf, useProgress, useTopics, type Progress, type Topic} from '../lib/topics';
 import {testInfo} from '../tests';
 
 const DAY = 86_400_000;
@@ -49,6 +49,10 @@ export function assignmentState(a: Assignment, topics: Topic[] | null, progress:
 
 export const assignmentTitle = (a: Assignment, topics: Topic[] | null) => (a.kind === 'test' ? (testInfo(a.ref)?.title ?? a.ref) : (topics?.find((t) => t.id === a.ref)?.title ?? 'Устгагдсан сэдэв'));
 
+/** Whether a student of `classId` is shown an assignment: for their class, and its test or topic is there for them to open. */
+export const assignmentFor = (a: Assignment, topics: Topic[], classId: string | undefined) =>
+  forClass(a.classes, classId) && (a.kind === 'test' ? !!testInfo(a.ref) : topics.some((t) => t.id === a.ref && forClassOf(t, classId)));
+
 /** The top of a student's home page: notes from the teacher, assignments, today's practice, the notebook, answers. */
 export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const now = useNow(60_000);
@@ -63,7 +67,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const wide = useWide();
 
   const notes = (announcements ?? []).filter((a) => forClass(a.classes, classId) && a.at > now - 21 * DAY && !hidden.includes(a.id)).slice(0, 3);
-  const tasks = (assignments ?? []).filter((a) => forClass(a.classes, classId) && a.due > now - 3 * DAY && (a.kind === 'test' || topics?.some((t) => t.id === a.ref)));
+  const tasks = (assignments ?? []).filter((a) => a.due > now - 3 * DAY && !!topics && assignmentFor(a, topics, classId));
   const hide = (id: string) => {
     const next = [...hidden, id].slice(-50);
     setHidden(next);

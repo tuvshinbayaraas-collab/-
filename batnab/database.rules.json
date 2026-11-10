@@ -430,6 +430,36 @@
         }
       }
     },
+    "timeOn": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        "$item": {
+          ".validate": "$item.matches(/^(p[A-Za-z0-9_-]{1,40}|t[0-9]{1,2}[AB]_[0-9]{10,14})$/)",
+          "all": {
+            ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && newData.exists()",
+            ".validate": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 300"
+          },
+          "q": {
+            "$k": {
+              ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && newData.exists()",
+              ".validate": "$k.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 300"
+            }
+          },
+          "at": {
+            ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && newData.exists()",
+            ".validate": "newData.val() === now"
+          },
+          "rid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && newData.exists() && !data.exists() && $item.beginsWith('t')",
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "topicWork": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",

@@ -3,7 +3,7 @@
 // answer, a reply to a question, a medal, a live quiz starting; the teacher gets new questions and answers waiting to
 // be checked. What came after the last look at the list (kept on this device) counts as new.
 import {useEffect, useState} from 'react';
-import {assignmentState, assignmentTitle} from '../components/Today';
+import {assignmentFor, assignmentState, assignmentTitle} from '../components/Today';
 import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
@@ -82,7 +82,8 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   if (!on || !uid) return [];
   if (!assignments || !announcements || !exams || !results || !topics || !progress || !marks || !questions) return null;
   const notes: Note[] = [];
-  for (const a of assignments.filter((x) => forClass(x.classes, classId))) {
+  // Not one whose topic is gone or closed to them (it can't be opened; its title would read «Устгагдсан сэдэв»).
+  for (const a of assignments.filter((x) => assignmentFor(x, topics, classId))) {
     const title = assignmentTitle(a, topics);
     const href = a.kind === 'topic' ? `/topics/${a.ref}` : `/test/${a.ref}`;
     const due = `${dayLabel(a.due)} ${clock(a.due)} хүртэл`;

@@ -23,6 +23,7 @@ import {inThisWeek} from '../lib/week';
 import {settingsReady, useSettings, type Settings} from '../lib/settings';
 import {skillStats} from '../lib/skills';
 import {useNow} from '../lib/time';
+import {testTimeKey, timeResult, useTimeOn} from '../lib/timeOn';
 import {skillOf, type Skill} from '../tests/skills';
 import ExamRunner, {ExamWait} from './ExamRunner';
 import {loadTest, testInfo} from '../tests';
@@ -186,6 +187,11 @@ function Runner(props: {
     // Reported again as answers come; leaving and coming back are reported where they're counted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveUid, attempt?.started, attempt?.finished, answeredNow]);
+  // How long each question takes, for the teacher only (lib/timeOn): while answering, a question's from the touch before
+  // to the touch on it (a long stretch: the questions on screen).
+  useTimeOn(liveUid && attempt && !finished ? `timeOn/${liveUid}/${testTimeKey(id, attempt.started)}` : null, () =>
+    (latest.current?.order ?? []).map((qi, pos) => ({el: document.getElementById(`q${pos}`), key: String(qi), open: true})),
+  );
   useEffect(() => {
     if (finished) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -198,7 +204,10 @@ function Runner(props: {
     setSaveError('');
     // Kept even if the page was left meanwhile, so the same answers aren't stored twice.
     saveResult(id, encode(attempt.answers), Math.round((attempt.finished - attempt.started) / 1000), attempt.leaves, attempt.away)
-      .then((resultId) => update({...attempt, resultId}))
+      .then((resultId) => {
+        update({...attempt, resultId});
+        if (liveUid) void timeResult(liveUid, testTimeKey(id, attempt.started), resultId);
+      })
       .catch((e) => setSaveError((e as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt?.finished, attempt?.resultId, saveTry]);
