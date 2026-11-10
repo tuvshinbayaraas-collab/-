@@ -18,6 +18,8 @@ export default function QuestionCard(props: {
   checked?: boolean;
   correct?: number | null;
   reveal?: boolean;
+  /** Whose the chosen answer is, said with `reveal` ("Таны": one's own; "Сурагчийн": the teacher looking at a student's). */
+  whose?: string;
   keyMode?: boolean;
   onChoose?: (ci: number) => void;
   id?: string;
@@ -29,7 +31,7 @@ export default function QuestionCard(props: {
    */
   perm?: number[];
 }) {
-  const {num, q, chosen, checked, correct = null, reveal, keyMode, onChoose, id, footer, perm} = props;
+  const {num, q, chosen, checked, correct = null, reveal, whose = 'Таны', keyMode, onChoose, id, footer, perm} = props;
   const order = perm && perm.length === q.c.length ? perm : q.c.map((_, i) => i);
   /** The letter a book's choice has on this card. */
   const letterOf = (ci: number) => LETTERS[order.indexOf(ci)];
@@ -125,7 +127,7 @@ export default function QuestionCard(props: {
             <span className="text-neutral-400">Хариулаагүй.</span>
           ) : reveal ? (
             <>
-              <XCircle size={16} className="text-red-400" /> Таны хариулт: {letterOf(chosen)}.
+              <XCircle size={16} className="text-red-400" /> {whose} хариулт: {letterOf(chosen)}.
             </>
           ) : (
             <>

@@ -11,7 +11,7 @@ import Loading from '../components/Loading';
 /** Where a question was asked from, as a link back to it. */
 export const questionHref = (q: Question) => (q.ctx.s === 'p' ? `/topics/${q.ctx.t}` : '/mistakes');
 
-/** /questions: the student's questions to the teacher and the answers; opening the page marks answers as read. */
+/** /questions: the student's questions to the teacher and the answers; opening the page marks answers as read. A question can be taken back while unanswered, deleted once answered. */
 export default function Questions() {
   const session = useSession();
   const uid = isStudent(session) ? session.user!.uid : undefined;
@@ -53,6 +53,11 @@ export default function Questions() {
                 <div className="mt-3 rounded-xl bg-sky-500/10 p-3">
                   <p className="text-xs font-semibold text-sky-300">Багшийн хариу · {formatDate(q.reply.at)}</p>
                   <Rich text={q.reply.text} className="mt-1 text-sm text-neutral-100" />
+                  <div className="mt-2 flex justify-end">
+                    <button onClick={() => confirm('Энэ асуулт, багшийн хариуг устгах уу?') && deleteQuestion(q.uid, q.id).catch(() => {})} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-red-300">
+                      <Trash2 size={13} /> Устгах
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-3 flex items-center justify-between gap-2">

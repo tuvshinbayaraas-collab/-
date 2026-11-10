@@ -162,6 +162,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
               checked
               correct={correctAt(i)}
               reveal={reveal}
+              whose={other ? 'Сурагчийн' : 'Таны'}
               footer={!session.admin && missed.includes(i) ? <AskButton ctx={{s: 't', t: testId, q: String(i), label: `${test.title} · ${i + 1}-р бодлого`}} /> : undefined}
             />
           ),
