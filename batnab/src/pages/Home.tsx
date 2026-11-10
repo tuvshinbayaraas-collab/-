@@ -293,7 +293,8 @@ function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
           </Link>
         )}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* grid-cols-1: the column fits the screen (otherwise a long title, kept on one line, widens the page). */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {shown
           .slice(-4)
           .reverse()
@@ -302,18 +303,27 @@ function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
             // Problems without a right answer can't be done (they're worked out on one's own).
             const total = t.problems.length;
             return (
-              <Link key={t.id} href={`/topics/${t.id}`} className="flex items-center gap-4 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800">
+              <Link key={t.id} href={`/topics/${t.id}`} className="@container flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800 sm:gap-4">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
                   <BookOpen size={20} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-lg font-semibold">{t.title}</p>
+                  {/* A long title takes two lines (then «…»), the whole card's width. */}
+                  <p className="line-clamp-2 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{t.title}</p>
                   <p className="text-sm text-neutral-400">
                     {t.problems.length} бодлого{done > 0 && ` • ${done} бодсон`}
                   </p>
+                  {done > 0 && done < total && (
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-800">
+                      <div className="h-full rounded-full bg-violet-400" style={{width: `${(done / total) * 100}%`}} />
+                    </div>
+                  )}
                 </div>
-                <span className="flex items-center gap-1 text-sm font-medium text-blue-400">
-                  {done === 0 ? 'Эхлэх' : done < total ? 'Үргэлжлүүлэх' : 'Харах'} <ChevronRight size={16} />
+                {/* What a tap does, in words only on a card wide enough (by the card, not the screen: «Үргэлжлүүлэх» on a
+                    narrow one leaves the title no room); else the arrow, with the numbers and the bar. */}
+                <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-blue-400">
+                  <span className="hidden @[22rem]:inline">{done === 0 ? 'Эхлэх' : done < total ? 'Үргэлжлүүлэх' : 'Харах'}</span>
+                  <ChevronRight size={16} />
                 </span>
               </Link>
             );
