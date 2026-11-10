@@ -1,10 +1,11 @@
-import {Check, NotebookPen, Shuffle, X} from 'lucide-react';
+import {Check, CheckCheck, NotebookPen, Shuffle, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {auth} from '../lib/firebase';
 import {choiceAt, useKeys} from '../lib/keys';
-import {addMistakes, LAST_BOX, mistakeId, NOTE_MAX, reviewed, setNote, setWhy, useMistakes, WHYS, type Mistake} from '../lib/mistakes';
+import {addMistakes, isDue, LAST_BOX, mistakeId, NOTE_MAX, reviewed, setNote, setWhy, useMistakes, WHYS, type Mistake} from '../lib/mistakes';
 import {useMyResults} from '../lib/results';
 import {learnedOne, type Stats} from '../lib/stats';
+import {dayLabel} from '../lib/time';
 import {problemNo, useProgress, type Problem, type Topic} from '../lib/topics';
 import {loadTest, testInfo} from '../tests';
 import {hintOf} from '../tests/hints';
@@ -110,11 +111,18 @@ function useSimilar(m: Mistake, on: boolean, topics: Topic[]) {
   return p ? {s: 'p' as const, t: m.t, q: p.id, twin: false} : null;
 }
 
+/** What a notebook problem showed and how its answer was counted (`right` unknown: counted on another page or device). */
+type Counted = {it: {s: 'p' | 't'; t: string; q: string; twin: boolean}; last: boolean; right?: boolean; learned?: boolean};
+// The notebook problems answered during this visit (by student and mistake id). An answer counts once: seen again (on
+// another tile, with a topic picked, back on the page), the problem says how it was counted, and is only practice.
+const countedNow = new Map<string, Counted>();
+
 /**
  * One notebook problem solved again. Wrong, it says so, then helps on request: a hint, the steps (a test question's
  * written for it, never its answer; a topic problem's from the teacher's solution, then the answer), and a try again
  * that isn't counted. At the last step before learned it asks a similar problem instead. `practice`: a learned one
- * looked at again (nothing recorded). Either way the notebook moves it on (`onDone`).
+ * looked at again (nothing recorded). Either way the notebook moves it on (`onDone`). The first answer is the one
+ * counted; once it is, the problem on screen stays the one answered (not the similar one its new step would bring).
  */
 export function MistakeItem({
   m,
@@ -131,17 +139,37 @@ export function MistakeItem({
   practice?: boolean;
   onDone?: (right: boolean, learned: boolean) => void;
 }) {
-  const mistakes = useMistakes(practice ? undefined : auth.currentUser?.uid);
-  const last = !practice && m.box >= LAST_BOX;
-  const similar = useSimilar(m, last, topics);
+  const uid = auth.currentUser?.uid;
+  const key = `${uid}/${m.id}`;
+  // Counted before this was shown (here, or no longer due: done on another page or device): practice only.
+  const [before] = useState<Counted | undefined>(() =>
+    practice ? undefined : (countedNow.get(key) ?? (isDue(m) ? undefined : {it: {s: m.s, t: m.t, q: m.q, twin: false}, last: false})),
+  );
+  const [mine, setMine] = useState<Counted | undefined>(undefined);
+  const counted = before ?? mine;
+  const mistakes = useMistakes(practice ? undefined : uid);
+  // The last step, now (until it is answered: then as it was).
+  const lastNow = !practice && m.box >= LAST_BOX;
+  const similar = useSimilar(m, lastNow && !counted, topics);
+  const last = counted ? counted.last : lastNow;
+  // The last step: a similar problem in this one's place (or, with none to be had, this one again).
+  const it = counted?.it ?? (lastNow && similar ? similar : {s: m.s, t: m.t, q: m.q, twin: false});
+  const other = it.s !== m.s || it.t !== m.t || it.q !== m.q;
   // The similar problem's test key (its own test's, when it is another test).
-  const simKeys = useKeys(similar && similar.s === 't' && similar.t !== m.t ? [similar.t] : []);
+  const simKeys = useKeys(it.s === 't' && it.t !== m.t ? [it.t] : []);
   const finish = async (right: boolean) => {
-    if (practice) return onDone?.(right, false);
+    if (practice || before || countedNow.has(key) || !isDue(m)) return onDone?.(right, false);
+    const c: Counted = {it, last, right};
+    countedNow.set(key, c);
+    setMine(c);
     const learned = await reviewed(m, right).catch(() => false);
-    if (learned) await learnedOne(stats).catch(() => {});
+    if (learned) {
+      c.learned = true;
+      setMine({...c});
+      await learnedOne(stats).catch(() => {});
+    }
     // Wrong on the similar one: it goes in the notebook too.
-    if (!right && last && similar) await addMistakes([{s: similar.s, t: similar.t, q: similar.q}], mistakes).catch(() => {});
+    if (!right && last && other) await addMistakes([{s: it.s, t: it.t, q: it.q}], mistakes).catch(() => {});
     onDone?.(right, learned);
   };
   const label = mistakeLabel(m, topics);
@@ -152,25 +180,38 @@ export function MistakeItem({
       ))}
     </span>
   );
-  if (last && similar === undefined) return <div className="h-40 animate-pulse rounded-2xl bg-neutral-900" />;
-  // The last step: a similar problem in this one's place (or, with none to be had, this one again).
-  const it = last && similar ? similar : {s: m.s, t: m.t, q: m.q, twin: false};
+  if (!counted && lastNow && similar === undefined) return <div className="h-40 animate-pulse rounded-2xl bg-neutral-900" />;
   const banner = last && (
     <p className="flex items-start gap-2 rounded-xl bg-violet-500/10 px-3 py-2 text-sm text-violet-100">
       <Shuffle size={16} className="mt-0.5 shrink-0 text-violet-300" />
-      <span>
-        {similar ? `Сүүлийн шат: «${label}»-тэй ${similar.twin ? 'яг ижил аргаар' : 'ижил сэдвээр'} бодогдох өөр бодлого. Зөв бодвол сурсанд тооцно.` : 'Сүүлийн шат: зөв бодвол сурсанд тооцно.'}
-      </span>
+      <span>{other ? `Сүүлийн шат: «${label}»-тэй ${it.twin ? 'яг ижил аргаар' : 'ижил сэдвээр'} бодогдох өөр бодлого. Зөв бодвол сурсанд тооцно.` : 'Сүүлийн шат: зөв бодвол сурсанд тооцно.'}</span>
     </p>
   );
-  const heading = last && similar ? `Төстэй бодлого · ${mistakeLabel(similar, topics)}` : label;
+  // Shown again after it was counted: how it went, and that this try is practice.
+  const was =
+    before &&
+    (before.right === false
+      ? 'Энэ удаагийн хариулт тоологдсон: буруу — маргааш дахин гарна.'
+      : before.learned || (before.right === undefined && m.done)
+        ? 'Энэ бодлогыг сурсанд тооцсон.'
+        : before.right
+          ? 'Энэ удаагийн хариулт тоологдсон: зөв — дараа дахин давтана.'
+          : `Энэ бодлогыг давтсан. Дараагийн давталт: ${dayLabel(m.next)}.`);
+  const heading = other ? `Төстэй бодлого · ${mistakeLabel(it, topics)}` : label;
   return (
     <div className="space-y-2">
-      {banner}
-      {it.s === 'p' ? (
-        <TopicProblem tid={it.t} pid={it.q} topics={topics} heading={heading} boxes={boxes} onAnswered={finish} practice={practice} />
+      {was ? (
+        <p className="flex items-start gap-2 rounded-xl bg-neutral-800/70 px-3 py-2 text-sm text-neutral-200">
+          <CheckCheck size={16} className="mt-0.5 shrink-0 text-neutral-400" />
+          <span>{was} Одоо бодох нь зөвхөн дасгал.</span>
+        </p>
       ) : (
-        <TestQuestion test={it.t} q={Number(it.q)} label={heading} testKey={it.t === m.t ? testKey : simKeys[it.t]} boxes={boxes} onAnswered={finish} practice={practice} />
+        banner
+      )}
+      {it.s === 'p' ? (
+        <TopicProblem tid={it.t} pid={it.q} topics={topics} heading={heading} boxes={boxes} onAnswered={finish} practice={practice || !!before} />
+      ) : (
+        <TestQuestion test={it.t} q={Number(it.q)} label={heading} testKey={it.t === m.t ? testKey : simKeys[it.t]} boxes={boxes} onAnswered={finish} practice={practice || !!before} />
       )}
       {!practice && <NotebookTools m={m} />}
     </div>
