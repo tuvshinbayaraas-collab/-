@@ -63,7 +63,8 @@ export default function TasksTab({data, picked}: {data: AdminData; picked: strin
 
 /**
  * How long a student took over an assignment (seen only by the teacher; lib/timeOn): a topic's whole time on its page and
- * each problem's until answered; a test's handed-in attempt (or the one going on), and each question's. Null: none yet.
+ * each problem's until answered; a test's handed-in attempt (or the one going on), and each question's. Away from it
+ * over 30 minutes doesn't count. Null: none yet.
  */
 function timeFor(a: Assignment, topics: Topic[] | null, mine: Record<string, TimeOn> | undefined, results: Result[]) {
   if (a.kind === 'topic') {
@@ -82,7 +83,8 @@ function timeFor(a: Assignment, topics: Topic[] | null, mine: Record<string, Tim
   const q = Object.entries(t?.q ?? {})
     .map(([qi, s]) => ({label: `${Number(qi) + 1}`, s}))
     .sort((x, y) => Number(x.label) - Number(y.label));
-  return {all: r ? r.seconds : t!.all, q};
+  // The time counted on the attempt (away over 30 minutes left out); an attempt from before that was counted: start to end.
+  return {all: t?.all ? t.all : r!.seconds, q};
 }
 
 function Assignments({data, picked}: {data: AdminData; picked: string}) {

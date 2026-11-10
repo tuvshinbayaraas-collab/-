@@ -2,9 +2,10 @@
 // student add to it (and never take away), not read it, and nothing of it is shown to them.
 //   timeOn/{uid}/p{topicId}               {all, q: {problemId: s}, at}   the topic's page, and each problem until answered
 //   timeOn/{uid}/t{testId}_{started}      {all, q: {questionIndex: s}, at, rid?}   one attempt at a test; `rid`: its result
-// Seconds; `at`: the last time added to. Time counts while the page is in view and used (5 minutes without a touch,
-// a key or a scroll still count: working on paper). A problem's time is from the last touch on any problem to the touch
-// on it (picking a choice, typing, «Шалгах»): reading and working it out; a long stretch without a touch, or one cut by
+// Seconds; `at`: the last time added to. Time counts while the student is on the page; time away from it (the page
+// hidden, the screen dark, no touch: working on paper) counts too when they're back within 30 minutes, and not when
+// they were gone longer (they had stopped). A problem's time is from the last touch on any problem to the touch on it
+// (picking a choice, typing, «Шалгах»): reading and working it out; a long stretch without a touch, or one cut by
 // leaving, goes to the problems on screen as they were read. A topic problem's counts only until it is answered.
 import {increment, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useRef} from 'react';
@@ -20,8 +21,11 @@ export interface TimeOn {
 
 /** Time is stored this often (and when the student goes to another page of the site). */
 const FLUSH = 15_000;
-/** No touch, key or scroll for this long: not working on it any more. */
-const IDLE = 5 * 60_000;
+/** Gone (the page hidden, or no touch, key or scroll) longer than this: they had stopped working on it, and that time
+ * doesn't count; back sooner (from working it out on paper, the phone's screen gone dark), it counts. */
+const AWAY = 30 * 60_000;
+/** Without a sign of them this long, time is held until they're back (then counted) or gone over AWAY (then not). */
+const SURE = 60_000;
 
 export const topicTimeKey = (tid: string) => `p${tid}`;
 export const testTimeKey = (test: string, started: number) => `t${test}_${started}`;
@@ -37,14 +41,18 @@ export interface TimeItem {
 // device, not sent then: a write from a page closing may never get out, and whether it did can't be known. It goes
 // with the next write of that page (shown again, opened again), or of another page with time counted.
 const STASH = 'batnab.timeOn.';
-type Pending = {all: number; q: Record<string, number>};
+/**
+ * Counted, not stored yet (ms). Kept as the page hid, also: when the student was last seen (`seen`), up to when time
+ * was counted (`upto`; both ms since 1970) and the item they were on (`on`), so a page opened again within AWAY counts
+ * the time between.
+ */
+type Pending = {all: number; q: Record<string, number>; seen?: number; upto?: number; on?: string};
 
 function stash(path: string, p: Pending) {
-  if (p.all <= 0 && !Object.keys(p.q).length) return;
   try {
     const old = (JSON.parse(localStorage.getItem(STASH + path) ?? 'null') as Pending | null) ?? {all: 0, q: {}};
     for (const [k, ms] of Object.entries(p.q)) old.q[k] = (old.q[k] ?? 0) + ms;
-    localStorage.setItem(STASH + path, JSON.stringify({all: old.all + p.all, q: old.q}));
+    localStorage.setItem(STASH + path, JSON.stringify({all: old.all + p.all, q: old.q, seen: p.seen, upto: p.upto, on: p.on}));
   } catch {
     // storage blocked: that bit of time is not counted
   }
@@ -60,25 +68,25 @@ function unstash(path: string): Pending | null {
   }
 }
 
-/** Adds the whole seconds of `p` to the record at `path` (the rest stays in `p`); false: nothing to add. */
+/** Adds the whole seconds of `p` to the record at `path` (what's under a second stays in `p`). */
 function send(path: string, p: Pending) {
-  const ops: Record<string, unknown> = {};
-  // The rules take at most 300 seconds a write (more is a mistake, not time).
-  const whole = (ms: number) => Math.min(300, Math.floor(ms / 1000));
-  const all = whole(p.all);
-  if (all > 0) ops.all = increment(all);
-  p.all -= all * 1000;
-  for (const [k, ms] of Object.entries(p.q)) {
-    const n = whole(ms);
-    if (n > 0) ops[`q/${k}`] = increment(n);
-    // What's left (under a second, or over the 300) goes with the next write.
-    p.q[k] = ms - n * 1000;
-    if (p.q[k] <= 0) delete p.q[k];
+  // The rules take at most 300 seconds a write: more goes in more writes, one after another.
+  for (let n = 0; n < 40; n++) {
+    const ops: Record<string, unknown> = {};
+    const whole = (ms: number) => Math.min(300, Math.floor(ms / 1000));
+    const all = whole(p.all);
+    if (all > 0) ops.all = increment(all);
+    p.all -= all * 1000;
+    for (const [k, ms] of Object.entries(p.q)) {
+      const s = whole(ms);
+      if (s > 0) ops[`q/${k}`] = increment(s);
+      p.q[k] = ms - s * 1000;
+      if (p.q[k] <= 0) delete p.q[k];
+    }
+    if (!Object.keys(ops).length) return;
+    ops.at = serverTimestamp();
+    update(ref(db, path), ops).catch(() => {});
   }
-  if (!Object.keys(ops).length) return false;
-  ops.at = serverTimestamp();
-  update(ref(db, path), ops).catch(() => {});
-  return true;
 }
 
 /** Sends the time kept on this device for the student's other pages. */
@@ -108,40 +116,63 @@ export function useTimeOn(path: string | null, items: () => TimeItem[]) {
     if (!path) return;
     sendStashed(path.split('/')[1], path);
     // Counted, not stored yet (with what was kept on the device for this page).
-    const p: Pending = unstash(path) ?? {all: 0, q: {}};
+    const back = unstash(path);
+    const p: Pending = {all: back?.all ?? 0, q: back?.q ?? {}};
     // Since the last touch on an item: the time, and how much of it each item was being read. A short stretch goes to
     // the next item touched (a choice picked, an answer typed, «Шалгах»: it was read and worked out); a long one (10
     // seconds without a touch, by the next time it is stored) or one cut by leaving the page goes to the items read.
     let since = 0;
     let read: Record<string, number> = {};
-    let last = performance.now();
-    let active = last;
-    let touched = last;
+    // Counted up to (ms since 1970); the last sign of the student (a touch, a key, a scroll, the page shown again).
+    let upto = Date.now();
+    let present = upto;
+    let touched = upto;
     // The item being read (none on screen: the lesson), as of the last second (the page may be gone when it is left).
     let seen: TimeItem | undefined;
-    // The item across the reading line (a third of the way down), or the nearest to it.
+    // The item across the reading line (a third of the way down), or the nearest to it; at the end of the page (the
+    // last items can't come up to the line), the last one at least half on screen.
     const reading = () => {
       const line = innerHeight / 3;
       const gap = (r: DOMRect) => (r.top <= line && r.bottom >= line ? 0 : Math.min(Math.abs(r.top - line), Math.abs(r.bottom - line)));
-      return list
-        .current()
-        .flatMap((i) => {
-          const r = i.el?.getBoundingClientRect();
-          return r && r.height > 0 && r.bottom > 0 && r.top < innerHeight ? [{i, d: gap(r)}] : [];
-        })
-        .sort((x, y) => x.d - y.d)[0]?.i;
-    };
-    const tick = (look = false) => {
-      const now = performance.now();
-      const dt = Math.min(now - last, 5000);
-      last = now;
-      if (document.visibilityState !== 'visible' || now - active > IDLE) return;
-      if (look) seen = reading();
-      p.all += dt;
-      since += dt;
-      if (seen?.open) read[seen.key] = (read[seen.key] ?? 0) + dt;
+      const on = list.current().flatMap((i) => {
+        const r = i.el?.getBoundingClientRect();
+        return r && r.height > 0 && r.bottom > 0 && r.top < innerHeight ? [{i, r}] : [];
+      });
+      if (scrollY > 0 && scrollY + innerHeight >= document.documentElement.scrollHeight - 4) {
+        const half = [...on].reverse().find(({r}) => (Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)) / Math.min(r.height, innerHeight) >= 0.5);
+        if (half) return half.i;
+      }
+      return on.sort((x, y) => gap(x.r) - gap(y.r))[0]?.i;
     };
     const add = (k: string, ms: number) => (p.q[k] = (p.q[k] ?? 0) + ms);
+    const count = (ms: number, on = seen) => {
+      if (ms <= 0) return;
+      p.all += ms;
+      since += ms;
+      if (on?.open) read[on.key] = (read[on.key] ?? 0) + ms;
+    };
+    // The page opened again (a phone may close one in the background) within AWAY of last being seen there: the
+    // time between was spent on it, on the item they were on.
+    // (`on` was still open then; its answers may not have loaded yet here.)
+    if (back?.seen && back.upto && Date.now() - back.seen <= AWAY) count(Math.min(AWAY, Date.now() - back.upto), back.on ? {el: null, key: back.on, open: true} : undefined);
+    // Each second in view: counted while they're surely there; after that held, for `wake` to settle.
+    const tick = (look = false) => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (look) seen = reading();
+      if (now - present > SURE) return;
+      count(now - upto);
+      upto = now;
+    };
+    // A sign of them: what wasn't counted since (no touch for a while, the page hidden) counts if they were gone no
+    // longer than AWAY; longer, they had stopped, and it doesn't.
+    const wake = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - present <= AWAY) count(now - upto);
+      upto = now;
+      present = now;
+    };
     // The stretch to the item touched (none: an item answered already, its solution being read), or to the items read.
     const settle = (to?: TimeItem) => {
       if (to) {
@@ -150,29 +181,26 @@ export function useTimeOn(path: string | null, items: () => TimeItem[]) {
       since = 0;
       read = {};
     };
-    const wake = () => {
-      tick();
-      active = performance.now();
-    };
     const touch = (e: Event) => {
       wake();
       const it = list.current().find((i) => i.el && e.target instanceof Node && i.el.contains(e.target));
       if (!it) return;
-      touched = performance.now();
+      touched = Date.now();
       settle(it);
     };
     const flush = (leaving = false) => {
       tick();
-      if (leaving || performance.now() - touched > 10_000) settle();
+      if (leaving || Date.now() - touched > 10_000) settle();
       send(path, p);
     };
-    // Hidden: what isn't stored yet is kept on the device; shown again, it is taken back to be stored with the rest.
+    // Hidden: what isn't stored yet is kept on the device, with when they were last seen; shown again, it is taken
+    // back to be stored with the rest, and the time away counts as `wake` says.
     let kept = false;
     const keep = () => {
       if (kept) return;
       tick();
       settle();
-      stash(path, {all: p.all, q: {...p.q}});
+      stash(path, {all: p.all, q: {...p.q}, seen: present, upto, on: seen?.open ? seen.key : undefined});
       p.all = 0;
       p.q = {};
       kept = true;
@@ -181,12 +209,12 @@ export function useTimeOn(path: string | null, items: () => TimeItem[]) {
       if (document.visibilityState === 'hidden') return keep();
       if (!kept) return;
       kept = false;
-      last = performance.now();
-      const back = unstash(path);
-      if (back) {
-        p.all += back.all;
-        for (const [k, ms] of Object.entries(back.q)) add(k, ms);
+      const v = unstash(path);
+      if (v) {
+        p.all += v.all;
+        for (const [k, ms] of Object.entries(v.q)) add(k, ms);
       }
+      wake();
     };
     const every = () => document.visibilityState === 'visible' && flush();
     const events = ['pointerdown', 'keydown', 'scroll', 'wheel', 'touchstart', 'pointermove'] as const;
