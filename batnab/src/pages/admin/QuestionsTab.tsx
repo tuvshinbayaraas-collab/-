@@ -1,13 +1,11 @@
-import {ChevronDown, Eraser, MessageCircleQuestion, Send, Trash2} from 'lucide-react';
+import {ChevronDown, Eraser, MessageCircleQuestion, Send, Trash2, Users} from 'lucide-react';
 import {useEffect, useState} from 'react';
-import {ref, update} from 'firebase/database';
-import {deleteQuestion, replyQuestion, useAllQuestions, type Question} from '../../lib/classroom';
-import {db} from '../../lib/firebase';
+import {deleteQuestion, deleteQuestions, replyQuestion, replyQuestions, useAllQuestions, type Question} from '../../lib/classroom';
 import {choiceAt} from '../../lib/keys';
 import {useLive} from '../../lib/live';
 import {formatDate} from '../../lib/results';
 import {Link} from '../../lib/router';
-import {LETTER_CODES, LETTER_LABELS, readKey, useTopics, type Letter} from '../../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, readKey, useAllProgress, useTopics, type Letter} from '../../lib/topics';
 import {loadTest} from '../../tests';
 import type {Test} from '../../tests/types';
 import MathText from '../../components/MathText';
@@ -21,7 +19,8 @@ type Show = 'all' | 'open' | 'answered';
 /**
  * Students' questions about problems: unanswered first; the answer shows on the student's "Асуултууд" page. Each can
  * open the problem it is about (with the student's answer); answered ones can be deleted, one by one or all those the
- * student has read at once.
+ * student has read at once. Several students asking about the same problem come together: one answer to all of them
+ * (or the ones ticked), and deleted together.
  */
 export default function QuestionsTab({data}: {data: AdminData}) {
   const all = useAllQuestions();
@@ -37,7 +36,7 @@ export default function QuestionsTab({data}: {data: AdminData}) {
     if (!confirm(`Сурагч хариуг нь уншсан ${read.length} асуултыг устгах уу?`)) return;
     setClearing(true);
     try {
-      await update(ref(db), Object.fromEntries(read.map((q) => [`questions/${q.uid}/${q.id}`, null])));
+      await deleteQuestions(read);
     } catch (e) {
       alert(`Алдаа: ${(e as Error).message}`);
     } finally {
@@ -88,12 +87,141 @@ export default function QuestionsTab({data}: {data: AdminData}) {
         <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">{show === 'open' ? 'Бүх асуултад хариулсан байна.' : 'Хариулсан асуулт алга.'}</p>
       ) : (
         <ul className="space-y-3">
-          {shown.map((q) => (
-            <Item key={`${q.uid}/${q.id}`} q={q} name={names.get(q.uid)!} data={data} />
-          ))}
+          {groups(shown).map((qs) =>
+            qs.length > 1 ? (
+              <Group key={`g:${about(qs[0])}`} qs={qs} names={names} data={data} />
+            ) : (
+              <Item key={`${qs[0].uid}/${qs[0].id}`} q={qs[0]} name={names.get(qs[0].uid)!} data={data} />
+            ),
+          )}
         </ul>
       )}
     </div>
+  );
+}
+
+/** The problem a question is about. */
+const about = (q: Question) => `${q.ctx.s}/${q.ctx.t}/${q.ctx.q ?? ''}`;
+/** The questions by the problem they are about, in the order the first of each comes (unanswered first, newest). */
+function groups(qs: Question[]) {
+  const by = new Map<string, Question[]>();
+  for (const q of qs) by.set(about(q), [...(by.get(about(q)) ?? []), q]);
+  return [...by.values()];
+}
+const idOf = (q: Question) => `${q.uid}/${q.id}`;
+
+/** Several students' questions about one problem: one answer to the ones ticked (the unanswered, to start with), or deleted together. */
+function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; data: AdminData}) {
+  const [ticked, setTicked] = useState<Set<string> | null>(null);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState(false);
+  const open = qs.filter((q) => !q.reply);
+  // Until the teacher ticks: the unanswered ones (or, all answered, every one).
+  const picked = ticked ?? new Set((open.length ? open : qs).map(idOf));
+  const chosen = qs.filter((q) => picked.has(idOf(q)));
+  const tick = (q: Question) => {
+    const next = new Set(picked);
+    if (!next.delete(idOf(q))) next.add(idOf(q));
+    setTicked(next);
+  };
+  const first = qs[0];
+  const where = first.ctx.s === 'p' ? `/topics/${first.ctx.t}` : `/admin?tab=keys&test=${first.ctx.t}`;
+  // What each one answered to the problem: a test's last attempt, a topic's first answer.
+  const progress = useAllProgress(first.ctx.s === 'p');
+  const answerOf = (q: Question) => {
+    if (q.ctx.s === 't') {
+      const r = data.results.find((x) => x.uid === q.uid && x.test === q.ctx.t);
+      const c = r ? choiceAt(r.answers, Number(q.ctx.q)) : null;
+      return c === null ? null : LETTER_LABELS[LETTER_CODES[c]];
+    }
+    const a = progress?.[q.uid]?.[q.ctx.t]?.[q.ctx.q ?? '']?.a;
+    return a ? (LETTER_LABELS[a as Letter] ?? a) : null;
+  };
+  const run = async (f: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await f();
+      setTicked(null);
+      return true;
+    } catch (e) {
+      alert(`Алдаа: ${(e as Error).message}`);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const answer = async () => {
+    if (await run(() => replyQuestions(chosen, text))) setText('');
+  };
+  const drop = () => confirm(`Сонгосон ${chosen.length} сурагчийн асуулт (таны хариутай нь) устгах уу? Тэдэнд ч харагдахгүй болно.`) && void run(() => deleteQuestions(chosen));
+  return (
+    <li className={`rounded-2xl bg-neutral-900 p-4 ${open.length ? 'ring-1 ring-sky-400/40' : ''}`}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <Users size={16} className="shrink-0 text-sky-300" />
+        <Link href={where} className="min-w-0 truncate font-semibold text-blue-300 hover:underline">
+          {first.ctx.label}
+        </Link>
+        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">
+          {qs.length} сурагч асуусан{open.length ? ` · ${open.length} хариулаагүй` : ''}
+        </span>
+      </div>
+      {first.ctx.q !== undefined && (
+        <button type="button" onClick={() => setProblem((x) => !x)} aria-expanded={problem} className="mt-2 flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200">
+          <ChevronDown size={14} className={`transition-transform ${problem ? 'rotate-180' : ''}`} /> {problem ? 'Бодлогыг нуух' : 'Бодлогыг харах'}
+        </button>
+      )}
+      {problem && <ProblemPreview q={first} data={data} mine={false} />}
+      <ul className="mt-3 divide-y divide-neutral-800 rounded-xl border border-neutral-800">
+        {qs.map((q) => {
+          const a = answerOf(q);
+          return (
+            <li key={idOf(q)}>
+              <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 text-sm hover:bg-neutral-800/40">
+                <input type="checkbox" checked={picked.has(idOf(q))} onChange={() => tick(q)} className="mt-1 h-4 w-4 shrink-0 accent-blue-500" aria-label={`${names.get(q.uid)} сонгох`} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <Link href={`/admin/student/${q.uid}`} className="font-semibold hover:underline">
+                      {names.get(q.uid)}
+                    </Link>
+                    {a && <span className="text-xs text-neutral-500">хариулт: {a}</span>}
+                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] ${q.reply ? 'bg-green-500/15 text-green-300' : 'bg-sky-500/15 text-sky-200'}`}>{q.reply ? (q.seen ? 'хариулсан · уншсан' : 'хариулсан') : 'хариулаагүй'}</span>
+                    <span className="ml-auto text-xs text-neutral-500">{formatDate(q.at)}</span>
+                  </span>
+                  <Rich text={q.text} className="mt-1" />
+                  {q.reply && <span className="mt-1 block text-xs text-sky-300/90 [overflow-wrap:anywhere]">Таны хариу: {q.reply.text}</span>}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+        <button type="button" onClick={() => setTicked(new Set(chosen.length === qs.length ? [] : qs.map(idOf)))} className="rounded-full px-2.5 py-1 hover:bg-neutral-800 hover:text-neutral-200">
+          {chosen.length === qs.length ? 'Бүгдийг цуцлах' : 'Бүгдийг сонгох'}
+        </button>
+        <span>{chosen.length} сонгосон</span>
+      </div>
+      <div className="mt-2 space-y-2">
+        <textarea
+          value={text}
+          maxLength={1000}
+          rows={3}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`Сонгосон ${chosen.length} сурагчид нэг хариулт… (томьёо: $2^3 = 8$)`}
+          aria-label="Нэг хариулт"
+          className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        />
+        <div className="flex flex-wrap gap-2">
+          <button onClick={answer} disabled={busy || !text.trim() || !chosen.length} className="flex items-center gap-1.5 rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+            <Send size={15} /> {busy ? 'Илгээж байна…' : `${chosen.length} сурагчид хариулах`}
+          </button>
+          <button onClick={drop} disabled={busy || !chosen.length} className="ml-auto flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-800 hover:text-red-400 disabled:opacity-50">
+            <Trash2 size={14} /> Сонгосон {chosen.length}-ийг устгах
+          </button>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -186,11 +314,11 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
 }
 
 /** The problem a question is about, with what the student answered and the right answer (the teacher may see it). */
-function ProblemPreview({q, data}: {q: Question; data: AdminData}) {
-  return <div className="mt-2 rounded-xl border border-neutral-800 bg-neutral-950/40 p-2">{q.ctx.s === 't' ? <TestProblem q={q} data={data} /> : <TopicProblem q={q} />}</div>;
+function ProblemPreview({q, data, mine = true}: {q: Question; data: AdminData; mine?: boolean}) {
+  return <div className="mt-2 rounded-xl border border-neutral-800 bg-neutral-950/40 p-2">{q.ctx.s === 't' ? <TestProblem q={q} data={data} mine={mine} /> : <TopicProblem q={q} mine={mine} />}</div>;
 }
 
-function TestProblem({q, data}: {q: Question; data: AdminData}) {
+function TestProblem({q, data, mine}: {q: Question; data: AdminData; mine: boolean}) {
   const [test, setTest] = useState<Test | null | undefined>(undefined);
   useEffect(() => {
     const p = loadTest(q.ctx.t);
@@ -202,7 +330,7 @@ function TestProblem({q, data}: {q: Question; data: AdminData}) {
   const question = test?.questions[qi];
   if (!question) return <p className="p-2 text-sm text-neutral-500">Энэ бодлого олдсонгүй.</p>;
   // The student's latest answer to it (results are newest first), and the key's.
-  const last = data.results.find((r) => r.uid === q.uid && r.test === q.ctx.t);
+  const last = mine ? data.results.find((r) => r.uid === q.uid && r.test === q.ctx.t) : undefined;
   const chosen = last ? choiceAt(last.answers, qi) : null;
   const correct = data.keys[q.ctx.t] ? choiceAt(data.keys[q.ctx.t], qi) : null;
   return (
@@ -210,15 +338,15 @@ function TestProblem({q, data}: {q: Question; data: AdminData}) {
       <ol>
         <QuestionCard num={qi + 1} q={question} chosen={chosen} checked={chosen !== null} correct={correct} reveal whose="Сурагчийн" />
       </ol>
-      <p className="px-2 pb-1 text-xs text-neutral-400">{chosen === null ? 'Сурагч энэ бодлогод хариулаагүй.' : 'Сурагчийн сүүлийн оролдлогын хариулт тэмдэглэгдсэн.'}</p>
+      {mine && <p className="px-2 pb-1 text-xs text-neutral-400">{chosen === null ? 'Сурагч энэ бодлогод хариулаагүй.' : 'Сурагчийн сүүлийн оролдлогын хариулт тэмдэглэгдсэн.'}</p>}
     </>
   );
 }
 
-function TopicProblem({q}: {q: Question}) {
+function TopicProblem({q, mine: withMine}: {q: Question; mine: boolean}) {
   const topics = useTopics();
   // '' when the student hasn't answered it (null while it loads).
-  const mine = useLive(`topicProgress/${q.uid}/${q.ctx.t}/${q.ctx.q}`, (v) => {
+  const mine = useLive(withMine ? `topicProgress/${q.uid}/${q.ctx.t}/${q.ctx.q}` : null, (v) => {
     const a = (v as {a?: unknown} | null)?.a;
     return typeof a === 'string' ? a : '';
   });
@@ -245,8 +373,13 @@ function TopicProblem({q}: {q: Question}) {
         </div>
       )}
       <p className="text-xs text-neutral-400">
-        Сурагчийн хариулт: <b className="text-neutral-200">{mine === null ? '…' : shown(mine)}</b>
-        {' · '}Зөв хариулт: <b className="text-neutral-200">{key === undefined ? '…' : key ? shown(key) : 'оруулаагүй (та шалгана)'}</b>
+        {withMine && (
+          <>
+            Сурагчийн хариулт: <b className="text-neutral-200">{mine === null ? '…' : shown(mine)}</b>
+            {' · '}
+          </>
+        )}
+        Зөв хариулт: <b className="text-neutral-200">{key === undefined ? '…' : key ? shown(key) : 'оруулаагүй (та шалгана)'}</b>
       </p>
     </div>
   );

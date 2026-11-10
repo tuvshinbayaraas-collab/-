@@ -101,5 +101,13 @@ export function askQuestion(ctx: Question['ctx'], text: string) {
 }
 
 export const replyQuestion = (uid: string, id: string, text: string) => update(ref(db, `questions/${uid}/${id}`), {reply: {text: text.trim().slice(0, 1000), at: serverTimestamp()}, seen: null});
+/** One answer to several questions (students asking about the same problem), in one write. */
+export const replyQuestions = (qs: {uid: string; id: string}[], text: string) =>
+  update(
+    ref(db),
+    Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}/reply`, {text: text.trim().slice(0, 1000), at: serverTimestamp()}], [`questions/${q.uid}/${q.id}/seen`, null]])),
+  );
+/** Several questions deleted in one write. */
+export const deleteQuestions = (qs: {uid: string; id: string}[]) => update(ref(db), Object.fromEntries(qs.map((q) => [`questions/${q.uid}/${q.id}`, null])));
 export const markSeen = (uid: string, id: string) => set(ref(db, `questions/${uid}/${id}/seen`), true);
 export const deleteQuestion = (uid: string, id: string) => set(ref(db, `questions/${uid}/${id}`), null);

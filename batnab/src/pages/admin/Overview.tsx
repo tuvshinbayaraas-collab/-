@@ -203,7 +203,7 @@ function Recent({data}: {data: AdminData}) {
             {data.results.slice(0, more ? 30 : RECENT).map((r) => {
               const g = gradeOf(r, data.keys);
               return (
-                <li key={r.id} className="border-b border-neutral-800">
+                <li key={`${r.uid}/${r.test}/${r.id}`} className="border-b border-neutral-800">
                   <Link href={`/review/${r.test}/${r.id}?u=${r.uid}`} className="flex items-center gap-3 py-2.5 hover:opacity-80">
                     <span className="min-w-0 flex-1">
                       <StudentName student={byUid.get(r.uid)!} sub={`${testInfo(r.test)!.title} • ${timeAgo(r.at)}`} />

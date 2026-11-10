@@ -162,7 +162,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
         ) : (
           <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
             {graded.map(({r, g}) => (
-              <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+              <li key={`${r.test}/${r.id}`} className="flex items-center gap-3 px-4 py-2.5">
                 <Link href={`/review/${r.test}/${r.id}?u=${uid}`} className="min-w-0 flex-1 hover:underline">
                   <span className="font-medium">{TESTS.find((t) => t.id === r.test)?.title}</span>
                   <span className="block text-sm text-neutral-400">
