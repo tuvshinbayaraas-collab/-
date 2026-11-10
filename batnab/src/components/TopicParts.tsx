@@ -217,6 +217,10 @@ export function ProblemView(props: {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [practice, setPractice] = useState(!!review);
   const [reported, setReported] = useState(false);
+  // The answer that counts (the first, or the notebook's first check): kept while the tries after it ("Дахин бодох")
+  // are only practice, so one of those right never shows as if the problem had been solved right.
+  const [rec, setRec] = useState<Outcome | null>(null);
+  const [retried, setRetried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // No right answer given: the teacher checks the answer.
@@ -237,7 +241,9 @@ export function ProblemView(props: {
       (key) => {
         if (!live) return;
         const o = {a: first.a, key};
-        setOutcome(o);
+        // Practising meanwhile: that try stays on screen.
+        if (!retried) setOutcome(o);
+        setRec(o);
         onOutcome?.(o);
       },
       () => {},
@@ -261,6 +267,7 @@ export function ProblemView(props: {
         setOutcome({a: value, key});
         if (review && !reported && key !== null) {
           setReported(true);
+          setRec({a: value, key});
           review(verdict(value, key, null) === true);
         }
       } else {
@@ -269,6 +276,7 @@ export function ProblemView(props: {
         setPhoto(null);
         const o = {a: value, key};
         setOutcome(o);
+        setRec(o);
         onOutcome?.(o);
       }
     } catch (err) {
@@ -281,6 +289,7 @@ export function ProblemView(props: {
     setPractice(true);
     setOutcome(null);
     setPick('');
+    setRetried(true);
   };
 
   const done = !!outcome;
@@ -297,7 +306,11 @@ export function ProblemView(props: {
       {p.vid && <VideoEmbed link={p.vid} className="mt-2" />}
     </>
   );
-  const ring = !done || v === null ? '' : ok ? 'ring-1 ring-green-500/40' : 'ring-1 ring-red-500/40';
+  // A try after the answer that counts: practice, shown apart (not green as a problem solved).
+  const retry = retried && done && !!rec;
+  // How the answer that counts went (the teacher's mark over the key).
+  const recV = rec ? verdict(rec.a, rec.key, teacher ? null : mark) : null;
+  const ring = !done || v === null || retry ? '' : ok ? 'ring-1 ring-green-500/40' : 'ring-1 ring-red-500/40';
   // The notebook, wrong: help a step at a time before the answer.
   const ladder = !!(review && stepped && v === false && help < 2);
   const firstStep = p.sol ? p.sol.split(/(?<=[.!?])\s+|\n+/).find((x) => x.trim()) : undefined;
@@ -316,6 +329,12 @@ export function ProblemView(props: {
             {ok ? 'Зөв бодсон' : v === false ? 'Алдсан' : waiting ? 'Багш шалгаж байна' : 'Бодсон'}
           </span>
         )}
+        {/* Practising after it: how the answer that counts went stays in view. */}
+        {first && practice && rec && (
+          <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${recV === true ? 'bg-green-500/15 text-green-300' : recV === false ? 'bg-red-500/15 text-red-300' : 'bg-violet-500/15 text-violet-200'}`}>
+            {recV === true ? 'Зөв бодсон' : recV === false ? 'Алдсан' : 'Багш шалгаж байна'}
+          </span>
+        )}
       </div>
       {p.text && <Rich text={p.text} className="mt-2" />}
       {p.img && <TopicPicture tid={tid} iid={p.img} className="-mx-2 mt-3 w-[calc(100%+1rem)] sm:mx-0 sm:w-full" trim />}
@@ -330,7 +349,13 @@ export function ProblemView(props: {
                 const text = p.choices?.[l];
                 const picked = (done ? outcome.a : pick) === l;
                 const right = done && outcome.key === l;
-                const style = done
+                const style = done && retry
+                  ? right
+                    ? 'border-sky-500 bg-sky-500/10'
+                    : picked
+                      ? 'border-red-500 bg-red-500/15'
+                      : 'border-neutral-800 opacity-60'
+                  : done
                   ? right || (picked && ok)
                     ? 'border-green-500 bg-green-500/15'
                     : picked
@@ -351,7 +376,7 @@ export function ProblemView(props: {
                     className={`flex min-w-[4.5rem] flex-[1_1_auto] items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${style}`}
                   >
                     <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${right || (picked && ok) ? 'bg-green-500 text-black' : picked ? (done ? (v === null ? 'bg-violet-500 text-black' : 'bg-red-500 text-black') : 'bg-blue-500 text-black') : 'bg-neutral-800'}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${retry && right ? 'bg-sky-500 text-black' : right || (picked && ok) ? 'bg-green-500 text-black' : picked ? (done ? (v === null ? 'bg-violet-500 text-black' : 'bg-red-500 text-black') : 'bg-blue-500 text-black') : 'bg-neutral-800'}`}
                     >
                       {LETTER_LABELS[l]}
                     </span>
@@ -408,7 +433,17 @@ export function ProblemView(props: {
       {done && (
         <div className="mt-4 space-y-3">
           {withPhoto && counted && uid && <MyWork uid={uid} tid={tid} pid={p.id} sent={sentPhoto || !!first?.w} open={waiting} onSent={() => setSentPhoto(true)} />}
-          {waiting ? (
+          {retry ? (
+            <div>
+              <p className={`flex flex-wrap items-center gap-2 font-semibold ${ok ? 'text-sky-300' : 'text-red-300'}`}>
+                {ok ? <Check size={18} /> : <X size={18} />}
+                {ok ? 'Дасгал: энэ удаа зөв.' : `Дасгал: буруу.${shownKey ? ` Зөв хариулт: ${shownKey}` : ''}`}
+              </p>
+              <p className="mt-1 text-sm text-neutral-400">
+                {recV === false ? 'Тоологдох нь эхний хариулт — буруу. Дахин бодсон нь зөвхөн дасгал.' : 'Тоологдох нь эхний хариулт. Дахин бодсон нь зөвхөн дасгал.'}
+              </p>
+            </div>
+          ) : waiting ? (
             <p className="flex flex-wrap items-center gap-2 font-semibold text-violet-200">
               <Hourglass size={18} /> Багшид илгээсэн. Шалгаад зөв, бурууг тань энд хэлнэ.
             </p>
