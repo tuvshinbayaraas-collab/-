@@ -18,6 +18,7 @@ import {
   type ClassPoll,
   type ClassVotes,
 } from '../lib/classPolls';
+import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import {Declined} from './Polls';
 import {dayLabel, useNow} from '../lib/time';
@@ -29,10 +30,12 @@ const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Ил�
 
 /**
  * «Ангийн санал асуулга» on a student's home page: their class's polls, asked by classmates (who asked is not shown;
- * the teacher sees it), and their own (at most three at a time). Answered: how the class answered, never who.
+ * the teacher sees it), and their own (at most three at a time) — only a «Багшийн хариуцагч» (marked so by the
+ * teacher) asks one; the others answer. Answered: how the class answered, never who.
  */
 export default function ClassPolls({uid, classId}: {uid: string; classId?: string}) {
   const settings = useSettings();
+  const lead = useSession().profile?.lead === true;
   const on = !!classId && !!settings && settings.studentPolls;
   const polls = useClassPolls(classId, on);
   const votes = useClassVotes(classId, on);
@@ -50,20 +53,22 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
   const shown = polls.filter((p) => !no(p) && (p.by === uid || !p.closed || now - p.closed < CLOSED_SHOWN)).sort((a, b) => rank(a) - rank(b) || b.at - a.at);
   const undo = polls.filter((p) => no(p) && justNo.includes(p.id));
   const list = all ? shown : shown.slice(0, FIRST);
+  // Nothing to answer and not one who asks: no section.
+  if (!lead && !shown.length && !undo.length) return null;
   return (
     <section className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-xs font-semibold text-sky-300">
           <Users size={14} /> Ангийн санал асуулга{shown.length ? ` (${shown.length})` : ''}
         </h2>
-        {!making && (
+        {lead && !making && (
           <button type="button" onClick={() => setMaking(true)} className="ml-auto flex items-center gap-1 rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-500/25">
             <Plus size={14} /> Асуулга гаргах
           </button>
         )}
       </div>
       {making && <NewPoll cls={classId!} slot={freeSlot(mine)} onClose={() => setMaking(false)} />}
-      {!shown.length && !making && <p className="mt-1.5 text-sm text-neutral-400">Ангийнхнаасаа асуух зүйл байна уу? Асуулга гаргавал ангийнхан чинь сонголтоо хийнэ.</p>}
+      {lead && !shown.length && !making && <p className="mt-1.5 text-sm text-neutral-400">Ангийнхнаасаа асуух зүйл байна уу? Асуулга гаргавал ангийнхан чинь сонголтоо хийнэ.</p>}
       {list.length > 0 && (
         <ul className="mt-3 space-y-3">
           {list.map((p) => (

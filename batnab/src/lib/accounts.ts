@@ -52,6 +52,8 @@ export async function createStudent(name: string, username: string, password: st
 
 export const renameStudent = (uid: string, name: string) => set(ref(db, `users/${uid}/name`), name.trim().replace(/\s+/g, ' ').slice(0, 60));
 export const setBlocked = (uid: string, blocked: boolean) => set(ref(db, `users/${uid}/disabled`), blocked || null);
+/** «Багшийн хариуцагч»: the student may ask their class a poll (the others answer). */
+export const setLead = (uid: string, lead: boolean) => set(ref(db, `users/${uid}/lead`), lead || null);
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
 /**
  * The account's record, results, questions, topic answers (with the teacher's marks and their photos, and the times
