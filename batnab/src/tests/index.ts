@@ -15,6 +15,8 @@ export const TESTS: TestInfo[] = [
   {id: '2B', title: 'Тест 2.Б', group: 2, count: 30},
   {id: '3A', title: 'Тест 3.А', group: 3, count: 30},
   {id: '3B', title: 'Тест 3.Б', group: 3, count: 30},
+  {id: '4A', title: 'Тест 4.А', group: 4, count: 30},
+  {id: '4B', title: 'Тест 4.Б', group: 4, count: 30},
   {id: '8A', title: 'Тест 8.А', group: 8, count: 30},
 ];
 
@@ -26,6 +28,8 @@ const loaders: Record<string, () => Promise<{default: Test}>> = {
   '2B': () => import('./test2B'),
   '3A': () => import('./test3A'),
   '3B': () => import('./test3B'),
+  '4A': () => import('./test4A'),
+  '4B': () => import('./test4B'),
   '8A': () => import('./test8A'),
 };
 

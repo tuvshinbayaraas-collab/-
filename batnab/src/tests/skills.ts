@@ -21,6 +21,8 @@ const S: Record<string, Skill[]> = {
   '2B': ['num', 'log', 'eq', 'num', 'num', 'geo', 'func', 'trig', 'log', 'eq', 'seq', 'seq', 'geo', 'num', 'trig', 'log', 'calc', 'func', 'geo', 'func', 'log', 'calc', 'solid', 'func', 'num', 'eq', 'geo', 'func', 'func', 'solid'],
   '3A': ['num', 'num', 'eq', 'num', 'geo', 'log', 'trig', 'num', 'num', 'eq', 'geo', 'log', 'seq', 'log', 'func', 'num', 'eq', 'trig', 'geo', 'num', 'num', 'seq', 'geo', 'calc', 'trig', 'solid', 'calc', 'trig', 'log', 'solid'],
   '3B': ['num', 'num', 'eq', 'num', 'geo', 'log', 'trig', 'num', 'num', 'eq', 'geo', 'log', 'seq', 'log', 'func', 'num', 'eq', 'trig', 'geo', 'num', 'num', 'seq', 'geo', 'calc', 'trig', 'solid', 'calc', 'trig', 'log', 'solid'],
+  '4A': ['num', 'log', 'log', 'trig', 'eq', 'geo', 'num', 'seq', 'num', 'log', 'geo', 'num', 'log', 'seq', 'eq', 'trig', 'func', 'geo', 'num', 'log', 'func', 'trig', 'num', 'geo', 'calc', 'eq', 'trig', 'calc', 'solid', 'solid'],
+  '4B': ['num', 'log', 'log', 'trig', 'eq', 'geo', 'num', 'seq', 'num', 'log', 'geo', 'num', 'log', 'seq', 'eq', 'trig', 'func', 'geo', 'num', 'log', 'func', 'trig', 'num', 'geo', 'calc', 'eq', 'trig', 'calc', 'solid', 'solid'],
   '8A': ['num', 'eq', 'num', 'num', 'log', 'eq', 'num', 'trig', 'geo', 'seq', 'func', 'trig', 'eq', 'eq', 'geo', 'num', 'calc', 'geo', 'calc', 'seq', 'trig', 'geo', 'func', 'log', 'eq', 'solid', 'trig', 'num', 'geo', 'log'],
 };
 

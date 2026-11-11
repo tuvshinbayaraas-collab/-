@@ -164,3 +164,155 @@ export const parabolaArea = (k: number, area: 'under' | 'over' | 'box', from: nu
     />
   );
 };
+
+// ---------------------------------------------------------------- Тест 4.А / 4.Б
+
+const deg = (a: number): [number, number] => [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)];
+
+/** A rhombus ABCD with side `side` (its text on AB) and angle `angle`° at A. */
+export const rhombus = (side: string, angle: number) => {
+  const [c, s] = deg(angle);
+  const a = 4;
+  return (
+    <Geo
+      width={200}
+      pts={{A: [0, 0], D: [a, 0], B: [a * c, a * s], C: [a * c + a, a * s]}}
+      segs={['AB', 'BC', 'CD', 'DA']}
+      labels={['A', 'B', 'C', 'D']}
+      marks={[
+        ['angle', 'A', 'D', 'B', `${angle}°`],
+        ['len', 'A', 'B', side, -1],
+      ]}
+    />
+  );
+};
+
+/**
+ * A circle with centre O, the radii to two points and the inscribed angle at a third with its bisector: points by
+ * their angle on the circle (degrees); `mark` the angle printed (at its vertex, between two rays).
+ */
+export const inscribed = (at: Record<string, number>, segs: string[], mark: [string, string, string, string], arc?: [string, string, string], text?: [[number, number], string]) => (
+  <Geo
+    width={190}
+    pts={{O: [0, 0], ...Object.fromEntries(Object.entries(at).map(([k, a]) => [k, deg(a)]))}}
+    ellipses={[{c: 'O', rx: 1, ry: 1}]}
+    segs={segs}
+    labels={[...Object.keys(at), ['O', 9, -8]]}
+    marks={[['angle', ...mark] as ['angle', string, string, string, string], ...(arc ? [['angle', ...arc] as ['angle', string, string, string]] : [])]}
+    texts={text ? [text] : []}
+  />
+);
+
+/** "Which function's graph is it?": the parabola y = a(x − h)² + k with its vertex marked, and its cut with Oy. */
+export const vertexParabola = (a: number, h: number, k: number, x: [number, number], y: [number, number], cut: number, origin: 'left' | 'below' = 'left') => (
+  <Plot
+    x={x}
+    y={y}
+    scale={22}
+    origin={origin}
+    curve={(v) => a * (v - h) ** 2 + k}
+    dashed={[
+      [
+        [0, k],
+        [h, k],
+      ],
+      [
+        [h, 0],
+        [h, k],
+      ],
+    ]}
+    xLabels={[[h, String(h), k < 0 ? 'above' : undefined]]}
+    yLabels={[
+      [k, n(k)],
+      [cut, n(cut)],
+    ]}
+  />
+);
+
+/**
+ * A parallelogram ABCD (AD along the bottom) with its diagonals: the sides AB, AD, the diagonals' texts on BO and AO,
+ * and the angle between them at O (between OC and OD).
+ */
+export const parallelogram = (ab: number, ad: number, ac: number, texts: {bd: string; ac: string; angle: string; o?: boolean}) => {
+  // B = (p, h): |AB| = ab, |AC| = ac.
+  const p = (ac * ac - ab * ab - ad * ad) / (2 * ad);
+  const h = Math.sqrt(ab * ab - p * p);
+  return (
+    <Geo
+      width={230}
+      pts={{A: [0, 0], D: [ad, 0], B: [p, h], C: [p + ad, h], O: [(p + ad) / 2, h / 2]}}
+      segs={['AB', 'BC', 'CD', 'DA', 'AC', 'BD']}
+      labels={['A', 'B', 'C', 'D', ...(texts.o ? [['O', 0, 16] as [string, number, number]] : [])]}
+      marks={[
+        ['len', 'B', 'O', texts.bd, -1],
+        ['len', 'A', 'O', texts.ac, -1],
+        ['angle', 'O', 'D', 'C', texts.angle],
+      ]}
+    />
+  );
+};
+
+/**
+ * A triangle with two altitudes from `from` to their feet, meeting at O: points as worked out from the problem's
+ * lengths; right angles at the feet; two lengths on the altitudes.
+ */
+export const altitudes = (pts: Record<string, [number, number]>, segs: string[], rights: [string, string, string][], lens: [string, string, string, number][]) => (
+  <Geo
+    width={220}
+    pts={pts}
+    segs={segs}
+    labels={Object.keys(pts).map((k) => (k === 'O' ? (['O', -10, -5] as [string, number, number]) : k))}
+    marks={[...rights.map((r) => ['right', ...r] as ['right', string, string, string]), ...lens.map(([a, b, t, side]) => ['len', a, b, t, side] as ['len', string, string, string, number])]}
+  />
+);
+
+const PI = Math.PI;
+const piText: Record<string, string> = {'-1.5': '−3π/2', '-1': '−π', '-0.5': '−π/2', '0.5': 'π/2', '1': 'π', '1.5': '3π/2'};
+
+/**
+ * y = sin x or y = cos x between y = −1 and y = 1, with the area between the curve and y = 1 over [0, π/2] hatched
+ * (as "which integral gives the area?"). Ticks at the multiples of π/2 given (as their multiple; 'above': over the
+ * axis, as the book prints them where the curve runs below); dashed drops from the curve's tops and bottoms to the axis.
+ */
+export const trigArea = (f: 'sin' | 'cos', from: number, ticks: [number, 'above'?][], drops: number[]) => {
+  const fn = f === 'sin' ? Math.sin : Math.cos;
+  return (
+    <Plot
+      x={[from * PI - 0.35, 1.5 * PI + 0.6]}
+      y={[-1.5, 1.55]}
+      scale={26}
+      curve={fn}
+      lines={[
+        [0, 1, 1],
+        [0, 1, -1],
+      ]}
+      fills={[{from: 0, to: PI / 2, lo: fn, hi: () => 1}]}
+      dashed={drops.map((m) => [
+        [m * PI, 0],
+        [m * PI, fn(m * PI)],
+      ])}
+      xLabels={ticks.map(([m, side]) => [m * PI, piText[String(m)], side] as [number, string, 'above'?])}
+      yLabels={[
+        [1, '1'],
+        [-1, '−1'],
+      ]}
+      origin={f === 'sin' ? false : 'below'}
+    />
+  );
+};
+
+/** A cylinder cut through its axis: the hatched square section with its diagonal (its text by it). */
+export const cylinderSection = (diagonal: string) => (
+  <Geo
+    width={150}
+    pts={{T: [0, 5], O: [0, 0], L: [-2.5, 5], R: [2.5, 5], l: [-2.5, 0], r: [2.5, 0]}}
+    ellipses={[
+      {c: 'T', rx: 2.5, ry: 0.6},
+      {c: 'O', rx: 2.5, ry: 0.6, dashBack: true},
+    ]}
+    hatch={['LRrl']}
+    segs={[['L', 'l'], ['R', 'r'], ['L', 'R'], ['l', 'r'], ['l', 'R']]}
+    labels={[['O', 0, 16]]}
+    texts={[[[-0.75, 3.1], diagonal]]}
+  />
+);
