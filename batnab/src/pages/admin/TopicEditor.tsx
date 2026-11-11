@@ -244,11 +244,13 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
 
       {conflict && (
         <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm" role="alert">
-          <p className="font-semibold text-amber-200">Энэ сэдвийг өөр цонх эсвэл төхөөрөмжөөс хадгалсан байна.</p>
-          <p className="mt-1 text-neutral-300">Энд хадгалаагүй өөрчлөлт байгаа тул юуг ч дарж бичээгүй. Аль хувилбарыг үлдээхээ сонгоно уу.</p>
+          <p className="font-semibold text-amber-200">Энэ сэдвийг өөр газраас (өөр таб, утас эсвэл компьютер) зэрэг засаж хадгалжээ.</p>
+          <p className="mt-1 text-neutral-300">
+            Таны энд хийсэн өөрчлөлт хараахан хадгалагдаагүй. Нэг нь нөгөөгийнхөө ажлыг устгахгүйн тулд одоогоор юу ч хадгалсангүй: аль нь үлдэхийг сонгоно уу.
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={adopt} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium hover:bg-neutral-700">
-              Тэндхийг ачаалах (энд хийснийг орхих)
+              Тэнд хадгалсныг үлдээх (энд хийснээ орхих)
             </button>
             <button
               type="button"
@@ -259,7 +261,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               }}
               className="rounded-full bg-amber-500 px-4 py-1.5 font-semibold text-black hover:bg-amber-400"
             >
-              Энд хийснийг хадгалах (тэндхийг дарж)
+              Энд хийснээ хадгалах (тэнд хийснийг солих)
             </button>
           </div>
         </div>
