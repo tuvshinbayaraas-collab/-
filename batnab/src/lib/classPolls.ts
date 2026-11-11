@@ -9,6 +9,7 @@
 import {push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db} from './firebase';
 import {useLive} from './live';
+import {clip} from './polls';
 
 export const SLOTS = ['1', '2', '3'] as const;
 export const MAX_CLASS_OPTIONS = 6;
@@ -120,8 +121,8 @@ export const freeSlot = (mine: ClassPoll[]) => SLOTS.find((s) => !mine.some((p) 
 export function createClassPoll(cls: string, slot: string, p: {q: string; options: string[]; multi: boolean}) {
   const uid = auth.currentUser?.uid;
   if (!uid) return Promise.reject(new Error('Нэвтэрнэ үү'));
-  const options = p.options.map((o) => o.trim().slice(0, 80)).filter(Boolean).slice(0, MAX_CLASS_OPTIONS);
-  const q = p.q.trim().slice(0, 200);
+  const options = p.options.map((o) => clip(o.trim(), 80)).filter(Boolean).slice(0, MAX_CLASS_OPTIONS);
+  const q = clip(p.q.trim(), 200);
   if (!q || options.length < 2) return Promise.reject(new Error('Асуулт, хоёроос доошгүй сонголт бичнэ үү.'));
   return set(ref(db, `classPolls/${cls}/${uid}/${slot}`), {
     id: push(ref(db, 'classPolls')).key!,

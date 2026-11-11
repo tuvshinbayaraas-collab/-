@@ -53,6 +53,13 @@ export interface Picks {
 }
 
 export const MAX_OPTIONS = 8;
+
+/** At most `n` characters (as the rules count them), never cutting an emoji or other two-part character in half. */
+export function clip(s: string, n: number) {
+  if (s.length <= n) return s;
+  const code = s.charCodeAt(n - 1);
+  return s.slice(0, code >= 0xd800 && code <= 0xdbff ? n - 1 : n);
+}
 /** A student's ideas in one poll, at most. */
 export const IDEAS_EACH = 3;
 /** The ideas poll's leaders, marked. */
@@ -145,10 +152,10 @@ export const pickers = (all: Record<string, Picks>, poll: Poll, ideas: Idea[]) =
   Object.keys(all).filter((uid) => entries(poll, ideas, {[uid]: all[uid]}).some((e) => e.count));
 
 export function createPoll(p: {q: string; options: string[]; multi: boolean; comment: boolean; ideas?: boolean; classes?: Record<string, true>}) {
-  const options = p.options.map((o) => o.trim().slice(0, 120)).filter(Boolean).slice(0, MAX_OPTIONS);
+  const options = p.options.map((o) => clip(o.trim(), 120)).filter(Boolean).slice(0, MAX_OPTIONS);
   const ideas = !!p.ideas;
   return set(push(ref(db, 'polls')), {
-    q: p.q.trim().slice(0, 300),
+    q: clip(p.q.trim(), 300),
     ...(options.length ? {options} : {}),
     // Ideas: as many picked as one likes.
     multi: ideas || (options.length > 1 && p.multi),
@@ -173,7 +180,7 @@ const me = () => {
 
 /** The student's answer (replacing the one before). */
 export async function vote(id: string, picked: number[], text: string) {
-  const t = text.trim().slice(0, 500);
+  const t = clip(text.trim(), 500);
   return set(ref(db, `pollVotes/${id}/${me()}`), {
     ...(picked.length ? {c: Object.fromEntries(picked.map((i) => [String(i), true]))} : {}),
     ...(t ? {t} : {}),
@@ -203,7 +210,7 @@ export async function savePicks(poll: Poll, c: number[], d: Record<string, strin
 export async function addIdea(poll: Poll, text: string, ideas: Idea[]) {
   const uid = me();
   const slot = ['1', '2', '3'].find((s) => !ideas.some((x) => x.iid === uid + s));
-  const t = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+  const t = clip(text.trim().replace(/\s+/g, ' '), 80);
   if (!slot || !t) return false;
   await set(ref(db, `pollIdeas/${poll.id}/${uid}${slot}`), {by: uid, text: t, n: push(ref(db, 'pollIdeas')).key!, at: serverTimestamp()});
   return true;

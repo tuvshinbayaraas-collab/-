@@ -456,16 +456,16 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
   const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{poll.q}</p>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+        <div className="min-w-[12rem] flex-1">
+          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
           <p className="mt-0.5 text-xs text-neutral-500">
             {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'}
             {poll.multi && ' · олон сонголт'}
             {poll.closed && ' · хаагдсан'}
           </p>
         </div>
-        <span className="w-20 shrink-0 text-right">
+        <span className="ml-auto w-20 shrink-0 text-right">
           <span className="block text-sm font-semibold tabular-nums">
             {votes ? answered.length : '…'}/{asked.length}
           </span>
@@ -478,9 +478,9 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
             const pct = answered.length ? Math.round((counts[i] / answered.length) * 100) : 0;
             return (
               <li key={i} className="text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>{o}</span>
-                  <span className="shrink-0 tabular-nums text-neutral-400">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className={`min-w-[8rem] flex-1 break-words ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>{o}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-neutral-400">
                     {counts[i]} · {pct}%
                   </span>
                 </div>
@@ -496,7 +496,7 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
         <div className="mt-3 space-y-1.5">
           <p className="text-xs font-semibold text-neutral-400">Бичсэн санаа ({comments.length})</p>
           {comments.map((s) => (
-            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm break-words">
               <span className="font-medium">{s.profile.name}:</span> <span className="whitespace-pre-wrap text-neutral-200">{votes![s.uid].t}</span>
             </p>
           ))}
@@ -563,15 +563,15 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
   const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{poll.q}</p>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+        <div className="min-w-[12rem] flex-1">
+          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
           <p className="mt-0.5 text-xs text-neutral-500">
             {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'} · сурагчид санаа нэмнэ ({ideas?.length ?? 0} санаа)
             {poll.closed && ' · хаагдсан'}
           </p>
         </div>
-        <span className="w-20 shrink-0 text-right">
+        <span className="ml-auto w-20 shrink-0 text-right">
           <span className="block text-sm font-semibold tabular-nums">
             {all ? answered.length : '…'}/{asked.length}
           </span>
@@ -583,13 +583,13 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
           const pct = voters.length ? Math.round((e.count / voters.length) * 100) : 0;
           return (
             <li key={e.key} className="text-sm">
-              <div className="flex items-baseline gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className={`w-5 shrink-0 text-right text-xs tabular-nums ${rank < TOP && e.count > 0 ? 'font-bold text-amber-300' : 'text-neutral-600'}`}>{rank + 1}.</span>
-                <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${rank < TOP && e.count > 0 ? 'font-semibold' : ''}`}>
+                <span className={`min-w-[8rem] flex-1 break-words ${rank < TOP && e.count > 0 ? 'font-semibold' : ''}`}>
                   {e.text}
-                  {e.idea && <span className="ml-1 text-xs font-normal text-sky-300"> — {name(e.idea.by)}</span>}
+                  {e.idea && <span className="block text-xs font-normal text-sky-300">{name(e.idea.by)} нэмсэн</span>}
                 </span>
-                <span className="shrink-0 tabular-nums text-neutral-400">
+                <span className="ml-auto shrink-0 tabular-nums text-neutral-400">
                   {e.count} · {pct}%
                 </span>
                 {e.idea && (
@@ -615,7 +615,7 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
         <div className="mt-3 space-y-1.5">
           <p className="text-xs font-semibold text-neutral-400">Багшид бичсэн ({comments.length})</p>
           {comments.map((s) => (
-            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm break-words">
               <span className="font-medium">{s.profile.name}:</span> <span className="whitespace-pre-wrap text-neutral-200">{said(s.uid)!.t}</span>
             </p>
           ))}

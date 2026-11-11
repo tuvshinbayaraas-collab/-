@@ -203,7 +203,7 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
           </span>
         )}
       </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 [overflow-wrap:anywhere]">{poll.q}</p>
+      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
       {asking ? (
         <div className="mt-2 space-y-2">
           <div className="flex flex-col gap-1.5" role={poll.multi ? 'group' : 'radiogroup'} aria-label={poll.q}>
@@ -221,7 +221,7 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
                   <span className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 ${poll.multi ? 'rounded-md' : 'rounded-full'} ${on ? 'border-sky-400 bg-sky-400 text-black' : 'border-neutral-500'}`}>
                     {on && <Check size={13} strokeWidth={3} />}
                   </span>
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{o}</span>
+                  <span className="min-w-0 break-words">{o}</span>
                 </button>
               );
             })}
@@ -251,12 +251,12 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
               const me = had?.includes(i);
               return (
                 <li key={i} className="text-sm">
-                  <div className="flex items-baseline gap-2">
-                    <span className={`flex min-w-0 flex-1 items-center gap-1 [overflow-wrap:anywhere] ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className={`flex min-w-[8rem] flex-1 items-center gap-1 break-words ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>
                       {me && <Check size={14} className="shrink-0 text-sky-300" aria-label="Таны сонголт" />}
                       {o}
                     </span>
-                    <span className="shrink-0 tabular-nums text-neutral-400">
+                    <span className="ml-auto shrink-0 tabular-nums text-neutral-400">
                       {counts[i]} · {pct}%
                     </span>
                   </div>

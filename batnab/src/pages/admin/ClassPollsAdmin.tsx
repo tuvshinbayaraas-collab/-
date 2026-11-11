@@ -76,16 +76,16 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
   const run = (f: () => Promise<unknown>) => f().catch((e) => alert((e as Error).message));
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{poll.q}</p>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+        <div className="min-w-[12rem] flex-1">
+          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
           <p className="mt-0.5 text-xs text-neutral-500">
             <span className="text-sky-300">{name(poll.by)}</span> гаргасан · {cls} · {dayLabel(poll.at)} {clock(poll.at)}
             {poll.multi && ' · олон сонголт'}
             {poll.closed > 0 && ' · хаагдсан'}
           </p>
         </div>
-        <span className="w-20 shrink-0 text-right">
+        <span className="ml-auto w-20 shrink-0 text-right">
           <span className="block text-sm font-semibold tabular-nums">
             {voters}/{asked.length}
           </span>
@@ -97,9 +97,9 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
           const pct = voters ? Math.round((counts[i] / voters) * 100) : 0;
           return (
             <li key={i} className="text-sm">
-              <div className="flex items-baseline gap-2">
-                <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>{o}</span>
-                <span className="shrink-0 tabular-nums text-neutral-400">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className={`min-w-[8rem] flex-1 break-words ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>{o}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-neutral-400">
                   {counts[i]} · {pct}%
                 </span>
               </div>

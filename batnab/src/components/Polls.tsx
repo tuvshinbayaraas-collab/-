@@ -1,7 +1,7 @@
 import {Check, ChevronDown, Lightbulb, Plus, Vote as VoteIcon, X} from 'lucide-react';
 import {useState, type FormEvent, type ReactNode} from 'react';
 import {forClass} from '../lib/live';
-import {addIdea, decline, deleteIdea, entries, IDEAS_EACH, pickers, picks, savePicks, TOP, undecline, useIdeas, useMyVote, usePicks, usePolls, vote, type Entry, type Poll} from '../lib/polls';
+import {addIdea, clip, decline, deleteIdea, entries, IDEAS_EACH, pickers, picks, savePicks, TOP, undecline, useIdeas, useMyVote, usePicks, usePolls, vote, type Entry, type Poll} from '../lib/polls';
 import {dayLabel} from '../lib/time';
 
 /** An ideas poll's lines shown at first; the rest behind «Бүгдийг харах». */
@@ -26,8 +26,10 @@ export function Declined({q, onUndo, tone = 'violet'}: {q: string; onUndo: () =>
   const [busy, setBusy] = useState(false);
   return (
     <p className={`flex items-center gap-2 rounded-2xl border border-dashed px-4 py-2.5 text-sm text-neutral-400 ${tone === 'sky' ? 'border-sky-500/30' : 'border-violet-500/30'}`}>
-      <span className="min-w-0 flex-1 truncate">
-        «{q}» — хариулахгүй гэж тэмдэглэлээ.
+      {/* What was done in full; only the question is cut short. */}
+      <span className="min-w-0 flex-1">
+        <span className="block">Хариулахгүй гэж тэмдэглэлээ:</span>
+        <span className="block truncate text-neutral-500">«{q}»</span>
       </span>
       <button type="button" disabled={busy} onClick={() => (setBusy(true), onUndo().finally(() => setBusy(false)))} className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-200 hover:bg-neutral-800">
         Буцаах
@@ -88,7 +90,7 @@ function PollCard({poll, uid}: {poll: Poll; uid: string}) {
         <VoteIcon size={14} /> Санал асуулга · {dayLabel(poll.at)}
         {poll.multi && !done && <span className="font-normal text-violet-300/80">· хэдийг ч сонгож болно</span>}
       </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 [overflow-wrap:anywhere]">{poll.q}</p>
+      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
       {done ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="flex items-center gap-1 text-green-300">
@@ -110,7 +112,7 @@ function PollCard({poll, uid}: {poll: Poll; uid: string}) {
           {poll.comment && (
             <textarea
               value={written}
-              onChange={(e) => setText(e.target.value.slice(0, 500))}
+              onChange={(e) => setText(clip(e.target.value, 500))}
               rows={2}
               placeholder={poll.options.length ? 'Санаагаа бичиж болно (заавал биш)' : 'Хариултаа бичнэ үү'}
               aria-label="Таны санаа"
@@ -137,7 +139,11 @@ function PollCard({poll, uid}: {poll: Poll; uid: string}) {
   );
 }
 
-function Choice({text, on, multi, onClick, disabled, children}: {text: string; on: boolean; multi: boolean; onClick: () => void; disabled?: boolean; children?: ReactNode}) {
+/**
+ * One option to tick: its text (and `under` it, e.g. «Таны санаа») takes the room; `end` (a count) stays narrow at the
+ * right. Words wrap whole (a long one breaks only if it doesn't fit a line), so large text never stands a letter a line.
+ */
+function Choice({text, on, multi, onClick, disabled, under, end}: {text: string; on: boolean; multi: boolean; onClick: () => void; disabled?: boolean; under?: ReactNode; end?: ReactNode}) {
   return (
     <button
       type="button"
@@ -145,13 +151,16 @@ function Choice({text, on, multi, onClick, disabled, children}: {text: string; o
       aria-checked={on}
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:cursor-wait ${on ? 'border-violet-400 bg-violet-500/20 text-neutral-50' : 'border-neutral-700 bg-neutral-900/60 text-neutral-200 hover:border-neutral-500'}`}
+      className={`flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:cursor-wait ${on ? 'border-violet-400 bg-violet-500/20 text-neutral-50' : 'border-neutral-700 bg-neutral-900/60 text-neutral-200 hover:border-neutral-500'}`}
     >
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 ${multi ? 'rounded-md' : 'rounded-full'} ${on ? 'border-violet-400 bg-violet-400 text-black' : 'border-neutral-500'}`}>
         {on && <Check size={13} strokeWidth={3} />}
       </span>
-      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{text}</span>
-      {children}
+      <span className="min-w-0 flex-1 break-words">
+        {text}
+        {under}
+      </span>
+      {end}
     </button>
   );
 }
@@ -214,23 +223,32 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
         <Lightbulb size={14} /> Санал асуулга · {dayLabel(poll.at)}
         <span className="font-normal text-violet-300/80">· санаа нэмж, дуртайдаа санал өгнө</span>
       </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 [overflow-wrap:anywhere]">{poll.q}</p>
+      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
       <ul className="mt-3 flex flex-col gap-1.5" aria-label={poll.q}>
         {shown.map((e, rank) => {
           const own = e.idea?.by === uid;
           return (
-            <li key={e.key} className="flex items-center gap-1.5">
-              <Choice text={e.text} on={picks(my, e)} multi onClick={() => toggle(e)} disabled={busy}>
-                {own && <span className="shrink-0 rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] text-violet-200">Таны санаа</span>}
-                {rank < TOP && e.count > 0 && (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[11px] font-bold text-amber-300" title={`${rank + 1}-р байр`}>
-                    {rank + 1}
+            <li key={e.key} className="flex min-w-0 items-center gap-1">
+              <Choice
+                text={e.text}
+                on={picks(my, e)}
+                multi
+                onClick={() => toggle(e)}
+                disabled={busy}
+                under={own && <span className="mt-1 block w-fit rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] text-violet-200">Таны санаа</span>}
+                end={
+                  <span className="flex shrink-0 flex-col items-end gap-0.5 tabular-nums">
+                    <span className="text-neutral-200">{e.count}</span>
+                    {rank < TOP && e.count > 0 && (
+                      <span className="rounded-full bg-amber-400/20 px-1.5 text-[10px] font-bold leading-4 text-amber-300" title={`${rank + 1}-р байр`}>
+                        {rank + 1}-р
+                      </span>
+                    )}
                   </span>
-                )}
-                <span className="w-7 shrink-0 text-right tabular-nums text-neutral-300">{e.count}</span>
-              </Choice>
+                }
+              />
               {own && (
-                <button type="button" disabled={busy} onClick={() => confirm('Энэ санаагаа устгах уу? Түүнд өгсөн саналууд тоологдохоо болино.') && run(() => deleteIdea(poll.id, e.idea!.iid))} aria-label="Санаагаа устгах" className="shrink-0 rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
+                <button type="button" disabled={busy} onClick={() => confirm('Энэ санаагаа устгах уу? Түүнд өгсөн саналууд тоологдохоо болино.') && run(() => deleteIdea(poll.id, e.idea!.iid))} aria-label="Санаагаа устгах" className="shrink-0 rounded-lg p-1 text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
                   <X size={15} />
                 </button>
               )}
@@ -244,8 +262,8 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
         </button>
       )}
       {myIdeas.length < IDEAS_EACH ? (
-        <form onSubmit={add} className="mt-2 flex items-center gap-2">
-          <input value={idea} maxLength={80} onChange={(e) => setIdea(e.target.value)} placeholder="Шинэ санаа нэмэх" aria-label="Шинэ санаа" className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+        <form onSubmit={add} className="mt-2 flex flex-wrap items-center gap-2">
+          <input value={idea} maxLength={80} onChange={(e) => setIdea(e.target.value)} placeholder="Шинэ санаа нэмэх" aria-label="Шинэ санаа" className="min-w-[10rem] flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
           <button disabled={busy || !idea.trim()} className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3.5 py-2 text-sm font-semibold text-black hover:bg-violet-400 disabled:opacity-50">
             <Plus size={15} /> Нэмэх
           </button>
@@ -255,7 +273,7 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
       )}
       {poll.comment && (
         <div className="mt-2 space-y-1.5">
-          <textarea value={written} onChange={(e) => setNote(e.target.value.slice(0, 500))} rows={2} placeholder="Багшид бичих (зөвхөн багш харна, заавал биш)" aria-label="Багшид бичих" className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+          <textarea value={written} onChange={(e) => setNote(clip(e.target.value, 500))} rows={2} placeholder="Багшид бичих (зөвхөн багш харна)" aria-label="Багшид бичих" className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
           {note !== null && note.trim() !== (mine ? mine.t : '') && note.trim() && (
             <button type="button" disabled={busy} onClick={() => void run(() => vote(poll.id, [], note)).then((ok) => ok && setNote(null))} className="rounded-full bg-violet-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-violet-400 disabled:opacity-50">
               {mine && mine.t ? 'Шинэчлэх' : 'Багшид илгээх'}
@@ -264,12 +282,14 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
         </div>
       )}
       {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 flex-1 text-xs text-neutral-500">
-          {voters ? `${voters} хүн санал өгсөн. ` : ''}Саналын тоог бүгд харна; хэн санаа нэмж, хэн юу сонгосныг зөвхөн багш харна.
-        </span>
-        {!answered && <DeclineButton busy={busy} onClick={() => void run(() => decline(poll.id)).then((ok) => ok && setJustDeclined(true))} />}
-      </div>
+      <p className="mt-2 text-xs text-neutral-500">
+        {voters ? `${voters} хүн санал өгсөн. ` : ''}Саналын тоог бүгд харна; хэн санаа нэмж, хэн юу сонгосныг зөвхөн багш харна.
+      </p>
+      {!answered && (
+        <div className="mt-1 flex justify-end">
+          <DeclineButton busy={busy} onClick={() => void run(() => decline(poll.id)).then((ok) => ok && setJustDeclined(true))} />
+        </div>
+      )}
     </section>
   );
 }
