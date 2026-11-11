@@ -37,9 +37,14 @@ export async function createClass(name: string, members: string[]) {
 
 export const renameClass = (id: string, name: string) => set(ref(db, `classes/${id}/name`), cleanName(name));
 
-/** Removes a class; its students stay (without a class), with all their results. */
+/** Removes a class; its students stay (without a class), with all their results. Its class polls go with it. */
 export const deleteClass = (id: string, members: string[]) =>
-  update(ref(db), {[`classes/${id}`]: null, ...Object.fromEntries(members.map((uid) => [`users/${uid}/class`, null]))});
+  update(ref(db), {
+    [`classes/${id}`]: null,
+    [`classPolls/${id}`]: null,
+    [`classPollVotes/${id}`]: null,
+    ...Object.fromEntries(members.map((uid) => [`users/${uid}/class`, null])),
+  });
 
 export const moveToClass = (uid: string, id: string | null) => set(ref(db, `users/${uid}/class`), id);
 

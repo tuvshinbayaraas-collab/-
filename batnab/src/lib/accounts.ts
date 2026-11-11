@@ -11,6 +11,7 @@ import {
 import {get, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db, emulators, firebaseConfig} from './firebase';
 import {emailFor, USERNAME_RE} from './session';
+import {classPollPathsOf} from './classPolls';
 
 /**
  * Creates a student's sign-in account and profile (in `classId`, if given). The account is created in a second, throwaway Firebase app so
@@ -56,7 +57,9 @@ export const setBlocked = (uid: string, blocked: boolean) => set(ref(db, `users/
  * done again), the time counted, and their poll answers.
  */
 export async function deleteStudent(uid: string) {
-  const polls = Object.keys(((await get(ref(db, 'polls')).catch(() => null))?.val() ?? {}) as Record<string, unknown>);
+  const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? null;
+  const [pollsNow, classPolls, classVotes] = await Promise.all([read('polls'), read('classPolls'), read('classPollVotes')]);
+  const polls = Object.keys((pollsNow ?? {}) as Record<string, unknown>);
   return update(ref(db), {
     [`users/${uid}`]: null,
     [`results/${uid}`]: null,
@@ -67,6 +70,8 @@ export async function deleteStudent(uid: string) {
     [`topicRounds/${uid}`]: null,
     [`timeOn/${uid}`]: null,
     ...Object.fromEntries(polls.map((id) => [`pollVotes/${id}/${uid}`, null])),
+    // Their class polls (with those polls' votes) and their votes on classmates'.
+    ...classPollPathsOf(uid, classPolls, classVotes),
   });
 }
 export const deleteResult = (uid: string, test: string, id: string) => set(ref(db, `results/${uid}/${test}/${id}`), null);

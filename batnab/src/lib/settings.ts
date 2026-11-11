@@ -14,9 +14,11 @@ export interface Settings {
   photos: boolean;
   /** Whether each attempt shows a question's choices in an order of its own (on unless turned off). */
   shuffleChoices: boolean;
+  /** Whether students may ask their class a poll of their own (lib/classPolls). */
+  studentPolls: boolean;
 }
 
-const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true};
+const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true, studentPolls: true};
 
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
@@ -35,6 +37,7 @@ function start() {
         leaderboard: v.leaderboard !== false,
         photos: v.photos !== false,
         shuffleChoices: v.shuffleChoices !== false,
+        studentPolls: v.studentPolls !== false,
       };
       listeners.forEach((l) => l());
     },

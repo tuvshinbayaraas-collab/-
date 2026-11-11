@@ -6,6 +6,7 @@ import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
 import {usePrefs} from '../lib/prefs';
 import {useWide} from '../lib/wide';
+import ClassPolls from './ClassPolls';
 import Polls from './Polls';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
@@ -105,6 +106,7 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
       ))}
 
       <Polls uid={uid} classId={classId} />
+      <ClassPolls uid={uid} classId={classId} />
 
       {tasks.length > 0 && (
         <section className="rounded-2xl bg-neutral-900 p-4">

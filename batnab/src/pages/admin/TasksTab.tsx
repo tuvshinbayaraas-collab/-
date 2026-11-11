@@ -11,6 +11,7 @@ import {problemNo, useAllProgress, useTopics, type Topic} from '../../lib/topics
 import type {Assignment} from '../../lib/classroom';
 import type {Result} from '../../lib/results';
 import {TESTS} from '../../tests';
+import ClassPollsAdmin from './ClassPollsAdmin';
 import type {AdminData} from './data';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
@@ -426,6 +427,7 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
           ))}
         </ul>
       )}
+      <ClassPollsAdmin data={data} picked={picked} />
     </section>
   );
 }
@@ -437,7 +439,9 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
   const asked = data.students.filter((s) => !s.profile.disabled && forClass(poll.classes, s.profile.class));
   const answered = asked.filter((s) => votes?.[s.uid]);
   const quiet = asked.filter((s) => !votes?.[s.uid]);
-  const counts = poll.options.map((_, i) => answered.filter((s) => votes![s.uid].c.includes(i)).length);
+  // One pick each where only one may be picked (the rules hold it; an older answer could have more).
+  const picks = (uid: string) => (poll.multi ? votes![uid].c : votes![uid].c.slice(0, 1));
+  const counts = poll.options.map((_, i) => answered.filter((s) => picks(s.uid).includes(i)).length);
   const top = Math.max(0, ...counts);
   const comments = answered.filter((s) => votes![s.uid].t);
   const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
@@ -495,7 +499,7 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
             <p key={i}>
               <span className="text-neutral-400">{o}:</span>{' '}
               {answered
-                .filter((s) => votes[s.uid].c.includes(i))
+                .filter((s) => picks(s.uid).includes(i))
                 .map((s) => s.profile.name)
                 .join(', ') || '—'}
             </p>
