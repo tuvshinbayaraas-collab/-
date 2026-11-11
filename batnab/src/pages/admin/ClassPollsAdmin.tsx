@@ -2,6 +2,8 @@ import {ChevronDown, Lock, LockOpen, Trash2, Users, X} from 'lucide-react';
 import {useState} from 'react';
 import Switch from '../../components/Switch';
 import {setLead} from '../../lib/accounts';
+import {useFolded} from '../../lib/fold';
+import PollHead from './PollHead';
 import {closeClassPoll, declinedOf, deleteClassPoll, reopenClassPoll, tally, useAllClassPolls, useAllClassVotes, votesOf, type ClassPoll, type ClassVotes} from '../../lib/classPolls';
 import {useClasses} from '../../lib/classes';
 import {saveSetting, useSettings} from '../../lib/settings';
@@ -19,6 +21,7 @@ export default function ClassPollsAdmin({data, picked}: {data: AdminData; picked
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const on = settings?.studentPolls !== false;
+  const [folded, fold] = useFolded('admin.classPolls');
   const shown = (polls ?? []).filter((p) => !picked || p.cls === picked);
   const flip = async (next: boolean) => {
     setBusy(true);
@@ -33,9 +36,14 @@ export default function ClassPollsAdmin({data, picked}: {data: AdminData; picked
   };
   return (
     <div className="space-y-3">
-      <h3 className="flex items-center gap-2 pt-2 font-semibold">
-        <Users size={18} className="text-sky-300" /> Сурагчдын гаргасан асуулга{shown.length ? ` (${shown.length})` : ''}
+      <h3 className="pt-2 font-semibold">
+        <button type="button" onClick={fold} aria-expanded={!folded} className="flex w-full items-center gap-2 rounded-lg text-left hover:opacity-80">
+          <Users size={18} className="shrink-0 text-sky-300" /> Сурагчдын гаргасан асуулга{shown.length ? ` (${shown.length})` : ''}
+          <ChevronDown size={18} aria-hidden className={`ml-auto shrink-0 text-neutral-500 transition-transform ${folded ? '' : 'rotate-180'}`} />
+        </button>
       </h3>
+      {!folded && (
+        <>
       <div className="overflow-hidden rounded-2xl bg-neutral-900">
         <Switch on={on} busy={busy || !settings} onChange={flip} className="items-start p-4">
           <span className="min-w-0 flex-1">
@@ -57,11 +65,14 @@ export default function ClassPollsAdmin({data, picked}: {data: AdminData; picked
           ))}
         </ul>
       )}
+        </>
+      )}
     </div>
   );
 }
 
 function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefined; data: AdminData}) {
+  const [folded, fold] = useFolded(`admin.cpoll:${poll.id}`);
   const classes = useClasses() ?? [];
   const [who, setWho] = useState(false);
   const byUid = new Map(data.students.map((s) => [s.uid, s]));
@@ -76,22 +87,22 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
   const run = (f: () => Promise<unknown>) => f().catch((e) => alert((e as Error).message));
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <div className="min-w-[12rem] flex-1">
-          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
-          <p className="mt-0.5 text-xs text-neutral-500">
+      <PollHead
+        folded={folded}
+        onFold={fold}
+        q={poll.q}
+        meta={
+          <>
             <span className="text-sky-300">{name(poll.by)}</span> гаргасан · {cls} · {dayLabel(poll.at)} {clock(poll.at)}
             {poll.multi && ' · олон сонголт'}
             {poll.closed > 0 && ' · хаагдсан'}
-          </p>
-        </div>
-        <span className="ml-auto w-20 shrink-0 text-right">
-          <span className="block text-sm font-semibold tabular-nums">
-            {voters}/{asked.length}
-          </span>
-          <span className="block text-[11px] text-neutral-500">хариулсан</span>
-        </span>
-      </div>
+          </>
+        }
+        answered={voters}
+        total={asked.length}
+      />
+      {!folded && (
+        <>
       <ul className="mt-3 space-y-2">
         {poll.options.map((o, i) => {
           const pct = voters ? Math.round((counts[i] / voters) * 100) : 0;
@@ -144,6 +155,8 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
           <Trash2 size={14} /> Устгах
         </button>
       </div>
+        </>
+      )}
     </li>
   );
 }

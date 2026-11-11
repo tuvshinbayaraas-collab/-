@@ -12,6 +12,8 @@ import type {Assignment} from '../../lib/classroom';
 import type {Result} from '../../lib/results';
 import {TESTS} from '../../tests';
 import ClassPollsAdmin from './ClassPollsAdmin';
+import PollHead from './PollHead';
+import {useFolded} from '../../lib/fold';
 import type {AdminData} from './data';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
@@ -385,11 +387,17 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
   };
   const shown = (polls ?? []).filter((p) => !picked || forClass(p.classes, picked));
   const check = 'h-4 w-4 accent-violet-500';
+  const [allFolded, foldAll] = useFolded('admin.polls');
   return (
     <section className="space-y-3">
-      <h2 className="flex items-center gap-2 font-semibold">
-        <VoteIcon size={18} className="text-violet-300" /> Санал асуулга
+      <h2 className="font-semibold">
+        <button type="button" onClick={foldAll} aria-expanded={!allFolded} className="flex w-full items-center gap-2 rounded-lg text-left hover:opacity-80">
+          <VoteIcon size={18} className="shrink-0 text-violet-300" /> Санал асуулга{shown.length ? ` (${shown.length})` : ''}
+          <ChevronDown size={18} aria-hidden className={`ml-auto shrink-0 text-neutral-500 transition-transform ${allFolded ? '' : 'rotate-180'}`} />
+        </button>
       </h2>
+      {!allFolded && (
+        <>
       <form onSubmit={submit} className="space-y-3 rounded-2xl bg-neutral-900 p-4 sm:p-5">
         <textarea value={q} maxLength={300} rows={2} onChange={(e) => setQ(e.target.value)} placeholder="Асуулт, жишээ нь: Шинэ «Алдааны дэвтэр» танд хэр хэрэгтэй байна вэ?" className={`${field} resize-y`} aria-label="Асуулт" />
         <div className="space-y-2">
@@ -436,11 +444,14 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
         </ul>
       )}
       <ClassPollsAdmin data={data} picked={picked} />
+        </>
+      )}
     </section>
   );
 }
 
 function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
+  const [folded, fold] = useFolded(`admin.poll:${poll.id}`);
   const votes = useVotes(poll.id);
   const classes = useClasses() ?? [];
   const [who, setWho] = useState(false);
@@ -456,22 +467,22 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
   const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <div className="min-w-[12rem] flex-1">
-          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
-          <p className="mt-0.5 text-xs text-neutral-500">
+      <PollHead
+        folded={folded}
+        onFold={fold}
+        q={poll.q}
+        meta={
+          <>
             {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'}
             {poll.multi && ' · олон сонголт'}
             {poll.closed && ' · хаагдсан'}
-          </p>
-        </div>
-        <span className="ml-auto w-20 shrink-0 text-right">
-          <span className="block text-sm font-semibold tabular-nums">
-            {votes ? answered.length : '…'}/{asked.length}
-          </span>
-          <span className="block text-[11px] text-neutral-500">хариулсан</span>
-        </span>
-      </div>
+          </>
+        }
+        answered={votes ? answered.length : '…'}
+        total={asked.length}
+      />
+      {!folded && (
+        <>
       {poll.options.length > 0 && (
         <ul className="mt-3 space-y-2">
           {poll.options.map((o, i) => {
@@ -537,6 +548,8 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
           <Trash2 size={14} /> Устгах
         </button>
       </div>
+        </>
+      )}
     </li>
   );
 }
@@ -544,6 +557,7 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
 /** An ideas poll's results: every option and idea with its count (the top five numbered), who added each idea (to
  * delete one that doesn't belong), the written answers, and who picked what, said «Хариулахгүй» or hasn't answered. */
 function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
+  const [folded, fold] = useFolded(`admin.poll:${poll.id}`);
   const votes = useVotes(poll.id);
   const ideas = useIdeas(poll.id);
   const all = usePicks(poll.id);
@@ -563,21 +577,21 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
   const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <div className="min-w-[12rem] flex-1">
-          <p className="whitespace-pre-wrap font-medium break-words">{poll.q}</p>
-          <p className="mt-0.5 text-xs text-neutral-500">
+      <PollHead
+        folded={folded}
+        onFold={fold}
+        q={poll.q}
+        meta={
+          <>
             {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'} · сурагчид санаа нэмнэ ({ideas?.length ?? 0} санаа)
             {poll.closed && ' · хаагдсан'}
-          </p>
-        </div>
-        <span className="ml-auto w-20 shrink-0 text-right">
-          <span className="block text-sm font-semibold tabular-nums">
-            {all ? answered.length : '…'}/{asked.length}
-          </span>
-          <span className="block text-[11px] text-neutral-500">хариулсан</span>
-        </span>
-      </div>
+          </>
+        }
+        answered={all ? answered.length : '…'}
+        total={asked.length}
+      />
+      {!folded && (
+        <>
       <ul className="mt-3 space-y-2">
         {list.map((e, rank) => {
           const pct = voters.length ? Math.round((e.count / voters.length) * 100) : 0;
@@ -656,6 +670,8 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
           <Trash2 size={14} /> Устгах
         </button>
       </div>
+        </>
+      )}
     </li>
   );
 }

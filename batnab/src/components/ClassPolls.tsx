@@ -20,7 +20,8 @@ import {
 } from '../lib/classPolls';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {Declined} from './Polls';
+import {useFolded} from '../lib/fold';
+import {Declined, FoldHead} from './Polls';
 import {dayLabel, useNow} from '../lib/time';
 
 /** Shown at first; the rest behind «Бүгдийг харах». */
@@ -44,6 +45,7 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
   const [all, setAll] = useState(false);
   // Said «Хариулахгүй» to on this visit: a line to take it back (next time, gone).
   const [justNo, setJustNo] = useState<string[]>([]);
+  const [folded, fold] = useFolded('classPolls');
   if (!on || !polls || !votes) return null;
   const mine = polls.filter((p) => p.by === uid);
   // Classmates' open ones not answered yet first, then their own, then answered, then closed (for a few days; their
@@ -53,20 +55,28 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
   const shown = polls.filter((p) => !no(p) && (p.by === uid || !p.closed || now - p.closed < CLOSED_SHOWN)).sort((a, b) => rank(a) - rank(b) || b.at - a.at);
   const undo = polls.filter((p) => no(p) && justNo.includes(p.id));
   const list = all ? shown : shown.slice(0, FIRST);
+  const toAnswer = shown.filter((p) => rank(p) === 0).length;
   // Nothing to answer and not one who asks: no section.
   if (!lead && !shown.length && !undo.length) return null;
   return (
     <section className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="flex items-center gap-1.5 text-xs font-semibold text-sky-300">
-          <Users size={14} /> Ангийн санал асуулга{shown.length ? ` (${shown.length})` : ''}
-        </h2>
-        {lead && !making && (
+        {/* Folds the whole section away (on this device); folded, how many are still to answer. */}
+        <button type="button" onClick={fold} aria-expanded={!folded} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <h2 className="flex flex-wrap items-center gap-x-1.5 text-xs font-semibold text-sky-300">
+            <Users size={14} /> Ангийн санал асуулга{shown.length ? ` (${shown.length})` : ''}
+            {folded && toAnswer > 0 && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-300">{toAnswer} хариулаагүй</span>}
+          </h2>
+          <ChevronDown size={16} aria-hidden className={`ml-auto shrink-0 text-neutral-500 transition-transform ${folded ? '' : 'rotate-180'}`} />
+        </button>
+        {lead && !making && !folded && (
           <button type="button" onClick={() => setMaking(true)} className="ml-auto flex items-center gap-1 rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-500/25">
             <Plus size={14} /> Асуулга гаргах
           </button>
         )}
       </div>
+      {!folded && (
+        <>
       {making && <NewPoll cls={classId!} slot={freeSlot(mine)} onClose={() => setMaking(false)} />}
       {lead && !shown.length && !making && <p className="mt-1.5 text-sm text-neutral-400">Ангийнхнаасаа асуух зүйл байна уу? Асуулга гаргавал ангийнхан чинь сонголтоо хийнэ.</p>}
       {list.length > 0 && (
@@ -87,6 +97,8 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
         <button type="button" onClick={() => setAll(!all)} aria-expanded={all} className="mt-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
           <ChevronDown size={14} className={`transition-transform ${all ? 'rotate-180' : ''}`} /> {all ? 'Цөөнийг харуулах' : `Бүгдийг харах (${shown.length})`}
         </button>
+      )}
+        </>
       )}
     </section>
   );
@@ -165,6 +177,7 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
   const had = votesOf(poll, votes)[uid] ?? null;
   const {voters, counts} = tally(poll, votes);
   const own = poll.by === uid;
+  const [folded, fold] = useFolded(`cpoll:${poll.id}`);
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<number[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -194,17 +207,17 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
   const top = Math.max(0, ...counts);
   return (
     <li className="rounded-xl bg-neutral-900/70 p-3">
-      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-400">
-        <span className={own ? 'font-semibold text-sky-300' : ''}>{own ? 'Таны асуулга' : 'Ангийн сурагч'}</span> · {dayLabel(poll.at)}
-        {poll.multi && asking && <span>· хэдийг ч сонгож болно</span>}
-        {poll.closed > 0 && (
+      <FoldHead folded={folded} onFold={fold} q={poll.q} status={had ? 'Хариулсан' : poll.closed ? 'Хаагдсан' : 'Хариулаагүй'} done={!!had || poll.closed > 0} tone="sky">
+        <span className={`font-normal ${own ? 'font-semibold text-sky-300' : 'text-neutral-400'}`}>{own ? 'Таны асуулга' : 'Ангийн сурагч'}</span>
+        <span className="font-normal text-neutral-400">· {dayLabel(poll.at)}</span>
+        {poll.multi && asking && !folded && <span className="font-normal text-neutral-400">· хэдийг ч сонгож болно</span>}
+        {poll.closed > 0 && !folded && (
           <span className="flex items-center gap-1 rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] font-medium text-neutral-300">
             <Lock size={11} /> Хаагдсан
           </span>
         )}
-      </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
-      {asking ? (
+      </FoldHead>
+      {folded ? null : asking ? (
         <div className="mt-2 space-y-2">
           <div className="flex flex-col gap-1.5" role={poll.multi ? 'group' : 'radiogroup'} aria-label={poll.q}>
             {poll.options.map((o, i) => {
@@ -270,8 +283,8 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
           <p className="mt-1.5 text-xs text-neutral-500">{voters ? `${voters} хүн хариулсан` : 'Одоохондоо хариулсан хүн алга'}</p>
         </>
       )}
-      {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
-      {(own || (had && !asking && !poll.closed)) && (
+      {!folded && error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
+      {!folded && (own || (had && !asking && !poll.closed)) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
           {had && !asking && !poll.closed && (
             <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">

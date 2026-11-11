@@ -1,5 +1,6 @@
 import {Check, ChevronDown, Lightbulb, Plus, Vote as VoteIcon, X} from 'lucide-react';
 import {useState, type FormEvent, type ReactNode} from 'react';
+import {useFolded} from '../lib/fold';
 import {forClass} from '../lib/live';
 import {addIdea, clip, decline, deleteIdea, entries, IDEAS_EACH, pickers, picks, savePicks, TOP, undecline, useIdeas, useMyVote, usePicks, usePolls, vote, type Entry, type Poll} from '../lib/polls';
 import {dayLabel} from '../lib/time';
@@ -38,6 +39,25 @@ export function Declined({q, onUndo, tone = 'violet'}: {q: string; onUndo: () =>
   );
 }
 
+/**
+ * A poll card's top: what it is (`children`) and the question, the whole of it a button that folds the card away (on
+ * this device); folded, the question takes one line and says whether it is answered.
+ */
+export function FoldHead({folded, onFold, q, status, done, tone = 'violet', children}: {folded: boolean; onFold: () => void; q: string; status: string; done: boolean; tone?: 'violet' | 'sky'; children: ReactNode}) {
+  return (
+    <button type="button" onClick={onFold} aria-expanded={!folded} className="flex w-full items-start gap-2 text-left">
+      <span className="min-w-0 flex-1">
+        <span className={`flex flex-wrap items-center gap-x-1.5 text-xs font-semibold ${tone === 'sky' ? 'text-sky-300' : 'text-violet-300'}`}>
+          {children}
+          {folded && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${done ? 'bg-green-500/15 text-green-300' : 'bg-amber-500/15 text-amber-300'}`}>{status}</span>}
+        </span>
+        <span className={`mt-1 block whitespace-pre-wrap font-medium text-neutral-100 break-words ${folded ? 'line-clamp-1' : ''}`}>{q}</span>
+      </span>
+      <ChevronDown size={18} aria-hidden className={`mt-0.5 shrink-0 text-neutral-500 transition-transform ${folded ? '' : 'rotate-180'}`} />
+    </button>
+  );
+}
+
 /** «Хариулахгүй» beside the send button. */
 function DeclineButton({onClick, busy}: {onClick: () => void; busy: boolean}) {
   return (
@@ -49,6 +69,7 @@ function DeclineButton({onClick, busy}: {onClick: () => void; busy: boolean}) {
 
 function PollCard({poll, uid}: {poll: Poll; uid: string}) {
   const mine = useMyVote(poll.id, uid);
+  const [folded, fold] = useFolded(`poll:${poll.id}`);
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<number[] | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -86,12 +107,11 @@ function PollCard({poll, uid}: {poll: Poll; uid: string}) {
   if (mine && mine.no) return justDeclined ? <Declined q={poll.q} onUndo={() => undecline(poll.id).then(() => setJustDeclined(false))} /> : null;
   return (
     <section className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-violet-300">
+      <FoldHead folded={folded} onFold={fold} q={poll.q} status={had ? 'Илгээсэн' : 'Хариулаагүй'} done={!!had}>
         <VoteIcon size={14} /> Санал асуулга · {dayLabel(poll.at)}
-        {poll.multi && !done && <span className="font-normal text-violet-300/80">· хэдийг ч сонгож болно</span>}
-      </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
-      {done ? (
+        {poll.multi && !done && !folded && <span className="font-normal text-violet-300/80">· хэдийг ч сонгож болно</span>}
+      </FoldHead>
+      {folded ? null : done ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="flex items-center gap-1 text-green-300">
             <Check size={16} /> Илгээсэн{had!.c.length ? `: ${had!.c.map((i) => poll.options[i]).filter(Boolean).join(', ')}` : ''}
@@ -172,6 +192,7 @@ function Choice({text, on, multi, onClick, disabled, under, end}: {text: string;
  */
 function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
   const mine = useMyVote(poll.id, uid);
+  const [folded, fold] = useFolded(`poll:${poll.id}`);
   const ideas = useIdeas(poll.id);
   const all = usePicks(poll.id);
   const [idea, setIdea] = useState('');
@@ -219,11 +240,12 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
   const answered = !!my || !!(mine && mine.t);
   return (
     <section className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4">
-      <p className="flex flex-wrap items-center gap-x-1.5 text-xs font-semibold text-violet-300">
+      <FoldHead folded={folded} onFold={fold} q={poll.q} status={answered ? 'Санал өгсөн' : 'Хариулаагүй'} done={answered}>
         <Lightbulb size={14} /> Санал асуулга · {dayLabel(poll.at)}
-        <span className="font-normal text-violet-300/80">· санаа нэмж, дуртайдаа санал өгнө</span>
-      </p>
-      <p className="mt-1 whitespace-pre-wrap font-medium text-neutral-100 break-words">{poll.q}</p>
+        {!folded && <span className="font-normal text-violet-300/80">· санаа нэмж, дуртайдаа санал өгнө</span>}
+      </FoldHead>
+      {!folded && (
+        <>
       <ul className="mt-3 flex flex-col gap-1.5" aria-label={poll.q}>
         {shown.map((e, rank) => {
           const own = e.idea?.by === uid;
@@ -289,6 +311,8 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
         <div className="mt-1 flex justify-end">
           <DeclineButton busy={busy} onClick={() => void run(() => decline(poll.id)).then((ok) => ok && setJustDeclined(true))} />
         </div>
+      )}
+        </>
       )}
     </section>
   );
