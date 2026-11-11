@@ -10,6 +10,7 @@ import {useExams} from './exams';
 import {medalName, useMedals} from './leaderboard';
 import {WEEK} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
+import {usePolls} from './polls';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
 import {navigate} from './router';
@@ -71,6 +72,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   const now = useNow(60_000);
   const assignments = useAssignments();
   const announcements = useAnnouncements();
+  const polls = usePolls(on);
   const exams = useExams();
   const topics = useTopics();
   const progress = useProgress(on ? uid : undefined);
@@ -92,6 +94,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     if (!state.done && now >= a.due - DAY && now < a.due) notes.push({id: `d:${a.id}`, kind: 'due', at: a.due - DAY, text: `Маргаашаас өмнө дуусгах: ${title} · ${due}`, href});
   }
   for (const n of announcements.filter((x) => forClass(x.classes, classId))) notes.push({id: `n:${n.id}`, kind: 'news', at: n.at, text: `Багшийн мэдээ: ${n.text}`, href: '/'});
+  for (const p of (polls ?? []).filter((x) => !x.closed && forClass(x.classes, classId))) notes.push({id: `p:${p.id}`, kind: 'news', at: p.at, text: `Санал асуулга: ${p.q}`, href: '/'});
   for (const [test, e] of Object.entries(exams ?? {})) {
     const title = testInfo(test)?.title ?? test;
     if (now <= e.end)

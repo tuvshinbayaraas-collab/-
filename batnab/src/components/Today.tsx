@@ -6,6 +6,7 @@ import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
 import {usePrefs} from '../lib/prefs';
 import {useWide} from '../lib/wide';
+import Polls from './Polls';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {doneToday, liveStreak, useStats} from '../lib/stats';
@@ -53,7 +54,7 @@ export const assignmentTitle = (a: Assignment, topics: Topic[] | null) => (a.kin
 export const assignmentFor = (a: Assignment, topics: Topic[], classId: string | undefined) =>
   forClass(a.classes, classId) && (a.kind === 'test' ? !!testInfo(a.ref) : topics.some((t) => t.id === a.ref && forClassOf(t, classId)));
 
-/** The top of a student's home page: notes from the teacher, assignments, today's practice, the notebook, answers. */
+/** The top of a student's home page: notes from the teacher, polls, assignments, today's practice, the notebook, answers. */
 export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const now = useNow(60_000);
   const announcements = useAnnouncements();
@@ -102,6 +103,8 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
           </button>
         </div>
       ))}
+
+      <Polls uid={uid} classId={classId} />
 
       {tasks.length > 0 && (
         <section className="rounded-2xl bg-neutral-900 p-4">

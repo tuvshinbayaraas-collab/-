@@ -20,6 +20,7 @@ import {
   uploadTopicImage,
   useAllMarks,
   useAllProgress,
+  useAllRounds,
   useTopicImage,
   useTopicKeys,
   useTopics,
@@ -927,7 +928,14 @@ function ProblemEditor(props: {
 function Results({topic, answers, data}: {topic: Topic; answers: Record<string, string>; data: AdminData}) {
   const progress = useAllProgress();
   const marks = useAllMarks();
-  if (!progress || !marks) return <Loading small />;
+  const rounds = useAllRounds();
+  if (!progress || !marks || !rounds) return <Loading small />;
+  // The times a student did the topic again from the start (each one's right answers; the first still counts).
+  const againOf = (uid: string) =>
+    Object.entries(rounds[uid]?.[topic.id] ?? {})
+      .map(([n, byPid]) => ({n: Number(n), done: topic.problems.filter((p) => byPid?.[p.id]).length, right: topic.problems.filter((p) => byPid?.[p.id] && verdict(byPid[p.id].a, answers[p.id], null) === true).length}))
+      .filter((x) => x.n > 1 && x.done > 0)
+      .sort((a, b) => a.n - b.n);
   const judge = (uid: string, pid: string) => {
     const a = progress[uid]?.[topic.id]?.[pid];
     return a ? verdict(a.a, answers[pid], marks[uid]?.[topic.id]?.[pid]) : undefined;
@@ -978,6 +986,11 @@ function Results({topic, answers, data}: {topic: Topic; answers: Record<string, 
                   {r.s.profile.name}
                 </Link>
                 {r.waiting > 0 && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200">{r.waiting} шалгах</span>}
+                {againOf(r.s.uid).map((x) => (
+                  <span key={x.n} className="hidden rounded-full bg-sky-500/15 px-2 py-0.5 text-xs tabular-nums text-sky-200 sm:inline" title={`Дахин эхнээс нь бодсон: ${x.n} дахь удаа`}>
+                    {x.n} дахь удаа: {x.done < n ? `${x.done}/${n} бодож байна` : `${x.right}/${n}`}
+                  </span>
+                ))}
                 <span className="text-sm tabular-nums text-neutral-300">{r.done ? `${r.right}/${n} зөв` : <span className="text-neutral-500">эхлээгүй</span>}</span>
                 <span className="w-16 text-right text-xs text-neutral-500">
                   {r.done}/{n} бодсон

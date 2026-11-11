@@ -1,4 +1,4 @@
-import {CheckCircle2, ChevronDown, ClipboardList, Megaphone, School, Send, Timer, Trash2, TriangleAlert} from 'lucide-react';
+import {CheckCircle2, ChevronDown, ClipboardList, Lock, LockOpen, Megaphone, Plus, School, Send, Timer, Trash2, TriangleAlert, Vote as VoteIcon, X} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {assignmentState, assignmentTitle, dueLeft} from '../../components/Today';
 import {createAssignment, deleteAnnouncement, deleteAssignment, openTopicTo, postAnnouncement, topicGap, useAnnouncements, useAssignments} from '../../lib/classroom';
@@ -6,6 +6,7 @@ import {useClasses} from '../../lib/classes';
 import {forClass} from '../../lib/live';
 import {clock, dayLabel, useNow} from '../../lib/time';
 import {attemptTime, timeText, topicTimeKey, useAllTimeOn, type TimeOn} from '../../lib/timeOn';
+import {closePoll, createPoll, deletePoll, MAX_OPTIONS, usePolls, useVotes, type Poll} from '../../lib/polls';
 import {problemNo, useAllProgress, useTopics, type Topic} from '../../lib/topics';
 import type {Assignment} from '../../lib/classroom';
 import type {Result} from '../../lib/results';
@@ -57,6 +58,7 @@ export default function TasksTab({data, picked}: {data: AdminData; picked: strin
     <div className="space-y-8">
       <Assignments data={data} picked={picked} />
       <Announcements picked={picked} />
+      <Polls data={data} picked={picked} />
     </div>
   );
 }
@@ -347,5 +349,177 @@ function Announcements({picked}: {picked: string}) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** Polls («Санал асуулга»): a question to the students, with options (one or several picked) and/or a written answer;
+ * their answers, as counts and who said what, here only. Closed: no more answers; deleted with the answers. */
+function Polls({data, picked}: {data: AdminData; picked: string}) {
+  const polls = usePolls();
+  const [q, setQ] = useState('');
+  const [options, setOptions] = useState(['', '']);
+  const [multi, setMulti] = useState(false);
+  const [comment, setComment] = useState(false);
+  const [to, setTo] = useState<string[]>(picked ? [picked] : []);
+  const [busy, setBusy] = useState(false);
+  const filled = options.filter((o) => o.trim());
+  // Options, or a written answer (or both).
+  const ready = q.trim() && (filled.length >= 2 || (filled.length === 0 && comment) || (filled.length === 1 && comment));
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await createPoll({q, options: filled, multi, comment, classes: asMap(to)});
+      setQ('');
+      setOptions(['', '']);
+      setMulti(false);
+      setComment(false);
+    } catch (err) {
+      alert(`Алдаа: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const shown = (polls ?? []).filter((p) => !picked || forClass(p.classes, picked));
+  const check = 'h-4 w-4 accent-violet-500';
+  return (
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <VoteIcon size={18} className="text-violet-300" /> Санал асуулга
+      </h2>
+      <form onSubmit={submit} className="space-y-3 rounded-2xl bg-neutral-900 p-4 sm:p-5">
+        <input value={q} maxLength={300} onChange={(e) => setQ(e.target.value)} placeholder="Асуулт, жишээ нь: Шинэ «Алдааны дэвтэр» танд хэр хэрэгтэй байна вэ?" className={field} aria-label="Асуулт" />
+        <div className="space-y-2">
+          {options.map((o, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-5 shrink-0 text-right text-sm text-neutral-500">{i + 1}.</span>
+              <input value={o} maxLength={120} onChange={(e) => setOptions(options.map((x, j) => (j === i ? e.target.value : x)))} placeholder={i === 0 ? 'Жишээ: Маш хэрэгтэй' : i === 1 ? 'Жишээ: Заримдаа' : 'Сонголт'} className={`${field} py-2`} aria-label={`${i + 1}-р сонголт`} />
+              <button type="button" onClick={() => setOptions(options.filter((_, j) => j !== i))} aria-label="Сонголт хасах" className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
+                <X size={15} />
+              </button>
+            </div>
+          ))}
+          {options.length < MAX_OPTIONS && (
+            <button type="button" onClick={() => setOptions([...options, ''])} className="ml-7 flex items-center gap-1 rounded-full px-2.5 py-1 text-sm text-violet-300 hover:bg-violet-500/10">
+              <Plus size={14} /> Сонголт нэмэх
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} className={check} /> Хэд хэдийг сонгож болно
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={comment} onChange={(e) => setComment(e.target.checked)} className={check} /> Сурагч санаагаа бичиж болно
+          </label>
+        </div>
+        <Targets value={to} onChange={setTo} />
+        <button disabled={busy || !ready} className="flex items-center gap-2 rounded-full bg-violet-500 px-5 py-2 text-sm font-semibold text-black hover:bg-violet-400 disabled:opacity-50">
+          <VoteIcon size={16} /> {busy ? 'Илгээж байна…' : 'Асуулга илгээх'}
+        </button>
+        <p className="text-xs text-neutral-500">Сурагчдын нүүр хуудсанд гарна (хаах хүртэл). Хоёроос доошгүй сонголт, эсвэл «санаагаа бичиж болно». Хариуг зөвхөн та харна.</p>
+      </form>
+      {shown.length > 0 && (
+        <ul className="space-y-3">
+          {shown.map((p) => (
+            <PollResult key={p.id} poll={p} data={data} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
+  const votes = useVotes(poll.id);
+  const classes = useClasses() ?? [];
+  const [who, setWho] = useState(false);
+  const asked = data.students.filter((s) => !s.profile.disabled && forClass(poll.classes, s.profile.class));
+  const answered = asked.filter((s) => votes?.[s.uid]);
+  const quiet = asked.filter((s) => !votes?.[s.uid]);
+  const counts = poll.options.map((_, i) => answered.filter((s) => votes![s.uid].c.includes(i)).length);
+  const top = Math.max(0, ...counts);
+  const comments = answered.filter((s) => votes![s.uid].t);
+  const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
+  return (
+    <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{poll.q}</p>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'}
+            {poll.multi && ' · олон сонголт'}
+            {poll.closed && ' · хаагдсан'}
+          </p>
+        </div>
+        <span className="w-20 shrink-0 text-right">
+          <span className="block text-sm font-semibold tabular-nums">
+            {votes ? answered.length : '…'}/{asked.length}
+          </span>
+          <span className="block text-[11px] text-neutral-500">хариулсан</span>
+        </span>
+      </div>
+      {poll.options.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {poll.options.map((o, i) => {
+            const pct = answered.length ? Math.round((counts[i] / answered.length) * 100) : 0;
+            return (
+              <li key={i} className="text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${counts[i] === top && top > 0 ? 'font-semibold' : ''}`}>{o}</span>
+                  <span className="shrink-0 tabular-nums text-neutral-400">
+                    {counts[i]} · {pct}%
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                  <div className="h-full rounded-full bg-violet-400" style={{width: `${pct}%`}} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {comments.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs font-semibold text-neutral-400">Бичсэн санаа ({comments.length})</p>
+          {comments.map((s) => (
+            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+              <span className="font-medium">{s.profile.name}:</span> <span className="whitespace-pre-wrap text-neutral-200">{votes![s.uid].t}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      {who && votes && (
+        <div className="mt-3 space-y-2 text-sm">
+          {poll.options.map((o, i) => (
+            <p key={i}>
+              <span className="text-neutral-400">{o}:</span>{' '}
+              {answered
+                .filter((s) => votes[s.uid].c.includes(i))
+                .map((s) => s.profile.name)
+                .join(', ') || '—'}
+            </p>
+          ))}
+          <p>
+            <span className="text-neutral-400">Хариулаагүй ({quiet.length}):</span> {quiet.map((s) => s.profile.name).join(', ') || '—'}
+          </p>
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        <button type="button" onClick={() => setWho(!who)} aria-expanded={who} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+          <ChevronDown size={14} className={`transition-transform ${who ? 'rotate-180' : ''}`} /> Хэн юу хариулсан
+        </button>
+        <button type="button" onClick={() => closePoll(poll.id, !poll.closed).catch((e) => alert(e.message))} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+          {poll.closed ? <LockOpen size={14} /> : <Lock size={14} />} {poll.closed ? 'Дахин нээх' : 'Хаах'}
+        </button>
+        <button
+          type="button"
+          onClick={() => confirm('Энэ асуулгыг хариултуудтай нь устгах уу?') && deletePoll(poll.id).catch((e) => alert(e.message))}
+          className="ml-auto flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+        >
+          <Trash2 size={14} /> Устгах
+        </button>
+      </div>
+    </li>
   );
 }

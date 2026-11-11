@@ -2,7 +2,7 @@ import {Camera, Check, Hourglass, ImageOff, Lightbulb, MessageSquare, RotateCcw,
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import AskButton from './Ask';
 import {auth} from '../lib/firebase';
-import {answer, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
+import {answer, answerRound, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
 import VideoEmbed from './VideoEmbed';
 import MathText from './MathText';
 import HelpLadder from './HelpLadder';
@@ -209,8 +209,12 @@ export function ProblemView(props: {
    * the whole solution, with a try again first.
    */
   stepped?: boolean;
+  /** The topic done again from the start (2, 3…): `first` is this time's answer, and answering records it for this
+   * time only (the first time's answers still count); nothing goes to the teacher to check. */
+  round?: number;
 }) {
-  const {tid, p, num, teacher, onOutcome, review, ask, heading, mark, stepped} = props;
+  const {tid, p, num, teacher, onOutcome, review, ask, heading, mark, stepped, round} = props;
+  const again2 = !!round && round > 1;
   const [help, setHelp] = useState(0);
   const first = review ? undefined : props.first;
   const [pick, setPick] = useState<string>('');
@@ -224,7 +228,7 @@ export function ProblemView(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // No right answer given: the teacher checks the answer.
-  const byTeacher = !p.k && !practice;
+  const byTeacher = !p.k && !practice && !again2;
   // A photo of the working, for the teacher to check (sent with the answer, or added after it while it waits).
   const [photo, setPhoto] = useState<File | null>(null);
   const [sentPhoto, setSentPhoto] = useState(false);
@@ -271,7 +275,7 @@ export function ProblemView(props: {
           review(verdict(value, key, null) === true);
         }
       } else {
-        const key = await answer(tid, p.id, value, (withPhoto && photo) || undefined);
+        const key = again2 ? await answerRound(tid, p.id, round!, value) : await answer(tid, p.id, value, (withPhoto && photo) || undefined);
         if (withPhoto && photo) setSentPhoto(true);
         setPhoto(null);
         const o = {a: value, key};
@@ -321,7 +325,7 @@ export function ProblemView(props: {
       <div className="flex items-center gap-2">
         <span className="font-bold">{heading ?? `${num}-р бодлого`}</span>
         {practice && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-400">дасгал</span>}
-        {!p.k && !first && !practice && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] text-violet-200">багш шалгана</span>}
+        {!p.k && !first && !practice && !again2 && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] text-violet-200">багш шалгана</span>}
         {first && !practice && (
           <span
             className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${ok ? 'bg-green-500/15 text-green-300' : v === false ? 'bg-red-500/15 text-red-300' : waiting ? 'bg-violet-500/15 text-violet-200' : 'bg-neutral-800 text-neutral-400'}`}
@@ -421,7 +425,7 @@ export function ProblemView(props: {
               </button>
               {!practice && !first && !teacher && (
                 <span className="text-xs text-neutral-500">
-                  {byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : 'Эхний хариулт тань багшид харагдана.'}
+                  {byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : again2 ? `${round} дахь удаагийн хариулт тань хадгалагдана.` : 'Эхний хариулт тань багшид харагдана.'}
                 </span>
               )}
             </div>

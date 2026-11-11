@@ -7,6 +7,9 @@
 //                             A problem without a key takes an answer too: it goes to the teacher to check.
 //   topicMarks/{uid}/{tid}/{pid} = {ok, at, note?}   the teacher's word on an answer (right or wrong, a note): for a
 //                             problem without a key, or instead of the key's (a written answer put another way).
+//   topicRounds/{uid}/{tid}/{n}/{pid} = {a, at}   the topic done again from the start (n = 2, 3…), once all its
+//                             problems were answered: each time's answers, kept apart. The first (topicProgress) is still
+//                             the one that counts (the teacher, the mistakes notebook).
 //   topicWork/{uid}/{tid}/{pid} = {img, at}   a photo of the student's working, sent with the answer (or added while
 //                             the teacher hasn't checked it yet); the answer then carries `w: true` (its text may
 //                             be empty), so the teacher's page knows there is one without loading every photo.
@@ -236,13 +239,13 @@ export const deleteTopic = (tid: string, uids: string[] = []) =>
     [`topics/${tid}`]: null,
     [`topicKeys/${tid}`]: null,
     [`topicImages/${tid}`]: null,
-    ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`, `timeOn/${uid}/p${tid}`].map((k) => [k, null]))),
+    ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`, `topicRounds/${uid}/${tid}`, `timeOn/${uid}/p${tid}`].map((k) => [k, null]))),
   });
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});
 
 export const resetProgress = (uid: string, tid: string) =>
-  update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null, [`topicWork/${uid}/${tid}`]: null, [`timeOn/${uid}/p${tid}`]: null});
+  update(ref(db), {[`topicProgress/${uid}/${tid}`]: null, [`topicMarks/${uid}/${tid}`]: null, [`topicWork/${uid}/${tid}`]: null, [`topicRounds/${uid}/${tid}`]: null, [`timeOn/${uid}/p${tid}`]: null});
 
 /** The teacher's copy of a topic's keys; null while loading. */
 export function useTopicKeys(tid: string) {
@@ -393,6 +396,25 @@ export async function sendWork(tid: string, pid: string, file: File) {
   const img = await compress(file);
   await update(ref(db), {[`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()}, [`topicProgress/${uid}/${tid}/${pid}/w`]: true});
   return img;
+}
+
+// ---- doing a topic again from the start ----
+
+/** Each time after the first: n (2, 3…) → pid → the answer. */
+export type Rounds = Record<string, Record<string, {a: string; at: number}>>;
+
+/** The student's later times at a topic; null while loading. */
+export const useRounds = (uid: string | undefined, tid: string) => useLive(uid ? `topicRounds/${uid}/${tid}` : null, (v) => (v ?? {}) as Rounds);
+
+/** Everyone's later times (uid → tid → rounds), for the teacher (`on` false: not read). */
+export const useAllRounds = (on = true) => useLive(on ? 'topicRounds' : null, (v) => (v ?? {}) as Record<string, Record<string, Rounds>>);
+
+/** Records an answer in time n (≥ 2) at the topic, then reads the key. */
+export async function answerRound(tid: string, pid: string, n: number, a: string) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Нэвтэрнэ үү');
+  await set(ref(db, `topicRounds/${uid}/${tid}/${n}/${pid}`), {a, at: serverTimestamp()});
+  return readKey(tid, pid);
 }
 
 /** A student's photo of their working (theirs, or anyone's for the teacher), kept up to date (replaced while it
