@@ -6,7 +6,7 @@ import {useClasses} from '../../lib/classes';
 import {forClass} from '../../lib/live';
 import {clock, dayLabel, useNow} from '../../lib/time';
 import {attemptTime, timeText, topicTimeKey, useAllTimeOn, type TimeOn} from '../../lib/timeOn';
-import {closePoll, createPoll, deletePoll, MAX_OPTIONS, usePolls, useVotes, type Poll} from '../../lib/polls';
+import {closePoll, createPoll, deleteIdea, deletePoll, entries, MAX_OPTIONS, pickers, picks, TOP, useIdeas, usePicks, usePolls, useVotes, type Poll, type Vote} from '../../lib/polls';
 import {problemNo, useAllProgress, useTopics, type Topic} from '../../lib/topics';
 import type {Assignment} from '../../lib/classroom';
 import type {Result} from '../../lib/results';
@@ -361,20 +361,22 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
   const [options, setOptions] = useState(['', '']);
   const [multi, setMulti] = useState(false);
   const [comment, setComment] = useState(false);
+  const [ideas, setIdeas] = useState(false);
   const [to, setTo] = useState<string[]>(picked ? [picked] : []);
   const [busy, setBusy] = useState(false);
   const filled = options.filter((o) => o.trim());
   // Options, or a written answer (or both).
-  const ready = q.trim() && (filled.length >= 2 || (filled.length === 0 && comment) || (filled.length === 1 && comment));
+  const ready = q.trim() && (ideas || filled.length >= 2 || (filled.length <= 1 && comment));
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await createPoll({q, options: filled, multi, comment, classes: asMap(to)});
+      await createPoll({q, options: filled, multi, comment, ideas, classes: asMap(to)});
       setQ('');
       setOptions(['', '']);
       setMulti(false);
       setComment(false);
+      setIdeas(false);
     } catch (err) {
       alert(`Алдаа: ${(err as Error).message}`);
     } finally {
@@ -408,8 +410,13 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <label className="flex cursor-pointer items-center gap-2">
-            <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} className={check} /> Хэд хэдийг сонгож болно
+            <input type="checkbox" checked={ideas} onChange={(e) => setIdeas(e.target.checked)} className={check} /> Сурагчид санаа нэмж, бүгд санал өгнө
           </label>
+          {!ideas && (
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} className={check} /> Хэд хэдийг сонгож болно
+            </label>
+          )}
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={comment} onChange={(e) => setComment(e.target.checked)} className={check} /> Сурагч санаагаа бичиж болно
           </label>
@@ -418,13 +425,14 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
         <button disabled={busy || !ready} className="flex items-center gap-2 rounded-full bg-violet-500 px-5 py-2 text-sm font-semibold text-black hover:bg-violet-400 disabled:opacity-50">
           <VoteIcon size={16} /> {busy ? 'Илгээж байна…' : 'Асуулга илгээх'}
         </button>
-        <p className="text-xs text-neutral-500">Сурагчдын нүүр хуудсанд гарна (хаах хүртэл). Хоёроос доошгүй сонголт, эсвэл «санаагаа бичиж болно». Хариуг зөвхөн та харна.</p>
+        <p className="text-xs text-neutral-500">
+          Сурагчдын нүүр хуудсанд гарна (хаах хүртэл). Хоёроос доошгүй сонголт, эсвэл «санаагаа бичиж болно». Хариуг зөвхөн та харна.
+          {ideas && ' «Санаа нэмэх»: сурагч бүр 3 хүртэл санаа нэмж, бүх сонголт, санаанаас дуртайдаа санал өгнө; саналын тоо бүгдэд харагдана, хэн нэмж, хэн юу сонгосныг зөвхөн та харна. Сонголтгүй ч болно.'}
+        </p>
       </form>
       {shown.length > 0 && (
         <ul className="space-y-3">
-          {shown.map((p) => (
-            <PollResult key={p.id} poll={p} data={data} />
-          ))}
+          {shown.map((p) => (p.ideas ? <IdeasResult key={p.id} poll={p} data={data} /> : <PollResult key={p.id} poll={p} data={data} />))}
         </ul>
       )}
       <ClassPollsAdmin data={data} picked={picked} />
@@ -437,7 +445,8 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
   const classes = useClasses() ?? [];
   const [who, setWho] = useState(false);
   const asked = data.students.filter((s) => !s.profile.disabled && forClass(poll.classes, s.profile.class));
-  const answered = asked.filter((s) => votes?.[s.uid]);
+  const answered = asked.filter((s) => votes?.[s.uid] && !votes[s.uid].no);
+  const declined = asked.filter((s) => votes?.[s.uid]?.no);
   const quiet = asked.filter((s) => !votes?.[s.uid]);
   // One pick each where only one may be picked (the rules hold it; an older answer could have more).
   const picks = (uid: string) => (poll.multi ? votes![uid].c : votes![uid].c.slice(0, 1));
@@ -505,10 +514,14 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
             </p>
           ))}
           <p>
+            <span className="text-neutral-400">Хариулахгүй гэсэн ({declined.length}):</span> {declined.map((s) => s.profile.name).join(', ') || '—'}
+          </p>
+          <p>
             <span className="text-neutral-400">Хариулаагүй ({quiet.length}):</span> {quiet.map((s) => s.profile.name).join(', ') || '—'}
           </p>
         </div>
       )}
+      {declined.length > 0 && !who && <p className="mt-2 text-xs text-neutral-500">{declined.length} сурагч «Хариулахгүй» гэсэн.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
         <button type="button" onClick={() => setWho(!who)} aria-expanded={who} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
           <ChevronDown size={14} className={`transition-transform ${who ? 'rotate-180' : ''}`} /> Хэн юу хариулсан
@@ -519,6 +532,125 @@ function PollResult({poll, data}: {poll: Poll; data: AdminData}) {
         <button
           type="button"
           onClick={() => confirm('Энэ асуулгыг хариултуудтай нь устгах уу?') && deletePoll(poll.id).catch((e) => alert(e.message))}
+          className="ml-auto flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+        >
+          <Trash2 size={14} /> Устгах
+        </button>
+      </div>
+    </li>
+  );
+}
+
+/** An ideas poll's results: every option and idea with its count (the top five numbered), who added each idea (to
+ * delete one that doesn't belong), the written answers, and who picked what, said «Хариулахгүй» or hasn't answered. */
+function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
+  const votes = useVotes(poll.id);
+  const ideas = useIdeas(poll.id);
+  const all = usePicks(poll.id);
+  const classes = useClasses() ?? [];
+  const [who, setWho] = useState(false);
+  const byUid = new Map(data.students.map((s) => [s.uid, s]));
+  const name = (uid: string) => byUid.get(uid)?.profile.name ?? 'устгагдсан сурагч';
+  const asked = data.students.filter((s) => !s.profile.disabled && forClass(poll.classes, s.profile.class));
+  const list = ideas && all ? entries(poll, ideas, all) : [];
+  const voters = ideas && all ? pickers(all, poll, ideas) : [];
+  const said = (uid: string): Vote | undefined => votes?.[uid];
+  const done = new Set([...voters, ...asked.filter((s) => said(s.uid)?.t).map((s) => s.uid)]);
+  const answered = asked.filter((s) => done.has(s.uid));
+  const declined = asked.filter((s) => !done.has(s.uid) && said(s.uid)?.no);
+  const quiet = asked.filter((s) => !done.has(s.uid) && !said(s.uid));
+  const comments = asked.filter((s) => said(s.uid)?.t);
+  const names = Object.keys(poll.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean);
+  return (
+    <li className={`rounded-2xl bg-neutral-900 p-4 ${poll.closed ? 'opacity-80' : ''}`}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{poll.q}</p>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {dayLabel(poll.at)} {clock(poll.at)} · {names.length ? names.join(', ') : 'Бүх анги'} · сурагчид санаа нэмнэ ({ideas?.length ?? 0} санаа)
+            {poll.closed && ' · хаагдсан'}
+          </p>
+        </div>
+        <span className="w-20 shrink-0 text-right">
+          <span className="block text-sm font-semibold tabular-nums">
+            {all ? answered.length : '…'}/{asked.length}
+          </span>
+          <span className="block text-[11px] text-neutral-500">хариулсан</span>
+        </span>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {list.map((e, rank) => {
+          const pct = voters.length ? Math.round((e.count / voters.length) * 100) : 0;
+          return (
+            <li key={e.key} className="text-sm">
+              <div className="flex items-baseline gap-2">
+                <span className={`w-5 shrink-0 text-right text-xs tabular-nums ${rank < TOP && e.count > 0 ? 'font-bold text-amber-300' : 'text-neutral-600'}`}>{rank + 1}.</span>
+                <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${rank < TOP && e.count > 0 ? 'font-semibold' : ''}`}>
+                  {e.text}
+                  {e.idea && <span className="ml-1 text-xs font-normal text-sky-300"> — {name(e.idea.by)}</span>}
+                </span>
+                <span className="shrink-0 tabular-nums text-neutral-400">
+                  {e.count} · {pct}%
+                </span>
+                {e.idea && (
+                  <button
+                    type="button"
+                    onClick={() => confirm(`«${e.text}» санааг устгах уу? Түүнд өгсөн саналууд тоологдохоо болино.`) && deleteIdea(poll.id, e.idea!.iid).catch((err) => alert(err.message))}
+                    aria-label="Санааг устгах"
+                    className="shrink-0 self-center rounded-lg p-1 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+              <div className="ml-7 mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                <div className="h-full rounded-full bg-violet-400" style={{width: `${pct}%`}} />
+              </div>
+            </li>
+          );
+        })}
+        {all && ideas && !list.length && <li className="text-sm text-neutral-500">Одоохондоо санаа алга.</li>}
+      </ul>
+      {comments.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-xs font-semibold text-neutral-400">Багшид бичсэн ({comments.length})</p>
+          {comments.map((s) => (
+            <p key={s.uid} className="rounded-xl bg-neutral-800/60 px-3 py-2 text-sm [overflow-wrap:anywhere]">
+              <span className="font-medium">{s.profile.name}:</span> <span className="whitespace-pre-wrap text-neutral-200">{said(s.uid)!.t}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      {who && all && (
+        <div className="mt-3 space-y-2 text-sm">
+          {list.map((e) => (
+            <p key={e.key}>
+              <span className="text-neutral-400">{e.text}:</span>{' '}
+              {Object.keys(all)
+                .filter((uid) => picks(all[uid], e))
+                .map(name)
+                .join(', ') || '—'}
+            </p>
+          ))}
+          <p>
+            <span className="text-neutral-400">Хариулахгүй гэсэн ({declined.length}):</span> {declined.map((s) => s.profile.name).join(', ') || '—'}
+          </p>
+          <p>
+            <span className="text-neutral-400">Хариулаагүй ({quiet.length}):</span> {quiet.map((s) => s.profile.name).join(', ') || '—'}
+          </p>
+        </div>
+      )}
+      {declined.length > 0 && !who && <p className="mt-2 text-xs text-neutral-500">{declined.length} сурагч «Хариулахгүй» гэсэн.</p>}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        <button type="button" onClick={() => setWho(!who)} aria-expanded={who} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+          <ChevronDown size={14} className={`transition-transform ${who ? 'rotate-180' : ''}`} /> Хэн юу сонгосон
+        </button>
+        <button type="button" onClick={() => closePoll(poll.id, !poll.closed).catch((e) => alert(e.message))} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+          {poll.closed ? <LockOpen size={14} /> : <Lock size={14} />} {poll.closed ? 'Дахин нээх' : 'Хаах'}
+        </button>
+        <button
+          type="button"
+          onClick={() => confirm('Энэ асуулгыг хариулт, санаануудтай нь устгах уу?') && deletePoll(poll.id).catch((e) => alert(e.message))}
           className="ml-auto flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
         >
           <Trash2 size={14} /> Устгах

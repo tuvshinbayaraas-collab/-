@@ -1,6 +1,6 @@
-import {Bell as BellIcon, BellRing, CalendarClock, ClipboardCheck, Megaphone, MessageCircleQuestion, MessageCircleReply, Trophy, Zap} from 'lucide-react';
+import {Bell as BellIcon, BellRing, CalendarClock, ClipboardCheck, Megaphone, MessageCircleQuestion, MessageCircleReply, Trophy, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type ReactNode} from 'react';
-import {canNotify, showSystemNote, useNotes, type Note, type NoteKind} from '../lib/notifications';
+import {canNotify, clearNotes, showSystemNote, useNotes, type Note, type NoteKind} from '../lib/notifications';
 import {Link} from '../lib/router';
 import {timeAgo} from '../pages/admin/data';
 
@@ -17,9 +17,11 @@ const ICONS: Record<NoteKind, [ReactNode, string]> = {
   check: [<ClipboardCheck key="c" size={16} />, 'bg-violet-500/15 text-violet-300'],
 };
 
-/** The header's bell: how many notes are new, and the list (opening it marks them seen). */
+/** The header's bell: how many notes are new, and the list (opening it marks them seen; a student may clear it). */
 export default function Bell() {
-  const {notes, seen, fresh, markAll} = useNotes();
+  const {notes, seen, fresh, markAll, canClear, hide} = useNotes();
+  const [error, setError] = useState('');
+  const failed = (e: unknown) => setError(`Цэвэрлэж чадсангүй: ${(e as Error).message}`);
   const [open, setOpen] = useState(false);
   // What counted as new when the list was opened stays marked while it's open.
   const [shownSeen, setShownSeen] = useState(seen);
@@ -69,7 +71,15 @@ export default function Bell() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="fixed inset-x-2 top-14 z-50 max-h-[75dvh] overflow-y-auto rounded-xl bg-neutral-800 py-2 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-96" role="dialog" aria-label="Мэдэгдэл">
-            <p className="px-4 pb-2 pt-1 font-semibold">Мэдэгдэл</p>
+            <div className="flex items-center gap-2 px-4 pb-2 pt-1">
+              <p className="flex-1 font-semibold">Мэдэгдэл</p>
+              {canClear && !!notes?.length && (
+                <button type="button" onClick={() => (setError(''), clearNotes().catch(failed))} className="rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-300 hover:bg-neutral-700">
+                  Бүгдийг цэвэрлэх
+                </button>
+              )}
+            </div>
+            {error && <p className="px-4 pb-2 text-xs text-red-300">{error}</p>}
             {notes === null ? (
               <p className="px-4 py-6 text-center text-sm text-neutral-400">Ачаалж байна…</p>
             ) : !notes.length ? (
@@ -80,8 +90,8 @@ export default function Bell() {
                   const [icon, tone] = ICONS[n.kind];
                   const isNew = n.at > shownSeen;
                   return (
-                    <li key={n.id}>
-                      <Link href={n.href} onClick={() => setOpen(false)} className={`flex items-start gap-3 px-4 py-2.5 hover:bg-neutral-700 ${isNew ? 'bg-blue-500/10' : ''}`}>
+                    <li key={n.id} className={`flex items-start hover:bg-neutral-700 ${isNew ? 'bg-blue-500/10' : ''}`}>
+                      <Link href={n.href} onClick={() => setOpen(false)} className={`flex min-w-0 flex-1 items-start gap-3 py-2.5 pl-4 ${canClear ? 'pr-1' : 'pr-4'}`}>
                         <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${tone}`}>{icon}</span>
                         <span className="min-w-0 flex-1">
                           <span className="line-clamp-3 text-sm [overflow-wrap:anywhere]">{n.text}</span>
@@ -89,6 +99,11 @@ export default function Bell() {
                         </span>
                         {isNew && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-400" aria-label="шинэ" />}
                       </Link>
+                      {canClear && (
+                        <button type="button" onClick={() => (setError(''), hide(n).catch(failed))} aria-label="Энэ мэдэгдлийг арилгах" className="mr-2 mt-2 shrink-0 rounded-full p-1.5 text-neutral-500 hover:bg-neutral-600 hover:text-neutral-200">
+                          <X size={15} />
+                        </button>
+                      )}
                     </li>
                   );
                 })}

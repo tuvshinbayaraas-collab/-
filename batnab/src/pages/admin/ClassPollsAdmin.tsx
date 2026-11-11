@@ -1,7 +1,7 @@
 import {ChevronDown, Lock, LockOpen, Trash2, Users} from 'lucide-react';
 import {useState} from 'react';
 import Switch from '../../components/Switch';
-import {closeClassPoll, deleteClassPoll, reopenClassPoll, tally, useAllClassPolls, useAllClassVotes, votesOf, type ClassPoll, type ClassVotes} from '../../lib/classPolls';
+import {closeClassPoll, declinedOf, deleteClassPoll, reopenClassPoll, tally, useAllClassPolls, useAllClassVotes, votesOf, type ClassPoll, type ClassVotes} from '../../lib/classPolls';
 import {useClasses} from '../../lib/classes';
 import {saveSetting, useSettings} from '../../lib/settings';
 import {clock, dayLabel} from '../../lib/time';
@@ -67,7 +67,8 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
   const picks = votesOf(poll, votes);
   const {voters, counts} = tally(poll, votes);
   const asked = data.students.filter((s) => !s.profile.disabled && s.profile.class === poll.cls);
-  const quiet = asked.filter((s) => !picks[s.uid]);
+  const no = new Set(declinedOf(poll, votes));
+  const quiet = asked.filter((s) => !picks[s.uid] && !no.has(s.uid));
   const top = Math.max(0, ...counts);
   const cls = classes.find((c) => c.id === poll.cls)?.name ?? 'устгасан анги';
   const run = (f: () => Promise<unknown>) => f().catch((e) => alert((e as Error).message));
@@ -118,6 +119,9 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
                 .join(', ') || '—'}
             </p>
           ))}
+          <p>
+            <span className="text-neutral-400">Хариулахгүй гэсэн ({no.size}):</span> {[...no].map(name).join(', ') || '—'}
+          </p>
           <p>
             <span className="text-neutral-400">Хариулаагүй ({quiet.length}):</span> {quiet.map((s) => s.profile.name).join(', ') || '—'}
           </p>

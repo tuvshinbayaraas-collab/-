@@ -29,7 +29,8 @@ export interface ClassPoll {
   at: number;
 }
 
-export type ClassVotes = Record<string, Record<string, {id: string; c: number[]; at: number}>>;
+/** "{by}/{slot}" → voter → vote (`no`: «Хариулахгүй»). */
+export type ClassVotes = Record<string, Record<string, {id: string; c: number[]; no: boolean; at: number}>>;
 
 const pollKey = (p: Pick<ClassPoll, 'by' | 'slot'>) => `${p.by}/${p.slot}`;
 
@@ -68,14 +69,14 @@ function parseVotes(v: unknown): ClassVotes {
   for (const [by, slots] of Object.entries((v ?? {}) as Record<string, Record<string, Record<string, unknown>>>))
     for (const [slot, voters] of Object.entries(slots ?? {}))
       for (const [voter, x] of Object.entries(voters ?? {})) {
-        const vote = x as {id?: unknown; c?: Record<string, unknown>; at?: unknown} | null;
+        const vote = x as {id?: unknown; c?: Record<string, unknown>; no?: unknown; at?: unknown} | null;
         if (!vote || typeof vote.id !== 'string') continue;
         const c = Object.entries(vote.c ?? {})
           .filter(([, on]) => on === true)
           .map(([i]) => Number(i))
           .filter((i) => Number.isInteger(i) && i >= 0)
           .sort((a, b) => a - b);
-        (out[`${by}/${slot}`] ??= {})[voter] = {id: vote.id, c, at: Number(vote.at) || 0};
+        (out[`${by}/${slot}`] ??= {})[voter] = {id: vote.id, c, no: vote.no === true, at: Number(vote.at) || 0};
       }
   return out;
 }
@@ -100,6 +101,12 @@ export function votesOf(p: ClassPoll, votes: ClassVotes | null | undefined): Rec
   }
   return out;
 }
+
+/** Who said «Хариулахгүй» to this poll. */
+export const declinedOf = (p: ClassPoll, votes: ClassVotes | null | undefined) =>
+  Object.entries(votes?.[pollKey(p)] ?? {})
+    .filter(([, v]) => v.id === p.id && v.no)
+    .map(([voter]) => voter);
 
 /** How many picked each option, and how many answered. */
 export function tally(p: ClassPoll, votes: ClassVotes | null | undefined) {
@@ -140,6 +147,20 @@ export function voteClassPoll(p: ClassPoll, picked: number[]) {
   const c = (p.multi ? picked : picked.slice(0, 1)).filter((i) => i >= 0 && i < p.options.length);
   if (!c.length) return Promise.reject(new Error('Сонголтоо хийнэ үү.'));
   return set(ref(db, `classPollVotes/${p.cls}/${p.by}/${p.slot}/${uid}`), {id: p.id, c: Object.fromEntries(c.map((i) => [String(i), true])), at: serverTimestamp()});
+}
+
+/** «Хариулахгүй»: the poll leaves the student's page; answering later replaces it. */
+export function declineClassPoll(p: ClassPoll) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return Promise.reject(new Error('Нэвтэрнэ үү'));
+  return set(ref(db, `classPollVotes/${p.cls}/${p.by}/${p.slot}/${uid}`), {id: p.id, no: true, at: serverTimestamp()});
+}
+
+/** Takes the «Хариулахгүй» back. */
+export function undeclineClassPoll(p: ClassPoll) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return Promise.reject(new Error('Нэвтэрнэ үү'));
+  return set(ref(db, `classPollVotes/${p.cls}/${p.by}/${p.slot}/${uid}`), null);
 }
 
 /** For deleting a student: their polls (and those polls' votes) and their votes on others', in every class. */

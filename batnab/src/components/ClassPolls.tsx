@@ -4,10 +4,13 @@ import {
   CLOSED_SHOWN,
   closeClassPoll,
   createClassPoll,
+  declineClassPoll,
+  declinedOf,
   deleteClassPoll,
   freeSlot,
   MAX_CLASS_OPTIONS,
   tally,
+  undeclineClassPoll,
   useClassPolls,
   useClassVotes,
   voteClassPoll,
@@ -16,6 +19,7 @@ import {
   type ClassVotes,
 } from '../lib/classPolls';
 import {useSettings} from '../lib/settings';
+import {Declined} from './Polls';
 import {dayLabel, useNow} from '../lib/time';
 
 /** Shown at first; the rest behind «Бүгдийг харах». */
@@ -35,12 +39,16 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
   const now = useNow(60_000);
   const [making, setMaking] = useState(false);
   const [all, setAll] = useState(false);
+  // Said «Хариулахгүй» to on this visit: a line to take it back (next time, gone).
+  const [justNo, setJustNo] = useState<string[]>([]);
   if (!on || !polls || !votes) return null;
   const mine = polls.filter((p) => p.by === uid);
   // Classmates' open ones not answered yet first, then their own, then answered, then closed (for a few days; their
   // own stay till they delete them).
   const rank = (p: ClassPoll) => (p.closed ? 3 : votesOf(p, votes)[uid] ? 2 : p.by === uid ? 1 : 0);
-  const shown = polls.filter((p) => p.by === uid || !p.closed || now - p.closed < CLOSED_SHOWN).sort((a, b) => rank(a) - rank(b) || b.at - a.at);
+  const no = (p: ClassPoll) => declinedOf(p, votes).includes(uid);
+  const shown = polls.filter((p) => !no(p) && (p.by === uid || !p.closed || now - p.closed < CLOSED_SHOWN)).sort((a, b) => rank(a) - rank(b) || b.at - a.at);
+  const undo = polls.filter((p) => no(p) && justNo.includes(p.id));
   const list = all ? shown : shown.slice(0, FIRST);
   return (
     <section className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4">
@@ -59,9 +67,16 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
       {list.length > 0 && (
         <ul className="mt-3 space-y-3">
           {list.map((p) => (
-            <Card key={`${p.by}/${p.slot}/${p.id}`} poll={p} uid={uid} votes={votes} />
+            <Card key={`${p.by}/${p.slot}/${p.id}`} poll={p} uid={uid} votes={votes} onDeclined={() => setJustNo([...justNo, p.id])} />
           ))}
         </ul>
+      )}
+      {undo.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {undo.map((p) => (
+            <Declined key={p.id} q={p.q} tone="sky" onUndo={() => undeclineClassPoll(p).then(() => setJustNo(justNo.filter((x) => x !== p.id)))} />
+          ))}
+        </div>
       )}
       {shown.length > FIRST && (
         <button type="button" onClick={() => setAll(!all)} aria-expanded={all} className="mt-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
@@ -141,7 +156,7 @@ function NewPoll({cls, slot, onClose}: {cls: string; slot: string | null; onClos
   );
 }
 
-function Card({poll, uid, votes}: {poll: ClassPoll; uid: string; votes: ClassVotes}) {
+function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; votes: ClassVotes; onDeclined: () => void}) {
   const had = votesOf(poll, votes)[uid] ?? null;
   const {voters, counts} = tally(poll, votes);
   const own = poll.by === uid;
@@ -213,6 +228,11 @@ function Card({poll, uid, votes}: {poll: ClassPoll; uid: string; votes: ClassVot
             {had && (
               <button type="button" onClick={() => (setEditing(false), setPicked(null))} className="rounded-full px-3 py-1.5 text-sm text-neutral-400 hover:bg-neutral-800">
                 Болих
+              </button>
+            )}
+            {!had && !own && (
+              <button type="button" disabled={busy} onClick={() => void act(() => declineClassPoll(poll)).then((ok) => ok && onDeclined())} className="rounded-full px-3 py-1.5 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+                Хариулахгүй
               </button>
             )}
             <span className="text-xs text-neutral-500">{voters ? `${voters} хүн хариулсан · ` : ''}Хариулсны дараа дүн нь харагдана.</span>

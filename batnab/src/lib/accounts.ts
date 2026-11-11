@@ -12,6 +12,7 @@ import {get, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db, emulators, firebaseConfig} from './firebase';
 import {emailFor, USERNAME_RE} from './session';
 import {classPollPathsOf} from './classPolls';
+import {pollPathsOf} from './polls';
 
 /**
  * Creates a student's sign-in account and profile (in `classId`, if given). The account is created in a second, throwaway Firebase app so
@@ -69,7 +70,8 @@ export async function deleteStudent(uid: string) {
     [`topicWork/${uid}`]: null,
     [`topicRounds/${uid}`]: null,
     [`timeOn/${uid}`]: null,
-    ...Object.fromEntries(polls.map((id) => [`pollVotes/${id}/${uid}`, null])),
+    // Their poll answers, ideas and picks.
+    ...pollPathsOf(uid, polls),
     // Their class polls (with those polls' votes) and their votes on classmates'.
     ...classPollPathsOf(uid, classPolls, classVotes),
   });

@@ -97,6 +97,14 @@
           "fullCards": {
             ".validate": "newData.isBoolean()"
           },
+          "notesCleared": {
+            ".validate": "newData.isNumber() && newData.val() === now"
+          },
+          "notesHidden": {
+            "$k": {
+              ".validate": "$k.length <= 100 && newData.isNumber()"
+            }
+          },
           "$other": {
             ".validate": false
           }
@@ -461,7 +469,7 @@
       ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$id": {
-        ".validate": "$id.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['q', 'at']) && (newData.hasChild('options') || newData.child('comment').val() === true)",
+        ".validate": "$id.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['q', 'at']) && (newData.hasChild('options') || newData.child('comment').val() === true || newData.child('ideas').val() === true)",
         "q": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 300"
         },
@@ -487,6 +495,9 @@
             ".validate": "newData.val() === true"
           }
         },
+        "ideas": {
+          ".validate": "newData.isBoolean()"
+        },
         "$other": {
           ".validate": false
         }
@@ -498,15 +509,71 @@
       "$id": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && auth.uid === $uid && newData.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).exists() && root.child('polls').child($id).child('closed').val() !== true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))",
-          ".validate": "newData.hasChildren(['at']) && (newData.hasChild('c') || newData.hasChild('t'))",
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).exists() && root.child('polls').child($id).child('closed').val() !== true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))",
+          ".validate": "newData.hasChildren(['at']) && (newData.hasChild('c') || newData.hasChild('t') || newData.child('no').val() === true)",
           "c": {
             "$i": {
-              ".validate": "$i.matches(/^[0-7]$/) && newData.val() === true && root.child('polls').child($id).child('options').child($i).exists() && (root.child('polls').child($id).child('multi').val() === true || (($i === '0' || !newData.parent().child('0').exists()) && ($i === '1' || !newData.parent().child('1').exists()) && ($i === '2' || !newData.parent().child('2').exists()) && ($i === '3' || !newData.parent().child('3').exists()) && ($i === '4' || !newData.parent().child('4').exists()) && ($i === '5' || !newData.parent().child('5').exists()) && ($i === '6' || !newData.parent().child('6').exists()) && ($i === '7' || !newData.parent().child('7').exists())))"
+              ".validate": "$i.matches(/^[0-7]$/) && newData.val() === true && root.child('polls').child($id).child('options').child($i).exists() && (root.child('polls').child($id).child('multi').val() === true || (($i === '0' || !newData.parent().child('0').exists()) && ($i === '1' || !newData.parent().child('1').exists()) && ($i === '2' || !newData.parent().child('2').exists()) && ($i === '3' || !newData.parent().child('3').exists()) && ($i === '4' || !newData.parent().child('4').exists()) && ($i === '5' || !newData.parent().child('5').exists()) && ($i === '6' || !newData.parent().child('6').exists()) && ($i === '7' || !newData.parent().child('7').exists()))) && root.child('polls').child($id).child('ideas').val() !== true"
             }
           },
           "t": {
             ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500 && root.child('polls').child($id).child('comment').val() === true"
+          },
+          "at": {
+            ".validate": "newData.val() === now"
+          },
+          "no": {
+            ".validate": "newData.val() === true && !newData.parent().hasChild('c') && !newData.parent().hasChild('t')"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "pollIdeas": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).child('ideas').val() === true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))))",
+        "$iid": {
+          ".write": "auth != null && ($iid === auth.uid + '1' || $iid === auth.uid + '2' || $iid === auth.uid + '3') && (!newData.exists() || (!data.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).child('ideas').val() === true && root.child('polls').child($id).child('closed').val() !== true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))))",
+          ".validate": "newData.hasChildren(['by', 'text', 'n', 'at']) && (newData.child('by').val() + '1' === $iid || newData.child('by').val() + '2' === $iid || newData.child('by').val() + '3' === $iid)",
+          "by": {
+            ".validate": "newData.isString()"
+          },
+          "text": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+          },
+          "n": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{10,40}$/)"
+          },
+          "at": {
+            ".validate": "newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "pollPicks": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).child('ideas').val() === true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))))",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('polls').child($id).child('ideas').val() === true && root.child('polls').child($id).child('closed').val() !== true && (!root.child('polls').child($id).child('classes').exists() || (root.child('users').child(auth.uid).child('class').exists() && root.child('polls').child($id).child('classes').child(root.child('users').child(auth.uid).child('class').val()).exists()))",
+          ".validate": "newData.hasChildren(['at']) && (newData.hasChild('c') || newData.hasChild('d'))",
+          "c": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-7]$/) && newData.val() === true && root.child('polls').child($id).child('options').child($i).exists()"
+            }
+          },
+          "d": {
+            "$iid": {
+              ".validate": "newData.isString() && newData.val() === root.child('pollIdeas').child($id).child($iid).child('n').val()"
+            }
           },
           "at": {
             ".validate": "newData.val() === now"
@@ -563,8 +630,8 @@
           "$slot": {
             ".write": "auth != null && auth.uid === $by && !newData.exists()",
             "$voter": {
-              ".write": "auth != null && auth.uid === $voter && newData.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('settings/studentPolls').val() !== false && root.child('classPolls').child($cls).child($by).child($slot).child('id').exists() && !root.child('classPolls').child($cls).child($by).child($slot).child('closed').exists()",
-              ".validate": "newData.hasChildren(['id', 'c', 'at']) && newData.child('id').val() === root.child('classPolls').child($cls).child($by).child($slot).child('id').val()",
+              ".write": "auth != null && auth.uid === $voter && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('settings/studentPolls').val() !== false && root.child('classPolls').child($cls).child($by).child($slot).child('id').exists() && !root.child('classPolls').child($cls).child($by).child($slot).child('closed').exists()",
+              ".validate": "newData.hasChildren(['id', 'at']) && (newData.hasChild('c') || newData.child('no').val() === true) && newData.child('id').val() === root.child('classPolls').child($cls).child($by).child($slot).child('id').val()",
               "id": {
                 ".validate": "newData.isString()"
               },
@@ -575,6 +642,9 @@
               },
               "at": {
                 ".validate": "newData.val() === now"
+              },
+              "no": {
+                ".validate": "newData.val() === true && !newData.parent().hasChild('c')"
               },
               "$other": {
                 ".validate": false

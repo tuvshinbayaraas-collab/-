@@ -27,8 +27,8 @@ export interface Profile {
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */
   class?: string;
-  /** The student's own settings (see lib/prefs.ts). */
-  prefs?: Partial<Record<PrefKey, boolean>>;
+  /** The student's own settings (see lib/prefs.ts), and what they cleared from the bell's list (lib/notifications). */
+  prefs?: Partial<Record<PrefKey, boolean>> & {notesCleared?: number; notesHidden?: Record<string, number>};
 }
 
 export interface Session {

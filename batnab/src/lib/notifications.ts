@@ -1,7 +1,10 @@
 // Notifications ("Мэдэгдэл"): made from what is already there, nothing extra is stored for them. A student gets a new
 // assignment, one due within a day, the teacher's notes, an exam scheduled or starting, the teacher's check of an
 // answer, a reply to a question, a medal, a live quiz starting; the teacher gets new questions and answers waiting to
-// be checked. What came after the last look at the list (kept on this device) counts as new.
+// be checked. What came after the last look at the list (kept on this device) counts as new. A student may clear the
+// list (users/{uid}/prefs/notesCleared: everything up to then) or take one note off it (prefs/notesHidden/{id}: the
+// note's time — it comes back only if it changes, as a newer check of the same answer); both follow the account.
+import {ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {assignmentFor, assignmentState, assignmentTitle} from '../components/Today';
 import {testInfo} from '../tests';
@@ -13,6 +16,7 @@ import {liveOn, useLiveQuiz} from './liveQuiz';
 import {usePolls} from './polls';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
+import {auth, db} from './firebase';
 import {navigate} from './router';
 import {useSession} from './session';
 import {clock, dayLabel, serverNow, useNow} from './time';
@@ -173,10 +177,32 @@ export function useNotes() {
   const student = !!session.profile && !session.profile.disabled && !session.admin;
   const studentNotes = useStudentNotes(uid, session.profile?.class, student);
   const teacherNotes = useTeacherNotes(session.admin);
-  const notes = session.admin ? teacherNotes : student ? studentNotes : [];
+  // What the student cleared off the list.
+  const cleared = Number(session.profile?.prefs?.notesCleared) || 0;
+  const hidden = session.profile?.prefs?.notesHidden ?? {};
+  const shown = (studentNotes ?? null) && studentNotes!.filter((n) => n.at > cleared && !(Number(hidden[noteKey(n.id)]) >= n.at));
+  const notes = session.admin ? teacherNotes : student ? shown : [];
   const [seen, markAll] = useSeen(uid);
   const fresh = (notes ?? []).filter((n) => n.at > seen).length;
-  return {notes, seen, fresh, markAll};
+  return {notes, seen, fresh, markAll, canClear: student, hide: (n: Note) => hideNote(n, hidden)};
+}
+
+/** A note's id as a database key (no '/', '.', '#', '$', '[', ']'). */
+const noteKey = (id: string) => id.replace(/[./#$[\]%]/g, (c) => `%${c.charCodeAt(0).toString(16)}`);
+
+/** Clears the student's whole list (what comes later shows). */
+export function clearNotes() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return Promise.reject(new Error('Нэвтэрнэ үү'));
+  return update(ref(db, `users/${uid}/prefs`), {notesCleared: serverTimestamp(), notesHidden: null});
+}
+
+/** Takes one note off the list (those older than the list keeps go from the record too). */
+function hideNote(n: Note, hidden: Record<string, number>) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return Promise.reject(new Error('Нэвтэрнэ үү'));
+  const old = Object.entries(hidden).filter(([, at]) => !(Number(at) > serverNow() - KEEP)).map(([k]) => [`notesHidden/${k}`, null]);
+  return update(ref(db, `users/${uid}/prefs`), {...Object.fromEntries(old), [`notesHidden/${noteKey(n.id)}`]: n.at});
 }
 
 // ---- on the phone's or computer's own notification list (while the site is open in another tab or app) ----
