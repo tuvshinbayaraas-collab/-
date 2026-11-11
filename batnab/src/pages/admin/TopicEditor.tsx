@@ -21,6 +21,11 @@ import {
   useAllMarks,
   useAllProgress,
   useAllRounds,
+  emptyOldTrash,
+  TRASH_DAYS,
+  untrash,
+  useTrash,
+  type Trashed,
   useTopicImage,
   useTopicKeys,
   useTopics,
@@ -40,6 +45,7 @@ import TextProblems, {applyText} from './TextProblems';
 import ProblemStats, {problemStats} from './ProblemStats';
 import TopicCheck, {waitingIn} from './TopicCheck';
 import Loading from '../../components/Loading';
+import {dayLabel} from '../../lib/time';
 
 const small = 'flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50';
 const addButton = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-700 py-4 text-sm font-semibold text-neutral-300 hover:border-blue-500 hover:text-blue-300';
@@ -97,6 +103,45 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const dirty = now !== saved;
   // A save that failed isn't tried again on its own until something changes.
   const failed = useRef('');
+  // Saved from another window or device since this one opened (its stamp isn't this editor's): taken in when nothing is
+  // left to save here; else the teacher picks which to keep, and nothing saves on its own meanwhile.
+  const base = useRef(topic.edit);
+  const mine = useRef(new Set<string>());
+  const [conflict, setConflict] = useState(false);
+  const dirtyNow = useRef(dirty);
+  dirtyNow.current = dirty;
+  // The classes and the order are set elsewhere too (an assignment opening the topic to a class, the list's arrows):
+  // taken in when not changed here.
+  const seen = useRef({classes: classKey(topic.classes), order: topic.order});
+  const adopt = () => {
+    setDraft(structuredClone(topic));
+    setAnswers({...keys});
+    setSaved(snapshot(topic, keys));
+    for (const i of imagesOf(topic)) known.current.add(i);
+    seen.current = {classes: classKey(topic.classes), order: topic.order};
+    base.current = topic.edit;
+    setConflict(false);
+  };
+  useEffect(() => {
+    const e = topic.edit;
+    if (e && e !== base.current && !mine.current.has(e)) {
+      if (dirtyNow.current) setConflict(true);
+      else adopt();
+      return;
+    }
+    const c = classKey(topic.classes);
+    if (c !== seen.current.classes) {
+      const was = seen.current.classes;
+      seen.current.classes = c;
+      setDraft((d) => (classKey(d.classes) === was ? {...d, classes: topic.classes} : d));
+    }
+    if (topic.order !== seen.current.order) {
+      const was = seen.current.order;
+      seen.current.order = topic.order;
+      setDraft((d) => (d.order === was ? {...d, order: topic.order} : d));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -111,20 +156,29 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const deleted = useRef(false);
   /** Saves the draft; whether it went. */
   const save = async (manual = false) => {
-    if (deleted.current) return false;
+    if (deleted.current || conflict) return false;
     setBusy(true);
     setError('');
     const at = snapshot(draft, answers);
     try {
       const used = imagesOf(draft);
       const gone = [...known.current].filter((i) => !used.has(i));
-      await saveTopic(draft, answers, gone);
+      const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      mine.current.add(stamp);
+      // Where the pictures taken out were (the version saved last), to put them back there from the trash.
+      await saveTopic(draft, answers, gone, stamp, base.current, topic);
+      base.current = stamp;
       // Not the pictures added while it saved: they are still to be cleaned up if left out.
       for (const i of gone) known.current.delete(i);
       setSaved(at);
       if (manual) flash();
       return true;
     } catch (e) {
+      // Refused for another save that came in meanwhile (both saved at once): the teacher picks which to keep.
+      if (/permission/i.test((e as Error).message)) {
+        setConflict(true);
+        return false;
+      }
       failed.current = at;
       setError((e as Error).message);
       return false;
@@ -134,16 +188,16 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   };
   // Changes save themselves a moment after the last one ("Хадгалах" saves at once).
   useEffect(() => {
-    if (!dirty || busy || !draft.title.trim() || failed.current === now) return;
+    if (!dirty || busy || conflict || !draft.title.trim() || failed.current === now) return;
     const t = setTimeout(() => void save(), 1200);
     return () => clearTimeout(t);
     // `save` is this render's, with the draft just changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now, dirty, busy]);
+  }, [now, dirty, busy, conflict]);
   // Left another way than the editor's own buttons (a tab of the teacher's page, the browser's Back) within that
   // moment: the last change is saved on the way out.
   const flush = useRef<(() => void) | null>(null);
-  flush.current = dirty && draft.title.trim() && failed.current !== now ? () => void save() : null;
+  flush.current = dirty && !conflict && draft.title.trim() && failed.current !== now ? () => void save() : null;
   useEffect(() => () => flush.current?.(), []);
   const copy = async () => {
     if (dirty) await save();
@@ -187,6 +241,29 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
       <button onClick={() => leave('/admin?tab=topics')} className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
         <ArrowLeft size={16} /> Сэдвүүд
       </button>
+
+      {conflict && (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm" role="alert">
+          <p className="font-semibold text-amber-200">Энэ сэдвийг өөр цонх эсвэл төхөөрөмжөөс хадгалсан байна.</p>
+          <p className="mt-1 text-neutral-300">Энд хадгалаагүй өөрчлөлт байгаа тул юуг ч дарж бичээгүй. Аль хувилбарыг үлдээхээ сонгоно уу.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={adopt} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium hover:bg-neutral-700">
+              Тэндхийг ачаалах (энд хийснийг орхих)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                base.current = topic.edit;
+                setConflict(false);
+                failed.current = '';
+              }}
+              className="rounded-full bg-amber-500 px-4 py-1.5 font-semibold text-black hover:bg-amber-400"
+            >
+              Энд хийснийг хадгалах (тэндхийг дарж)
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-full bg-neutral-900 p-1" role="tablist">
@@ -351,6 +428,20 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
             {bulk && <BulkAnswers problems={draft.problems} answers={answers} onApply={(found) => setAnswers((k) => ({...k, ...found}))} onClose={() => setBulk(false)} />}
           </section>
 
+          <Trash
+            tid={draft.id}
+            problems={draft.problems}
+            onBack={(x) => {
+              known.current.add(x.iid);
+              change((t) => {
+                const p = x.pid ? t.problems.find((q) => q.id === x.pid) : undefined;
+                // Back where it was if that place is free; else into the lesson.
+                if (p && x.field && !p[x.field]) p[x.field] = x.iid;
+                else t.lesson.push({t: 'img', img: x.iid});
+                return t;
+              });
+            }}
+          />
           <div className="flex flex-wrap gap-4">
             <button onClick={copy} className="flex items-center gap-1.5 text-sm text-neutral-300 hover:underline">
               <Copy size={15} /> Сэдвийг хуулбарлах (өөр ангид)
@@ -1010,5 +1101,58 @@ function Results({topic, answers, data}: {topic: Topic; answers: Record<string, 
         )}
       </section>
     </div>
+  );
+}
+
+const classKey = (c?: Record<string, true>) => Object.keys(c ?? {}).sort().join(',');
+
+/** The pictures taken out of the topic lately (kept TRASH_DAYS days): each can be put back. */
+function Trash({tid, problems, onBack}: {tid: string; problems: Problem[]; onBack: (x: Trashed) => void}) {
+  const trash = useTrash(tid);
+  const [busy, setBusy] = useState('');
+  useEffect(() => {
+    if (trash?.length) void emptyOldTrash(tid, trash, Date.now()).catch(() => {});
+  }, [tid, trash]);
+  const shown = (trash ?? []).filter((x) => !x.at || Date.now() - x.at <= TRASH_DAYS * 86_400_000);
+  if (!shown.length) return null;
+  const where = (x: Trashed) => {
+    if (!x.pid) return 'Хичээлийн зураг';
+    const i = problems.findIndex((p) => p.id === x.pid);
+    return i < 0 ? 'Устгасан бодлогын зураг (хичээлд тавигдана)' : `${problemNo(problems[i], i)}-р бодлогын ${x.field === 'solImg' ? 'бодолтын ' : ''}зураг`;
+  };
+  return (
+    <Card>
+      <h2 className="font-semibold">Хассан зураг ({shown.length})</h2>
+      <p className="mt-1 text-sm text-neutral-400">Сэдвээс хассан зураг {TRASH_DAYS} хоног энд хадгалагдана: буцааж тавьж болно (байсан газраа, эзэнгүй бол хичээлд).</p>
+      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {shown.map((x) => (
+          <li key={x.iid} className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+            <img src={x.img} alt="" className="h-28 w-full bg-white object-contain" />
+            <div className="space-y-1.5 p-2 text-xs">
+              <p className="text-neutral-300">{where(x)}</p>
+              <p className="text-neutral-500">{x.at ? `${dayLabel(x.at)}-нд хассан` : ''}</p>
+              <button
+                type="button"
+                disabled={busy === x.iid}
+                onClick={async () => {
+                  setBusy(x.iid);
+                  try {
+                    await untrash(tid, x);
+                    onBack(x);
+                  } catch (e) {
+                    alert(`Алдаа: ${(e as Error).message}`);
+                  } finally {
+                    setBusy('');
+                  }
+                }}
+                className="w-full rounded-full bg-neutral-800 px-3 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700 disabled:opacity-50"
+              >
+                Буцааж тавих
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

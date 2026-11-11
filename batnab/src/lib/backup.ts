@@ -132,6 +132,12 @@ function fitUser(v: unknown, classes: Set<string>, photos: boolean) {
  * Puts the chosen parts back, part by part (one that fails doesn't stop the others). Returns how many records were
  * written and the parts that failed, with why.
  */
+const withoutStamp = (v: unknown) => {
+  if (!v || typeof v !== 'object') return v;
+  const {edit: _e, prev: _p, ...rest} = v as Record<string, unknown>;
+  return rest;
+};
+
 export async function restoreBackup(b: Backup, parts: PartId[], onStep?: (done: number, total: number) => void) {
   const chosen = PARTS.filter((x) => parts.includes(x.id));
   // What a student's record may point to: the classes there are (and those coming back), whether photos are on.
@@ -146,7 +152,8 @@ export async function restoreBackup(b: Backup, parts: PartId[], onStep?: (done: 
       const depth = NODES.find(([n]) => n === node)![1];
       if (b.data[node] === undefined) continue;
       for (const [path, raw] of records(node, b.data[node], depth)) {
-        const v = node === 'users' ? fitUser(raw, classes, photosNow !== false) : raw;
+        // A topic put back goes without its save stamps (they'd be refused over a later save; editors take it in).
+        const v = node === 'users' ? fitUser(raw, classes, photosNow !== false) : node === 'topics' ? withoutStamp(raw) : raw;
         const n = JSON.stringify(v ?? null).length + path.length;
         if (size && size + n > LIMIT) {
           jobs.push({part, batch: cur});

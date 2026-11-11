@@ -388,7 +388,7 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
         <VoteIcon size={18} className="text-violet-300" /> Санал асуулга
       </h2>
       <form onSubmit={submit} className="space-y-3 rounded-2xl bg-neutral-900 p-4 sm:p-5">
-        <input value={q} maxLength={300} onChange={(e) => setQ(e.target.value)} placeholder="Асуулт, жишээ нь: Шинэ «Алдааны дэвтэр» танд хэр хэрэгтэй байна вэ?" className={field} aria-label="Асуулт" />
+        <textarea value={q} maxLength={300} rows={2} onChange={(e) => setQ(e.target.value)} placeholder="Асуулт, жишээ нь: Шинэ «Алдааны дэвтэр» танд хэр хэрэгтэй байна вэ?" className={`${field} resize-y`} aria-label="Асуулт" />
         <div className="space-y-2">
           {options.map((o, i) => (
             <div key={i} className="flex items-center gap-2">

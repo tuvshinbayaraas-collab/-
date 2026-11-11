@@ -51,9 +51,24 @@ export async function createStudent(name: string, username: string, password: st
 export const renameStudent = (uid: string, name: string) => set(ref(db, `users/${uid}/name`), name.trim().replace(/\s+/g, ' ').slice(0, 60));
 export const setBlocked = (uid: string, blocked: boolean) => set(ref(db, `users/${uid}/disabled`), blocked || null);
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
-/** The account's record, results, questions, and topic answers (with the teacher's marks and their photos). */
-export const deleteStudent = (uid: string) =>
-  update(ref(db), {[`users/${uid}`]: null, [`results/${uid}`]: null, [`questions/${uid}`]: null, [`topicProgress/${uid}`]: null, [`topicMarks/${uid}`]: null, [`topicWork/${uid}`]: null});
+/**
+ * The account's record, results, questions, topic answers (with the teacher's marks and their photos, and the times
+ * done again), the time counted, and their poll answers.
+ */
+export async function deleteStudent(uid: string) {
+  const polls = Object.keys(((await get(ref(db, 'polls')).catch(() => null))?.val() ?? {}) as Record<string, unknown>);
+  return update(ref(db), {
+    [`users/${uid}`]: null,
+    [`results/${uid}`]: null,
+    [`questions/${uid}`]: null,
+    [`topicProgress/${uid}`]: null,
+    [`topicMarks/${uid}`]: null,
+    [`topicWork/${uid}`]: null,
+    [`topicRounds/${uid}`]: null,
+    [`timeOn/${uid}`]: null,
+    ...Object.fromEntries(polls.map((id) => [`pollVotes/${id}/${uid}`, null])),
+  });
+}
 export const deleteResult = (uid: string, test: string, id: string) => set(ref(db, `results/${uid}/${test}/${id}`), null);
 /** The teacher takes a student's photo down (from the leaderboard podium too). */
 export const removePhoto = (uid: string) => update(ref(db), {[`users/${uid}/photo`]: null, [`pub/${uid}`]: null});

@@ -1,6 +1,8 @@
 // Topics ("Сэдэв"): a lesson (text with $math$, pictures, videos) and problems the teacher writes in the dashboard.
 //   topics/{tid}              title, intro, published, classes (none = every class), order, lesson[], problems[]
 //   topicImages/{tid}/{iid}   pictures as data URLs, loaded only when shown
+//   topicTrash/{tid}/{iid} = {img, at, pid?, field?}   a picture taken out of the topic (by an edit, the text import):
+//                             kept 30 days to be put back (where it was: problem pid's `img`/`solImg`, or the lesson)
 //   topicKeys/{tid}/{pid}     the right answer ("A"…"E", or a short written answer), teacher only
 //   topicProgress/{uid}/{tid}/{pid} = {a, at}   a student's first answer; only after it is written may they read that
 //                             problem's key (the rules check), so the first try is honest and the teacher sees it.
@@ -59,6 +61,8 @@ export interface Topic {
   createdAt: number;
   lesson: Block[];
   problems: Problem[];
+  /** Who saved it last (a stamp each editor makes up): an editor that didn't, doesn't write over it unasked. */
+  edit?: string;
 }
 
 const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? v.filter(Boolean) : v && typeof v === 'object' ? Object.values(v) : []) as T[];
@@ -75,6 +79,7 @@ function parse(id: string, v: Partial<Topic> | null): Topic | null {
     createdAt: typeof v.createdAt === 'number' ? v.createdAt : 0,
     lesson: asArray<Block>(v.lesson).filter((b) => (b.t === 'text' && typeof b.text === 'string') || (b.t === 'img' && typeof b.img === 'string') || (b.t === 'vid' && typeof b.url === 'string')),
     problems: asArray<Problem>(v.problems).filter((p) => typeof p.id === 'string'),
+    edit: typeof v.edit === 'string' ? v.edit : undefined,
   };
 }
 
@@ -186,9 +191,34 @@ const stored = (p: Problem, keyed: boolean) => ({
   no: typeof p.no === 'number' && p.no > 0 ? Math.round(p.no) : null,
 });
 
-/** The topic, its keys, and the pictures no longer used (gone) in one write. */
-export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]) {
+/** Where each picture of a topic is: a problem's picture or solution picture, or the lesson. */
+export function whereImages(t: Pick<Topic, 'lesson' | 'problems'>) {
+  const at = new Map<string, {pid?: string; field?: 'img' | 'solImg'}>();
+  for (const b of t.lesson) if (b.t === 'img') at.set(b.img, {});
+  for (const p of t.problems) {
+    if (p.img) at.set(p.img, {pid: p.id, field: 'img'});
+    if (p.solImg) at.set(p.solImg, {pid: p.id, field: 'solImg'});
+  }
+  return at;
+}
+
+/** Pictures taken out are kept this long, to be put back. */
+export const TRASH_DAYS = 30;
+
+/**
+ * The topic, its keys, and the pictures no longer used (gone) in one write; `edit` is this save's stamp and `prev` the
+ * stamp of the version it was made from: the rules refuse it if another save came in since (then the editor asks). The
+ * pictures gone are moved to topicTrash (with where they were, from `was`) rather than deleted.
+ */
+export async function saveTopic(t: Topic, keys: Record<string, string>, gone: string[], edit: string, prev: string | undefined, was?: Pick<Topic, 'lesson' | 'problems'>) {
+  const where = was ? whereImages(was) : new Map();
+  const trash: Record<string, unknown> = {};
+  for (const iid of gone) {
+    const img = (await get(ref(db, `topicImages/${t.id}/${iid}`)).catch(() => null))?.val();
+    if (typeof img === 'string') trash[`topicTrash/${t.id}/${iid}`] = {img, at: serverTimestamp(), ...(where.get(iid) ?? {})};
+  }
   return update(ref(db), {
+    ...trash,
     [`topics/${t.id}`]: {
       title: t.title.trim().slice(0, 80) || 'Нэргүй сэдэв',
       intro: clean(t.intro),
@@ -198,6 +228,8 @@ export function saveTopic(t: Topic, keys: Record<string, string>, gone: string[]
       createdAt: t.createdAt,
       lesson: t.lesson.filter((b) => (b.t === 'text' ? b.text.trim() : b.t === 'img' ? b.img : b.url.trim())).map((b) => (b.t === 'text' ? {t: 'text', text: b.text.trim()} : b.t === 'vid' ? {t: 'vid', url: b.url.trim()} : b)),
       problems: t.problems.map((p) => stored(p, !!keys[p.id])),
+      edit,
+      prev: prev ?? null,
     },
     [`topicKeys/${t.id}`]: Object.fromEntries(Object.entries(keys).filter(([pid, k]) => k && t.problems.some((p) => p.id === pid))),
     ...Object.fromEntries(gone.map((iid) => [`topicImages/${t.id}/${iid}`, null])),
@@ -239,8 +271,36 @@ export const deleteTopic = (tid: string, uids: string[] = []) =>
     [`topics/${tid}`]: null,
     [`topicKeys/${tid}`]: null,
     [`topicImages/${tid}`]: null,
+    [`topicTrash/${tid}`]: null,
     ...Object.fromEntries(uids.flatMap((uid) => [`topicProgress/${uid}/${tid}`, `topicMarks/${uid}/${tid}`, `topicWork/${uid}/${tid}`, `topicRounds/${uid}/${tid}`, `timeOn/${uid}/p${tid}`].map((k) => [k, null]))),
   });
+
+export interface Trashed {
+  iid: string;
+  img: string;
+  at: number;
+  pid?: string;
+  field?: 'img' | 'solImg';
+}
+
+/** The pictures taken out of a topic in the last TRASH_DAYS (newest first); older ones are dropped as they're read. */
+export function useTrash(tid: string) {
+  return useLive(`topicTrash/${tid}`, (v) => {
+    const all = Object.entries((v ?? {}) as Record<string, Partial<Trashed>>).flatMap(([iid, x]) =>
+      typeof x?.img === 'string' ? [{iid, img: x.img, at: Number(x.at) || 0, ...(typeof x.pid === 'string' ? {pid: x.pid} : {}), ...(x.field === 'img' || x.field === 'solImg' ? {field: x.field} : {})}] : [],
+    );
+    return all.sort((a, b) => b.at - a.at);
+  });
+}
+
+/** Drops the pictures kept longer than TRASH_DAYS. */
+export function emptyOldTrash(tid: string, trash: Trashed[], now: number) {
+  const old = trash.filter((x) => x.at && now - x.at > TRASH_DAYS * 86_400_000);
+  return old.length ? update(ref(db), Object.fromEntries(old.map((x) => [`topicTrash/${tid}/${x.iid}`, null]))) : Promise.resolve();
+}
+
+/** Puts a picture back among the topic's (the editor then uses it again), out of the trash. */
+export const untrash = (tid: string, x: Trashed) => update(ref(db), {[`topicImages/${tid}/${x.iid}`]: x.img, [`topicTrash/${tid}/${x.iid}`]: null});
 
 export const setTopicOrder = (a: Topic, b: Topic) => update(ref(db), {[`topics/${a.id}/order`]: b.order, [`topics/${b.id}/order`]: a.order});
 

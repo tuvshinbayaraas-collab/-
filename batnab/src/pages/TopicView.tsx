@@ -98,6 +98,9 @@ export default function TopicView({id}: {id: string}) {
   // The scores of the times done (and the one under way).
   const times = Array.from({length: Math.max(last, next ?? 1)}, (_, i) => ({n: i + 1, ...tally(i + 1)}));
   const firstTime = times[0];
+  // The best of the times done again (all their problems answered); none: empty.
+  const again = times.filter((x) => x.n > 1 && x.done === total);
+  const best = again.length ? again.reduce((a, x) => (x.right > a.right ? x : a)) : null;
   const grade = {score: now.right, total, count: total};
   const mine = answersOf(current);
   const label = (n: number) => (n === 1 ? 'Эхний удаа' : `${n} дахь удаа`);
@@ -110,7 +113,7 @@ export default function TopicView({id}: {id: string}) {
   const map = !session.admin && total > 0;
 
   return (
-    <div className={`mx-auto max-w-3xl py-4 sm:py-6 ${map ? 'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-x-8' : ''}`}>
+    <div className={`mx-auto max-w-3xl py-4 sm:py-6 ${map ? 'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-x-8' : ''}`}>
       <div className="min-w-0 lg:col-start-1">
         <Link href="/topics" className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
           <ArrowLeft size={16} /> Сэдвүүд
@@ -152,6 +155,8 @@ export default function TopicView({id}: {id: string}) {
             right={now.right}
             wait={now.wait}
             complete={complete}
+            first={firstTime}
+            best={best}
             times={times}
             current={current}
             onPick={(n) => setView(n === Math.max(last, next ?? 1) ? null : n)}
@@ -169,12 +174,8 @@ export default function TopicView({id}: {id: string}) {
                 <ListChecks size={18} /> Бодлого
                 {current > 1 && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-200">{label(current)}</span>}
               </h2>
-              {!session.admin && (
-                <span className="text-sm text-neutral-400">
-                  {now.done}/{total} бодсон{now.done > 0 && ` · ${now.right} зөв`}
-                  {now.wait > 0 && current === 1 && ` · ${now.wait} нь багш шалгаж байна`}
-                </span>
-              )}
+              {/* (How far, and the score: in the map.) Answers the teacher has yet to check, said here. */}
+              {!session.admin && now.wait > 0 && current === 1 && <span className="text-sm text-violet-300">{now.wait} нь багш шалгаж байна</span>}
             </div>
             {complete && !session.admin && (current > 1 || now.wait === 0) && (
               <ResultCard perfect={isPerfect(grade) ? 'test' : null} id={`topic-${t.id}-${current}`} className="mb-4">
@@ -237,13 +238,15 @@ function TopicMap(props: {
   right: number;
   wait: number;
   complete: boolean;
+  first: {done: number; right: number};
+  best: {n: number; right: number} | null;
   times: {n: number; done: number; right: number}[];
   current: number;
   onPick: (n: number) => void;
   onJump: (i: number) => void;
   onRestart?: () => void;
 }) {
-  const {problems, stateOf, title, done, right, wait, complete, times, current, onPick, onJump, onRestart} = props;
+  const {problems, stateOf, title, done, right, wait, complete, first, best, times, current, onPick, onJump, onRestart} = props;
   const [shut, setShut] = useState(false);
   const total = problems.length;
   const pct = total ? Math.round((right / total) * 100) : 0;
@@ -266,6 +269,19 @@ function TopicMap(props: {
       </button>
       {!shut && (
         <>
+          {/* The first time (the one that counts) and the best time done again (none yet: empty). */}
+          <dl className="mt-3 divide-y divide-neutral-700/60 rounded-xl bg-neutral-800/60 text-sm">
+            <div className="flex items-baseline justify-between gap-3 px-3 py-1.5">
+              <dt className="text-neutral-400">Эхний удаа</dt>
+              <dd className={`tabular-nums ${first.done === total ? 'font-semibold' : 'text-neutral-500'}`}>{first.done === total ? `${first.right}/${total}` : 'бодож байна'}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-3 px-3 py-1.5">
+              <dt className="text-neutral-400">Дахин бодсон шилдэг</dt>
+              <dd className={`tabular-nums ${best ? 'font-semibold' : 'text-neutral-500'}`} title={best ? `${best.n} дахь удаа` : 'Дахин бодоогүй'}>
+                {best ? `${best.right}/${total}` : '—'}
+              </dd>
+            </div>
+          </dl>
           <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5" role="list" aria-label="Бодлогууд">
             {problems.map((p, i) => {
               const s = stateOf(p);
