@@ -37,8 +37,8 @@ export interface Question {
   seen?: boolean;
   /** Shown to the class leader too (this class), without who asked. */
   help?: string;
-  /** The class leader's answer, let through by the teacher. */
-  peer?: {text: string; name: string; at: number};
+  /** A class leader's explanation (straight from them). */
+  peer?: {text: string; name: string; at: number; by?: string};
 }
 
 const pick = (classes?: Record<string, true>) => (classes && Object.keys(classes).length ? classes : null);
@@ -74,15 +74,19 @@ export function topicGap(classes: Record<string, true> | undefined, topic: {clas
   return {names: shut.map((id) => all.find((c) => c.id === id)?.name ?? '').filter(Boolean), open: to ? {...open, ...to} : null};
 }
 
-/** An assignment gone, with what the class leaders had for it (counts, reminders) and everyone's «done» mark of it. */
+/** An assignment gone, with what the class leaders had for it: how far each classmate was, the reminders sent. */
 export async function deleteAssignment(id: string) {
   const read = async (path: string) => ((await get(ref(db, path)).catch(() => null))?.val() ?? {}) as Record<string, Record<string, unknown>>;
-  const [reminders, done] = await Promise.all([read('classReminders'), read('doneBy')]);
+  const [reminders, work, nudges] = await Promise.all([read('classReminders'), read('classWork'), read('classNudges')]);
   return update(ref(db), {
     [`assignments/${id}`]: null,
-    [`doneCount/${id}`]: null,
     ...Object.fromEntries(Object.entries(reminders).flatMap(([cls, byA]) => (byA?.[id] !== undefined ? [[`classReminders/${cls}/${id}`, null]] : []))),
-    ...Object.fromEntries(Object.entries(done).flatMap(([uid, byA]) => (byA?.[id] !== undefined ? [[`doneBy/${uid}/${id}`, null]] : []))),
+    ...Object.fromEntries(Object.entries(work).flatMap(([cls, byA]) => (byA?.[id] !== undefined ? [[`classWork/${cls}/${id}`, null]] : []))),
+    ...Object.fromEntries(
+      Object.entries(nudges).flatMap(([cls, byU]) =>
+        Object.entries((byU ?? {}) as Record<string, Record<string, unknown>>).flatMap(([uid, byA]) => (byA?.[id] !== undefined ? [[`classNudges/${cls}/${uid}/${id}`, null]] : [])),
+      ),
+    ),
   });
 }
 
@@ -110,8 +114,11 @@ export const useAllQuestions = (on = true) =>
       .sort((a, b) => Number(!!a.reply) - Number(!!b.reply) || b.at - a.at),
   );
 
-/** Asks the teacher; `help` (the student's class): the class leader may answer too (they see it without who asked). */
-export function askQuestion(ctx: Question['ctx'], text: string, help?: string) {
+/**
+ * Asks the teacher; `help` (the student's class): the class's leaders may explain it too (they see it with `name`, the
+ * asker's, and their explanation comes straight to the asker).
+ */
+export function askQuestion(ctx: Question['ctx'], text: string, help?: string, name?: string) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
   const label = ctx.label.slice(0, 120);
@@ -119,22 +126,24 @@ export function askQuestion(ctx: Question['ctx'], text: string, help?: string) {
   const id = push(ref(db, `questions/${uid}`)).key!;
   return update(ref(db), {
     [`questions/${uid}/${id}`]: {text: t, at: serverTimestamp(), ctx: {...ctx, label}, ...(help ? {help} : {})},
-    // The leader's copy: the problem too (as the question's), to show it in full.
-    ...(help ? {[`helpQueue/${help}/${id}`]: {text: t, label, at: serverTimestamp(), ctx: {s: ctx.s, t: ctx.t, ...(ctx.q !== undefined ? {q: ctx.q} : {})}}} : {}),
+    // The leaders' copy: who asked, and the problem too (as the question's), to show it in full.
+    ...(help
+      ? {[`helpQueue/${help}/${id}`]: {uid, ...(name ? {name} : {}), text: t, label, at: serverTimestamp(), ctx: {s: ctx.s, t: ctx.t, ...(ctx.q !== undefined ? {q: ctx.q} : {})}}}
+      : {}),
   });
 }
 
-/** The teacher's answer (and the leader's copy, answered now, gone). */
-export const replyQuestion = (q: Pick<Question, 'uid' | 'id' | 'help'>, text: string) =>
-  update(ref(db), {[`questions/${q.uid}/${q.id}/reply`]: {text: text.trim().slice(0, 1000), at: serverTimestamp()}, [`questions/${q.uid}/${q.id}/seen`]: null, ...helpPaths(q, true)});
+/** The teacher's answer (the class leaders' copy stays: their part is their own). */
+export const replyQuestion = (q: Pick<Question, 'uid' | 'id'>, text: string) =>
+  update(ref(db), {[`questions/${q.uid}/${q.id}/reply`]: {text: text.trim().slice(0, 1000), at: serverTimestamp()}, [`questions/${q.uid}/${q.id}/seen`]: null});
 /** One answer to several questions (students asking about the same problem), in one write. */
-export const replyQuestions = (qs: Pick<Question, 'uid' | 'id' | 'help'>[], text: string) =>
+export const replyQuestions = (qs: Pick<Question, 'uid' | 'id'>[], text: string) =>
   update(
     ref(db),
-    Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}/reply`, {text: text.trim().slice(0, 1000), at: serverTimestamp()}], [`questions/${q.uid}/${q.id}/seen`, null], ...Object.entries(helpPaths(q, true))])),
+    Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}/reply`, {text: text.trim().slice(0, 1000), at: serverTimestamp()}], [`questions/${q.uid}/${q.id}/seen`, null]])),
   );
 /** Several questions deleted in one write. */
-export const deleteQuestions = (qs: Pick<Question, 'uid' | 'id' | 'help'>[]) => update(ref(db), Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}`, null], ...Object.entries(helpPaths(q, true))])));
+export const deleteQuestions = (qs: Pick<Question, 'uid' | 'id' | 'help'>[]) => update(ref(db), Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}`, null], ...Object.entries(helpPaths(q))])));
 export const markSeen = (uid: string, id: string) => set(ref(db, `questions/${uid}/${id}/seen`), true);
-/** A question gone (by its asker, or the teacher: `teacher`), with the class leader's copy. */
-export const deleteQuestion = (q: Pick<Question, 'uid' | 'id' | 'help'>, teacher = false) => update(ref(db), {[`questions/${q.uid}/${q.id}`]: null, ...helpPaths(q, teacher)});
+/** A question gone (by its asker, or the teacher), with the class leaders' copy. */
+export const deleteQuestion = (q: Pick<Question, 'uid' | 'id' | 'help'>) => update(ref(db), {[`questions/${q.uid}/${q.id}`]: null, ...helpPaths(q)});

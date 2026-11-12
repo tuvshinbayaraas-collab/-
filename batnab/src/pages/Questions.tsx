@@ -68,7 +68,7 @@ export default function Questions() {
                 {q.peer && (
                   <div className="mt-3 rounded-xl bg-teal-500/10 p-3">
                     <p className="text-xs font-semibold text-teal-300">
-                      Ангийн дарга {q.peer.name}-ийн тайлбар · багш зөвшөөрсөн · {formatDate(q.peer.at)}
+                      Ангийн дарга {q.peer.name}-ийн тайлбар · {formatDate(q.peer.at)}
                     </p>
                     <Rich text={q.peer.text} className="mt-1 text-sm text-neutral-100" />
                   </div>

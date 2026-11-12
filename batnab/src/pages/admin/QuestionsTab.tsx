@@ -228,7 +228,7 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
 }
 
 const remove = (q: Question) =>
-  confirm(q.reply ? 'Энэ асуулт, таны хариуг устгах уу? Сурагчид ч харагдахгүй болно.' : 'Энэ асуултыг устгах уу?') && deleteQuestion(q, true).catch((e) => alert(e.message));
+  confirm(q.reply ? 'Энэ асуулт, таны хариуг устгах уу? Сурагчид ч харагдахгүй болно.' : 'Энэ асуултыг устгах уу?') && deleteQuestion(q).catch((e) => alert(e.message));
 
 function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
   const [text, setText] = useState(q.reply?.text ?? '');
@@ -267,6 +267,14 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
         <span className="ml-auto text-xs text-neutral-500">{formatDate(q.at)}</span>
       </div>
       <Rich text={q.text} className="mt-2" />
+      {q.peer && (
+        <div className="mt-2 rounded-xl bg-teal-500/10 p-3 text-sm">
+          <p className="text-xs font-semibold text-teal-300">
+            Ангийн дарга {q.peer.name}-ийн тайлбар · {formatDate(q.peer.at)}
+          </p>
+          <Rich text={q.peer.text} className="mt-1" />
+        </div>
+      )}
       {q.ctx.q !== undefined && (
         <button type="button" onClick={() => setProblem((x) => !x)} aria-expanded={problem} className="mt-2 flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200">
           <ChevronDown size={14} className={`transition-transform ${problem ? 'rotate-180' : ''}`} /> {problem ? 'Бодлогыг нуух' : 'Бодлогыг харах'}

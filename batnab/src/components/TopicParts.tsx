@@ -1,6 +1,7 @@
 import {Camera, Check, Hourglass, ImageOff, Lightbulb, MessageSquare, RotateCcw, X} from 'lucide-react';
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import AskButton from './Ask';
+import ReportButton from './ReportMistake';
 import {auth} from '../lib/firebase';
 import {answer, answerRound, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
 import VideoEmbed from './VideoEmbed';
@@ -497,7 +498,8 @@ export function ProblemView(props: {
         </div>
       )}
       {ask && !teacher && (
-        <div className="mt-3 flex justify-end border-t border-neutral-800 pt-2">
+        <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-neutral-800 pt-2">
+          <ReportButton what={{kind: 'topic', ref: tid, q: p.id, label: ask}} />
           <AskButton ctx={{s: 'p', t: tid, q: p.id, label: ask}} />
         </div>
       )}

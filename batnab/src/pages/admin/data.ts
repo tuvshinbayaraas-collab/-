@@ -13,6 +13,9 @@ import {useSettings} from '../../lib/settings';
 import {inThisWeek, weekStart} from '../../lib/week';
 import {TESTS, testInfo, type TestInfo} from '../../tests';
 
+/** Where the class leaders' things were kept before: the teacher's page clears them away. */
+const LEGACY = ['doneBy', 'doneCount', 'helpAnswers'];
+
 export interface Student {
   uid: string;
   profile: Profile;
@@ -90,16 +93,32 @@ export function useAdminData() {
     const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub, settings.photos);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
   }, [raw, settings?.leaderboard, settings?.photos]);
-  // How many students each class has (classes/{id}/n), for the class leaders' «N/M дуусгасан» (lib/lead).
+  // Each class's students, for its class leaders (lib/lead): how many (classes/{id}/n) and who (classRoster/{id}: names,
+  // to see who hasn't started an assignment). Kept here, as the teacher's page has everyone.
   useEffect(() => {
     const {users, admins, error} = raw;
     if (!users || !admins || error) return;
     const n: Record<string, number> = {};
-    for (const [uid, p] of Object.entries(users)) if (!admins[uid] && p?.username && p.class && !p.disabled) n[p.class] = (n[p.class] ?? 0) + 1;
-    get(ref(db, 'classes'))
-      .then((s) => {
-        const ops: Record<string, number> = {};
-        for (const [id, c] of Object.entries((s.val() ?? {}) as Record<string, {n?: number}>)) if (c?.n !== (n[id] ?? 0)) ops[`classes/${id}/n`] = n[id] ?? 0;
+    const roster: Record<string, Record<string, string>> = {};
+    for (const [uid, p] of Object.entries(users))
+      if (!admins[uid] && p?.username && p.class && !p.disabled) {
+        n[p.class] = (n[p.class] ?? 0) + 1;
+        (roster[p.class] ??= {})[uid] = String(p.name ?? '').slice(0, 60) || p.username;
+      }
+    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), ...LEGACY.map((path) => get(ref(db, path)))])
+      .then(([classes, have, ...legacy]) => {
+        const ops: Record<string, unknown> = {};
+        const known = (classes.val() ?? {}) as Record<string, {n?: number}>;
+        for (const [id, c] of Object.entries(known)) if (c?.n !== (n[id] ?? 0)) ops[`classes/${id}/n`] = n[id] ?? 0;
+        const was = (have.val() ?? {}) as Record<string, Record<string, unknown>>;
+        for (const id of new Set([...Object.keys(was), ...Object.keys(roster)])) {
+          const now = id in known ? (roster[id] ?? {}) : {};
+          for (const [uid, name] of Object.entries(now)) if (was[id]?.[uid] !== name) ops[`classRoster/${id}/${uid}`] = name;
+          for (const uid of Object.keys(was[id] ?? {})) if (!(uid in now)) ops[`classRoster/${id}/${uid}`] = null;
+        }
+        // What the class leaders' counts were kept in before (replaced by classWork, and their explanations going
+        // straight to the asker): cleared away.
+        legacy.forEach((x, i) => x.exists() && (ops[LEGACY[i]] = null));
         if (Object.keys(ops).length) return update(ref(db), ops);
       })
       .catch(() => {});

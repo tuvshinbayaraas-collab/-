@@ -4,6 +4,7 @@ import Loading from '../components/Loading';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
 import AskButton from '../components/Ask';
+import ReportButton, {useCanReport} from '../components/ReportMistake';
 import QuestionCard from '../components/QuestionCard';
 import {QuestionList} from '../components/QuestionList';
 import SkillBreakdown from '../components/SkillBreakdown';
@@ -55,6 +56,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
     focused.current = focus;
     focusOn(el);
   });
+  // A class leader can report a mistake in any of its questions.
+  const canReport = useCanReport();
   const [failed, setFailed] = useState(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   useEffect(() => {
@@ -175,7 +178,14 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
               correct={correctAt(i)}
               reveal={reveal}
               whose={other ? 'Сурагчийн' : 'Таны'}
-              footer={!session.admin && missed.includes(i) ? <AskButton ctx={{s: 't', t: testId, q: String(i), label: `${test.title} · ${i + 1}-р бодлого`}} /> : undefined}
+              footer={
+                !session.admin && !other && (canReport || missed.includes(i)) ? (
+                  <span className="flex flex-wrap justify-end gap-1">
+                    <ReportButton what={{kind: 'test', ref: testId, q: String(i + 1), label: `${test.title} · ${i + 1}-р бодлого`}} />
+                    {missed.includes(i) && <AskButton ctx={{s: 't', t: testId, q: String(i), label: `${test.title} · ${i + 1}-р бодлого`}} />}
+                  </span>
+                ) : undefined
+              }
             />
           ),
         )}

@@ -13,17 +13,18 @@ export default function AskButton({ctx}: {ctx: Question['ctx']}) {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const cls = useSession().profile?.class;
+  const profile = useSession().profile;
+  const cls = profile?.class;
   const settings = useSettings();
   const helpOn = !!cls && settings?.leadHelp !== false;
-  // The class leader may answer too (the teacher lets it through); they don't see who asked.
+  // The class's leaders may explain it too (they see the question with the asker's name; it comes straight back).
   const [share, setShare] = useState(true);
   const send = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await askQuestion(ctx, text, helpOn && share ? cls : undefined);
+      await askQuestion(ctx, text, helpOn && share ? cls : undefined, profile?.name);
       setSent(true);
       setText('');
     } catch (err) {
@@ -75,7 +76,7 @@ export default function AskButton({ctx}: {ctx: Question['ctx']}) {
                 <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm text-neutral-300">
                   <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
                   <span>
-                    Ангийн дарга ч тайлбарлаж болно <span className="text-neutral-500">(хэн асуусныг харахгүй; тайлбарыг нь багш шалгаж байж танд илгээнэ)</span>
+                    Ангийн дарга ч тайлбарлаж болно <span className="text-neutral-500">(таны нэр, асуулт ангийн даргад харагдана; тайлбар нь шууд танд ирнэ)</span>
                   </span>
                 </label>
               )}

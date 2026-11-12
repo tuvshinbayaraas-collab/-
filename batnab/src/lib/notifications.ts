@@ -13,7 +13,7 @@ import {useExams} from './exams';
 import {medalName, useMedals} from './leaderboard';
 import {WEEK} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
-import {NOTE_DAYS, useAllHelpAnswers, useAllReports, useClassNotes, useHelpQueue, useReminders} from './lead';
+import {NOTE_DAYS, useAllReports, useClassNotes, useHelpQueue, useMyNudges, useReminders, waitingHelp} from './lead';
 import {usePolls} from './polls';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
@@ -79,6 +79,8 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   const reminders = useReminders(classId, on);
   const classNotes = useClassNotes(classId, on);
   const helpQueue = useHelpQueue(classId, on && lead);
+  // The leader's reminders to this student alone (an assignment not started).
+  const nudges = useMyNudges(classId, uid, on);
   const assignments = useAssignments();
   const announcements = useAnnouncements();
   const polls = usePolls(on);
@@ -109,8 +111,13 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     if (!r || r.by === uid || now > a.due || assignmentState(a, topics, progress, results ?? []).done) continue;
     notes.push({id: `cr:${a.id}:${r.at}`, kind: 'due', at: r.at, text: `Ангийн дарга сануулж байна: ${assignmentTitle(a, topics)} · ${dayLabel(a.due)} ${clock(a.due)} хүртэл`, href: a.kind === 'topic' ? `/topics/${a.ref}` : `/test/${a.ref}`});
   }
+  for (const a of assignments.filter((x) => assignmentFor(x, topics, classId))) {
+    const n = nudges?.[a.id];
+    if (!n || now > a.due || assignmentState(a, topics, progress, results ?? []).done) continue;
+    notes.push({id: `nu:${a.id}:${n.at}`, kind: 'due', at: n.at, text: `Ангийн дарга ${n.name} танд сануулж байна: ${assignmentTitle(a, topics)} · ${dayLabel(a.due)} ${clock(a.due)} хүртэл`, href: a.kind === 'topic' ? `/topics/${a.ref}` : `/test/${a.ref}`});
+  }
   for (const n of classNotes ?? []) if (n.by !== uid && n.at > now - NOTE_DAYS * DAY) notes.push({id: `cn:${n.nid}:${n.at}`, kind: 'news', at: n.at, text: `Ангийн дарга ${n.name}: ${n.text}`, href: '/'});
-  for (const h of helpQueue ?? []) notes.push({id: `hq:${h.qid}`, kind: 'question', at: h.at, text: `Ангийн сурагч асуулт асуулаа: ${h.label}`, href: '/lead?tab=help'});
+  for (const h of waitingHelp(helpQueue, uid, now)) notes.push({id: `hq:${h.qid}`, kind: 'question', at: h.at, text: `${h.name || 'Ангийн сурагч'} асуулт асуулаа: ${h.label}`, href: '/lead?tab=help'});
   for (const p of (polls ?? []).filter((x) => !x.closed && forClass(x.classes, classId))) notes.push({id: `p:${p.id}`, kind: 'news', at: p.at, text: `Санал асуулга: ${p.q}`, href: '/'});
   for (const [test, e] of Object.entries(exams ?? {})) {
     const title = testInfo(test)?.title ?? test;
@@ -135,7 +142,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     }
   }
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
-  for (const q of questions) if (q.peer) notes.push({id: `pa:${q.id}`, kind: 'reply', at: q.peer.at, text: `Ангийн дарга асуултад тань тайлбар бичлээ (багш зөвшөөрсөн): ${q.ctx.label}`, href: '/questions'});
+  for (const q of questions) if (q.peer) notes.push({id: `pa:${q.id}`, kind: 'reply', at: q.peer.at, text: `Ангийн дарга ${q.peer.name} асуултад тань тайлбар бичлээ: ${q.ctx.label}`, href: '/questions'});
   for (const m of medals ?? [])
     notes.push({
       id: `md:${m.key}`,
@@ -159,7 +166,6 @@ function useTeacherNotes(on: boolean): Note[] | null {
   const marks = useAllMarks(on);
   const keys = useAllTopicKeys(on);
   const users = useLive(on ? 'users' : null, (v) => (v ?? {}) as Record<string, {name?: string; disabled?: boolean}>);
-  const help = useAllHelpAnswers(on);
   const reports = useAllReports(on);
   if (!on) return [];
   if (!questions || !topics || !progress || !marks || !keys || !users) return null;
@@ -183,9 +189,7 @@ function useTeacherNotes(on: boolean): Note[] | null {
     }
     if (n) notes.push({id: `c:${t.id}`, kind: 'check', at: last, text: `${n} хариулт шалгахыг хүлээж байна: ${t.title}`, href: `/admin/topic/${t.id}?check`});
   }
-  // The class leaders': answers waiting for the teacher's «yes», mistakes reported.
-  for (const byQ of Object.values(help ?? {}))
-    for (const a of Object.values(byQ)) notes.push({id: `ha:${a.qid}:${a.at}`, kind: 'question', at: a.at, text: `Ангийн дарга ${a.name} тайлбар бичлээ, зөвшөөрөл хүлээж байна`, href: '/admin?tab=tasks'});
+  // The class leaders' reports of a mistake.
   for (const r of reports ?? []) if (!r.done) notes.push({id: `rp:${r.uid}/${r.rid}`, kind: 'check', at: r.at, text: `Бодлогын алдаа мэдээлсэн: ${r.label}`, href: '/admin?tab=tasks'});
   return notes.sort((a, b) => b.at - a.at);
 }

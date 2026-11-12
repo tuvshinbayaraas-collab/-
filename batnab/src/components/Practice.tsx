@@ -12,6 +12,7 @@ import {hintOf} from '../tests/hints';
 import {SKILLS, skillOf} from '../tests/skills';
 import type {Test} from '../tests/types';
 import AskButton from './Ask';
+import ReportButton from './ReportMistake';
 import HelpLadder from './HelpLadder';
 import QuestionCard from './QuestionCard';
 import {ProblemView} from './TopicParts';
@@ -340,7 +341,8 @@ function TestQuestion({
                         : 'Маргааш дахин гарна. Доорх тусламжийг үзээрэй.'}
                   </p>
                 )}
-                <span className="ml-auto">
+                <span className="ml-auto flex flex-wrap justify-end gap-1">
+                  <ReportButton what={{kind: 'test', ref: tid, q: String(qi + 1), label}} />
                   <AskButton ctx={{s: 't', t: tid, q: String(qi), label}} />
                 </span>
               </div>
