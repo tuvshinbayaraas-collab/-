@@ -1,8 +1,9 @@
 // «Ангийн дарга»: the students the teacher marks (users/{uid}/lead) help run their class, each power the teacher's to
 // switch off (settings/leadRemind, leadNotes, leadReports, leadHelp). They never see a classmate's name, answer or score:
-//   doneBy/{uid}/{assignment} = true          a student's own «done» (written once, by their own page)
-//   doneCount/{assignment}/{class} = n         how many of the class are done: one more with each «done» above, in the
-//                                              same write (the rules hold it), so the leader sees a count, never who
+//   doneBy/{uid}/{assignment} = class          a student's own «done», with the class it was counted in (by their own
+//                                              page; taken back if it is no longer done, e.g. the teacher cleared it)
+//   doneCount/{assignment}/{class} = n         how many of the class are done: one more or one less with each «done»
+//                                              above, in the same write (the rules hold it): a count, never who
 //   classes/{id}/n                             how many students the class has (kept by the teacher's page)
 //   classReminders/{class}/{assignment} = {by, at}   the leader's «Сануулга»: the bell of each classmate not done yet
 //                                              (their own page knows it) says so; once in 3 hours
@@ -13,7 +14,7 @@
 //                                              with it
 //   helpAnswers/{class}/{question} = {by, name, text, at}   the leader's answer, waiting for the teacher: let through,
 //                                              it goes to the asker as questions/{uid}/{id}/peer
-import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
+import {get, increment, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db} from './firebase';
 import {useLive} from './live';
 import type {Question} from './classroom';
@@ -27,8 +28,9 @@ const me = () => {
 
 // ---- assignments done, counted
 
-/** The student's own «done» marks: assignment id → true. */
-export const useMyDone = (uid: string | undefined) => useLive(uid ? `doneBy/${uid}` : null, (v) => (v && typeof v === 'object' ? (v as Record<string, true>) : {}));
+/** The student's own «done» marks: assignment id → the class it was counted in. */
+export const useMyDone = (uid: string | undefined) =>
+  useLive(uid ? `doneBy/${uid}` : null, (v) => Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).filter(([, c]) => typeof c === 'string')) as Record<string, string>);
 
 /** How many of the class are done with an assignment (the class leader); null while loading. */
 export const useDoneCount = (aid: string, cls: string | undefined) => useLive(cls ? `doneCount/${aid}/${cls}` : null, (v) => (typeof v === 'number' ? v : 0));
@@ -40,17 +42,31 @@ const tried = new Set<string>();
  * another classmate's came in between, read again and retry).
  */
 export async function markDone(aid: string, cls: string) {
+  return count(aid, cls, 1);
+}
+
+/** Takes the «done» back (no longer done: the teacher cleared the answers, the week's results went), the count with it. */
+export function unmarkDone(aid: string, cls: string) {
+  return count(aid, cls, -1);
+}
+
+async function count(aid: string, cls: string, by: 1 | -1) {
   const uid = me();
-  if (tried.has(`${uid}/${aid}`)) return;
-  tried.add(`${uid}/${aid}`);
+  const key = `${uid}/${aid}/${by}`;
+  if (tried.has(key)) return;
+  tried.add(key);
+  tried.delete(`${uid}/${aid}/${-by}`);
   for (let i = 0; i < 6; i++) {
     const n = (await get(ref(db, `doneCount/${aid}/${cls}`))).val();
+    const now = typeof n === 'number' ? n : 0;
+    if (by < 0 && now < 1) return;
     try {
-      await update(ref(db), {[`doneBy/${uid}/${aid}`]: true, [`doneCount/${aid}/${cls}`]: (typeof n === 'number' ? n : 0) + 1});
+      await update(ref(db), {[`doneBy/${uid}/${aid}`]: by > 0 ? cls : null, [`doneCount/${aid}/${cls}`]: now + by});
       return;
     } catch {
-      // Someone else was counted at the same moment (read again), or it is marked already (stop).
-      if ((await get(ref(db, `doneBy/${uid}/${aid}`)).catch(() => null))?.val() === true) return;
+      // Someone else was counted at the same moment (read again), or it is as wanted already (stop).
+      const mark = (await get(ref(db, `doneBy/${uid}/${aid}`)).catch(() => null))?.val();
+      if (by > 0 ? typeof mark === 'string' : mark == null) return;
     }
   }
 }
@@ -199,10 +215,29 @@ export const approveHelp = (q: Question, a: HelpAnswer) =>
 
 export const rejectHelp = (cls: string, qid: string) => set(ref(db, `helpAnswers/${cls}/${qid}`), null);
 
-/** For deleting a student: their «done» marks, reports, notes (as a leader), answers (as a leader), and the copies of
+/**
+ * For the teacher taking a student out of their class (moved to another, or deleted): their «done» marks go, each out of
+ * its class's count too (one less, on the server, so a classmate counted at the same moment isn't lost). In a new
+ * class their own page marks them again.
+ */
+export async function outOfCounts(uid: string) {
+  const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? null;
+  const marks = ((await read(`doneBy/${uid}`)) ?? {}) as Record<string, unknown>;
+  const paths: Record<string, unknown> = {[`doneBy/${uid}`]: null};
+  await Promise.all(
+    Object.entries(marks).map(async ([aid, cls]) => {
+      if (typeof cls !== 'string') return;
+      const n = await read(`doneCount/${aid}/${cls}`);
+      if (typeof n === 'number' && n > 0) paths[`doneCount/${aid}/${cls}`] = increment(-1);
+    }),
+  );
+  return paths;
+}
+
+/** For deleting a student (their «done» marks: outOfCounts): their reports, notes (as a leader), answers (as a leader), and the copies of
  * their questions shown to a leader. */
 export function leadPathsOf(uid: string, notes: unknown, answers: unknown, questions: unknown) {
-  const paths: Record<string, null> = {[`doneBy/${uid}`]: null, [`reports/${uid}`]: null};
+  const paths: Record<string, null> = {[`reports/${uid}`]: null};
   for (const [cls, byN] of Object.entries((notes ?? {}) as Record<string, Record<string, {by?: string}>>))
     for (const [nid, n] of Object.entries(byN ?? {})) if (n?.by === uid) paths[`classNotes/${cls}/${nid}`] = null;
   for (const [cls, byQ] of Object.entries((answers ?? {}) as Record<string, Record<string, {by?: string}>>))

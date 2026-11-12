@@ -874,8 +874,8 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$aid": {
-          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('assignments').child($aid).exists()",
-          ".validate": "newData.val() === true"
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && (newData.exists() ? (!data.exists() && root.child('assignments').child($aid).exists() && newData.parent().parent().parent().child('doneCount').child($aid).child(newData.val()).val() === (root.child('doneCount').child($aid).child(newData.val()).exists() ? root.child('doneCount').child($aid).child(newData.val()).val() : 0) + 1) : (data.exists() && newData.parent().parent().parent().child('doneCount').child($aid).child(data.val()).val() === root.child('doneCount').child($aid).child(data.val()).val() - 1))",
+          ".validate": "newData.val() === root.child('users').child($uid).child('class').val()"
         }
       }
     },
@@ -885,8 +885,8 @@
       "$aid": {
         "$cls": {
           ".read": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls",
-          ".write": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('assignments').child($aid).exists() && (!root.child('assignments').child($aid).child('classes').exists() || root.child('assignments').child($aid).child('classes').child($cls).exists()) && !root.child('doneBy').child(auth.uid).child($aid).exists() && newData.parent().parent().parent().child('doneBy').child(auth.uid).child($aid).val() === true && newData.val() === (data.exists() ? data.val() : 0) + 1",
-          ".validate": "newData.isNumber()"
+          ".write": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && ((root.child('assignments').child($aid).exists() && (!root.child('assignments').child($aid).child('classes').exists() || root.child('assignments').child($aid).child('classes').child($cls).exists()) && !root.child('doneBy').child(auth.uid).child($aid).exists() && newData.parent().parent().parent().child('doneBy').child(auth.uid).child($aid).val() === $cls && newData.val() === (data.exists() ? data.val() : 0) + 1) || (root.child('doneBy').child(auth.uid).child($aid).val() === $cls && !newData.parent().parent().parent().child('doneBy').child(auth.uid).child($aid).exists() && data.exists() && newData.val() === data.val() - 1))",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
         }
       }
     },

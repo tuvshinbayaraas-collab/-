@@ -9,6 +9,7 @@ import {CenterNote} from './components/Notices';
 import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
 import {useDbLost} from './lib/connection';
+import {safePage, useStale} from './lib/newVersion';
 import {usePrefs} from './lib/prefs';
 import {loadTest} from './tests';
 import Loading from './components/Loading';
@@ -113,6 +114,7 @@ export default function App() {
     <div className="flex min-h-screen flex-col supports-[min-height:100dvh]:min-h-dvh">
       <Header />
       <OfflineBar />
+      <UpdateBar path={path} />
       <main className="flex-1 px-4 pb-10 pt-4 sm:px-6">
         <ErrorBoundary resetKey={path}>
           <Suspense fallback={<Loading />}>{page}</Suspense>
@@ -166,5 +168,20 @@ function OfflineBar() {
         </button>
       )}
     </p>
+  );
+}
+
+/** A newer version of the site is out than this page runs (lib/newVersion): a line to load it. */
+function UpdateBar({path}: {path: string}) {
+  const stale = useStale();
+  if (!stale) return null;
+  const busy = !safePage(path);
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-blue-500/15 px-4 py-2 text-center text-sm text-blue-100">
+      <span>{busy ? 'Сайтын шинэ хувилбар гарлаа — хийж буй ажлаа дуусгаад шинэчилнэ үү.' : 'Сайтын шинэ хувилбар гарлаа.'}</span>
+      <button type="button" onClick={() => location.reload()} className="rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold text-black hover:bg-blue-400">
+        Шинэчлэх
+      </button>
+    </div>
   );
 }

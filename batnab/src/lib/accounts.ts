@@ -13,7 +13,7 @@ import {auth, db, emulators, firebaseConfig} from './firebase';
 import {emailFor, USERNAME_RE} from './session';
 import {classPollPathsOf} from './classPolls';
 import {pollPathsOf} from './polls';
-import {leadPathsOf} from './lead';
+import {leadPathsOf, outOfCounts} from './lead';
 
 /**
  * Creates a student's sign-in account and profile (in `classId`, if given). The account is created in a second, throwaway Firebase app so
@@ -62,7 +62,7 @@ export const setLead = (uid: string, lead: boolean) => set(ref(db, `users/${uid}
  */
 export async function deleteStudent(uid: string) {
   const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? null;
-  const [pollsNow, classPolls, classVotes, notes, answers, mine] = await Promise.all([read('polls'), read('classPolls'), read('classPollVotes'), read('classNotes'), read('helpAnswers'), read(`questions/${uid}`)]);
+  const [pollsNow, classPolls, classVotes, notes, answers, mine, done] = await Promise.all([read('polls'), read('classPolls'), read('classPollVotes'), read('classNotes'), read('helpAnswers'), read(`questions/${uid}`), outOfCounts(uid)]);
   const polls = Object.keys((pollsNow ?? {}) as Record<string, unknown>);
   return update(ref(db), {
     [`users/${uid}`]: null,
@@ -77,7 +77,9 @@ export async function deleteStudent(uid: string) {
     ...pollPathsOf(uid, polls),
     // Their class polls (with those polls' votes) and their votes on classmates'.
     ...classPollPathsOf(uid, classPolls, classVotes),
-    // Their «done» marks and reports; as a class leader, their notes and answers; their questions' copies for a leader.
+    // Their «done» marks (out of their class's counts too) and reports; as a class leader, their notes and answers;
+    // their questions' copies for a leader.
+    ...done,
     ...leadPathsOf(uid, notes, answers, mine),
   });
 }

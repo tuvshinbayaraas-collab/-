@@ -1,7 +1,7 @@
 import {BadgeCheck, CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X, Zap} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
-import {markDone, NOTE_DAYS, useClassNotes, useHelpAnswers, useHelpQueue, useMyDone} from '../lib/lead';
+import {markDone, NOTE_DAYS, unmarkDone, useClassNotes, useHelpAnswers, useHelpQueue, useMyDone} from '../lib/lead';
 import {forClass} from '../lib/live';
 import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
@@ -85,8 +85,13 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const myDone = useMyDone(classId ? uid : undefined);
   useEffect(() => {
     if (!classId || !myDone || !assignments || !topics || !progress || !myResults) return;
-    for (const a of assignments)
-      if (!myDone[a.id] && assignmentFor(a, topics, classId) && assignmentState(a, topics, progress, myResults).done) markDone(a.id, classId).catch(() => {});
+    for (const a of assignments) {
+      if (!assignmentFor(a, topics, classId)) continue;
+      const done = assignmentState(a, topics, progress, myResults).done;
+      if (done && !myDone[a.id]) markDone(a.id, classId).catch(() => {});
+      // No longer done (its answers cleared, the week's results gone): out of this class's count again.
+      else if (!done && myDone[a.id] === classId) unmarkDone(a.id, classId).catch(() => {});
+    }
   }, [classId, myDone, assignments, topics, progress, myResults]);
   const tasks = (assignments ?? []).filter((a) => a.due > now - 3 * DAY && !!topics && assignmentFor(a, topics, classId));
   const hide = (id: string) => {

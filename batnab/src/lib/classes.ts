@@ -3,6 +3,7 @@
 import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useSyncExternalStore} from 'react';
 import {db} from './firebase';
+import {outOfCounts} from './lead';
 import {sharedLive} from './live';
 
 export interface ClassInfo {
@@ -44,7 +45,8 @@ export const renameClass = (id: string, name: string) => set(ref(db, `classes/${
  * class leaders' things for it (notes, reminders, questions shown to them, the counts of who is done).
  */
 export async function deleteClass(id: string, members: string[]) {
-  const counts = ((await get(ref(db, 'doneCount')).catch(() => null))?.val() ?? {}) as Record<string, Record<string, unknown>>;
+  const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? {};
+  const [counts, done] = (await Promise.all([read('doneCount'), read('doneBy')])) as Record<string, Record<string, unknown>>[];
   return update(ref(db), {
     [`classes/${id}`]: null,
     [`classPolls/${id}`]: null,
@@ -54,11 +56,18 @@ export async function deleteClass(id: string, members: string[]) {
     [`helpQueue/${id}`]: null,
     [`helpAnswers/${id}`]: null,
     ...Object.fromEntries(Object.entries(counts).flatMap(([aid, byCls]) => (byCls?.[id] !== undefined ? [[`doneCount/${aid}/${id}`, null]] : []))),
+    // The «done» marks counted in it (a new class's count takes them again).
+    ...Object.fromEntries(Object.entries(done).flatMap(([uid, byA]) => Object.entries(byA ?? {}).flatMap(([aid, cls]) => (cls === id ? [[`doneBy/${uid}/${aid}`, null]] : [])))),
     ...Object.fromEntries(members.map((uid) => [`users/${uid}/class`, null])),
   });
 }
 
-export const moveToClass = (uid: string, id: string | null) => set(ref(db, `users/${uid}/class`), id);
+/** Moves a student to another class (or none): out of the old class's «done» counts (lib/lead) too. */
+export async function moveToClass(uid: string, id: string | null) {
+  const now = (await get(ref(db, `users/${uid}/class`))).val() ?? null;
+  if (now === id) return;
+  return update(ref(db), {...(await outOfCounts(uid)), [`users/${uid}/class`]: id});
+}
 
 // The class the teacher has picked on this device ('' = all classes).
 const KEY = 'batnab.admin.class';
