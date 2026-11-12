@@ -90,6 +90,20 @@ export function useAdminData() {
     const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub, settings.photos);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
   }, [raw, settings?.leaderboard, settings?.photos]);
+  // How many students each class has (classes/{id}/n), for the class leaders' «N/M дуусгасан» (lib/lead).
+  useEffect(() => {
+    const {users, admins, error} = raw;
+    if (!users || !admins || error) return;
+    const n: Record<string, number> = {};
+    for (const [uid, p] of Object.entries(users)) if (!admins[uid] && p?.username && p.class && !p.disabled) n[p.class] = (n[p.class] ?? 0) + 1;
+    get(ref(db, 'classes'))
+      .then((s) => {
+        const ops: Record<string, number> = {};
+        for (const [id, c] of Object.entries((s.val() ?? {}) as Record<string, {n?: number}>)) if (c?.n !== (n[id] ?? 0)) ops[`classes/${id}/n`] = n[id] ?? 0;
+        if (Object.keys(ops).length) return update(ref(db), ops);
+      })
+      .catch(() => {});
+  }, [raw.users, raw.admins, raw.error]);
   const signIns = useSignIns();
   useEffect(() => {
     const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>

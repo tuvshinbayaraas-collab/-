@@ -1,6 +1,7 @@
-import {CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X, Zap} from 'lucide-react';
-import {useState} from 'react';
+import {BadgeCheck, CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X, Zap} from 'lucide-react';
+import {useEffect, useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
+import {markDone, NOTE_DAYS, useClassNotes, useHelpAnswers, useHelpQueue, useMyDone} from '../lib/lead';
 import {forClass} from '../lib/live';
 import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
@@ -10,6 +11,8 @@ import ClassPolls from './ClassPolls';
 import Polls from './Polls';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
+import {useSession} from '../lib/session';
+import {useSettings} from '../lib/settings';
 import {doneToday, liveStreak, useStats} from '../lib/stats';
 import {clock, dayLabel, serverNow, useNow} from '../lib/time';
 import {forClassOf, useProgress, useTopics, type Progress, type Topic} from '../lib/topics';
@@ -62,13 +65,29 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const assignments = useAssignments();
   const topics = useTopics();
   const progress = useProgress(uid);
-  const results = useMyResults() ?? [];
+  const myResults = useMyResults();
+  const results = myResults ?? [];
   const [hidden, setHidden] = useState(hiddenIds);
   const prefs = usePrefs();
   const live = useLiveQuiz();
   const wide = useWide();
 
   const notes = (announcements ?? []).filter((a) => forClass(a.classes, classId) && a.at > now - 21 * DAY && !hidden.includes(a.id)).slice(0, 3);
+  // The class leader's notes (a week), hidden here as the teacher's are.
+  const classNotes = (useClassNotes(classId) ?? []).filter((n) => n.at > now - NOTE_DAYS * DAY && !hidden.includes(`cn:${n.nid}:${n.at}`));
+  const lead = useSession().profile?.lead === true && !!classId;
+  const settings = useSettings();
+  const helpOn = lead && settings?.leadHelp !== false;
+  const queue = useHelpQueue(classId, helpOn);
+  const answers = useHelpAnswers(classId, helpOn);
+  const toHelp = (queue ?? []).filter((h) => !answers?.[h.qid]).length;
+  // Done with an assignment: counted in for the class leader's «N дуусгасан» (once; only the count is seen).
+  const myDone = useMyDone(classId ? uid : undefined);
+  useEffect(() => {
+    if (!classId || !myDone || !assignments || !topics || !progress || !myResults) return;
+    for (const a of assignments)
+      if (!myDone[a.id] && assignmentFor(a, topics, classId) && assignmentState(a, topics, progress, myResults).done) markDone(a.id, classId).catch(() => {});
+  }, [classId, myDone, assignments, topics, progress, myResults]);
   const tasks = (assignments ?? []).filter((a) => a.due > now - 3 * DAY && !!topics && assignmentFor(a, topics, classId));
   const hide = (id: string) => {
     const next = [...hidden, id].slice(-50);
@@ -104,6 +123,33 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
           </button>
         </div>
       ))}
+
+      {classNotes.map((n) => (
+        <div key={n.nid} className="flex gap-3 rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4">
+          <BadgeCheck size={20} className="mt-0.5 shrink-0 text-teal-300" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-teal-300">
+              Ангийн дарга {n.name} · {dayLabel(n.at)}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-100 break-words">{n.text}</p>
+          </div>
+          <button onClick={() => hide(`cn:${n.nid}:${n.at}`)} aria-label="Нуух" className="-mr-1 -mt-1 h-fit rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+
+      {lead && (
+        <Link href="/lead" className="flex items-center gap-3 rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4 hover:bg-teal-500/15">
+          <BadgeCheck size={22} className="shrink-0 text-teal-300" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Ангийн даргын хэсэг</span>
+            <span className="block text-xs text-neutral-400">Сануулга, зарлал, бодлогын алдаа, ангийнхандаа туслах</span>
+          </span>
+          {toHelp > 0 && <span className="min-w-6 rounded-full bg-teal-400 px-1.5 text-center text-xs font-bold leading-6 text-black">{toHelp}</span>}
+          <ChevronRight size={18} className="shrink-0 text-neutral-500" />
+        </Link>
+      )}
 
       <Polls uid={uid} classId={classId} />
       <ClassPolls uid={uid} classId={classId} />

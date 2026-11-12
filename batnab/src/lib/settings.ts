@@ -16,9 +16,14 @@ export interface Settings {
   shuffleChoices: boolean;
   /** Whether students may ask their class a poll of their own (lib/classPolls). */
   studentPolls: boolean;
+  /** The class leader's powers (lib/lead): reminders, notes, reports of a mistake, answering classmates' questions. */
+  leadRemind: boolean;
+  leadNotes: boolean;
+  leadReports: boolean;
+  leadHelp: boolean;
 }
 
-const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true, studentPolls: true};
+const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true, studentPolls: true, leadRemind: true, leadNotes: true, leadReports: true, leadHelp: true};
 
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
@@ -38,6 +43,10 @@ function start() {
         photos: v.photos !== false,
         shuffleChoices: v.shuffleChoices !== false,
         studentPolls: v.studentPolls !== false,
+        leadRemind: v.leadRemind !== false,
+        leadNotes: v.leadNotes !== false,
+        leadReports: v.leadReports !== false,
+        leadHelp: v.leadHelp !== false,
       };
       listeners.forEach((l) => l());
     },

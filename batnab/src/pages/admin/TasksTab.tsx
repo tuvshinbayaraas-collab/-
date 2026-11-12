@@ -12,6 +12,7 @@ import type {Assignment} from '../../lib/classroom';
 import type {Result} from '../../lib/results';
 import {TESTS} from '../../tests';
 import ClassPollsAdmin from './ClassPollsAdmin';
+import LeadsAdmin from './LeadsAdmin';
 import PollHead from './PollHead';
 import {useFolded} from '../../lib/fold';
 import type {AdminData} from './data';
@@ -62,6 +63,7 @@ export default function TasksTab({data, picked}: {data: AdminData; picked: strin
       <Assignments data={data} picked={picked} />
       <Announcements picked={picked} />
       <Polls data={data} picked={picked} />
+      <LeadsAdmin data={data} picked={picked} />
     </div>
   );
 }

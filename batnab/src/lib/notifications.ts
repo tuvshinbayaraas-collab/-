@@ -13,6 +13,7 @@ import {useExams} from './exams';
 import {medalName, useMedals} from './leaderboard';
 import {WEEK} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
+import {NOTE_DAYS, useAllHelpAnswers, useAllReports, useClassNotes, useHelpQueue, useReminders} from './lead';
 import {usePolls} from './polls';
 import {forClass, useLive} from './live';
 import {useMyResults} from './results';
@@ -72,8 +73,12 @@ export function useSeen(uid: string | undefined) {
 }
 
 /** The signed-in student's notes, newest first (null while loading). */
-function useStudentNotes(uid: string | undefined, classId: string | undefined, on: boolean): Note[] | null {
+function useStudentNotes(uid: string | undefined, classId: string | undefined, on: boolean, lead = false): Note[] | null {
   const now = useNow(60_000);
+  // The class leader's reminders and notes; for the leader, classmates' questions they may answer.
+  const reminders = useReminders(classId, on);
+  const classNotes = useClassNotes(classId, on);
+  const helpQueue = useHelpQueue(classId, on && lead);
   const assignments = useAssignments();
   const announcements = useAnnouncements();
   const polls = usePolls(on);
@@ -98,6 +103,14 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     if (!state.done && now >= a.due - DAY && now < a.due) notes.push({id: `d:${a.id}`, kind: 'due', at: a.due - DAY, text: `Маргаашаас өмнө дуусгах: ${title} · ${due}`, href});
   }
   for (const n of announcements.filter((x) => forClass(x.classes, classId))) notes.push({id: `n:${n.id}`, kind: 'news', at: n.at, text: `Багшийн мэдээ: ${n.text}`, href: '/'});
+  // The leader's «Сануулга»: only to those not done yet (their own page knows it), while it is still to do.
+  for (const a of assignments.filter((x) => assignmentFor(x, topics, classId))) {
+    const r = reminders?.[a.id];
+    if (!r || r.by === uid || now > a.due || assignmentState(a, topics, progress, results ?? []).done) continue;
+    notes.push({id: `cr:${a.id}:${r.at}`, kind: 'due', at: r.at, text: `Ангийн дарга сануулж байна: ${assignmentTitle(a, topics)} · ${dayLabel(a.due)} ${clock(a.due)} хүртэл`, href: a.kind === 'topic' ? `/topics/${a.ref}` : `/test/${a.ref}`});
+  }
+  for (const n of classNotes ?? []) if (n.by !== uid && n.at > now - NOTE_DAYS * DAY) notes.push({id: `cn:${n.nid}:${n.at}`, kind: 'news', at: n.at, text: `Ангийн дарга ${n.name}: ${n.text}`, href: '/'});
+  for (const h of helpQueue ?? []) notes.push({id: `hq:${h.qid}`, kind: 'question', at: h.at, text: `Ангийн сурагч асуулт асуулаа: ${h.label}`, href: '/lead'});
   for (const p of (polls ?? []).filter((x) => !x.closed && forClass(x.classes, classId))) notes.push({id: `p:${p.id}`, kind: 'news', at: p.at, text: `Санал асуулга: ${p.q}`, href: '/'});
   for (const [test, e] of Object.entries(exams ?? {})) {
     const title = testInfo(test)?.title ?? test;
@@ -122,6 +135,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     }
   }
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
+  for (const q of questions) if (q.peer) notes.push({id: `pa:${q.id}`, kind: 'reply', at: q.peer.at, text: `Ангийн дарга асуултад тань тайлбар бичлээ (багш зөвшөөрсөн): ${q.ctx.label}`, href: '/questions'});
   for (const m of medals ?? [])
     notes.push({
       id: `md:${m.key}`,
@@ -145,6 +159,8 @@ function useTeacherNotes(on: boolean): Note[] | null {
   const marks = useAllMarks(on);
   const keys = useAllTopicKeys(on);
   const users = useLive(on ? 'users' : null, (v) => (v ?? {}) as Record<string, {name?: string; disabled?: boolean}>);
+  const help = useAllHelpAnswers(on);
+  const reports = useAllReports(on);
   if (!on) return [];
   if (!questions || !topics || !progress || !marks || !keys || !users) return null;
   const notes: Note[] = [];
@@ -167,6 +183,10 @@ function useTeacherNotes(on: boolean): Note[] | null {
     }
     if (n) notes.push({id: `c:${t.id}`, kind: 'check', at: last, text: `${n} хариулт шалгахыг хүлээж байна: ${t.title}`, href: `/admin/topic/${t.id}?check`});
   }
+  // The class leaders': answers waiting for the teacher's «yes», mistakes reported.
+  for (const byQ of Object.values(help ?? {}))
+    for (const a of Object.values(byQ)) notes.push({id: `ha:${a.qid}:${a.at}`, kind: 'question', at: a.at, text: `Ангийн дарга ${a.name} тайлбар бичлээ, зөвшөөрөл хүлээж байна`, href: '/admin?tab=tasks'});
+  for (const r of reports ?? []) if (!r.done) notes.push({id: `rp:${r.uid}/${r.rid}`, kind: 'check', at: r.at, text: `Бодлогын алдаа мэдээлсэн: ${r.label}`, href: '/admin?tab=tasks'});
   return notes.sort((a, b) => b.at - a.at);
 }
 
@@ -175,7 +195,7 @@ export function useNotes() {
   const session = useSession();
   const uid = session.user?.uid;
   const student = !!session.profile && !session.profile.disabled && !session.admin;
-  const studentNotes = useStudentNotes(uid, session.profile?.class, student);
+  const studentNotes = useStudentNotes(uid, session.profile?.class, student, session.profile?.lead === true);
   const teacherNotes = useTeacherNotes(session.admin);
   // What the student cleared off the list.
   const cleared = Number(session.profile?.prefs?.notesCleared) || 0;

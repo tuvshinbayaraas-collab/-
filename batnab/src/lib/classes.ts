@@ -1,6 +1,6 @@
 // Classes ("11_6 анги"): classes/{id} = {name, createdAt}; a student's class is users/{uid}/class. The teacher picks a
 // class at the top of the dashboard and every tab shows only that class (or all of them).
-import {push, ref, serverTimestamp, set, update} from 'firebase/database';
+import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {useSyncExternalStore} from 'react';
 import {db} from './firebase';
 import {sharedLive} from './live';
@@ -9,6 +9,8 @@ export interface ClassInfo {
   id: string;
   name: string;
   createdAt: number;
+  /** How many students it has (kept by the teacher's page, for the class leader's counts). */
+  n?: number;
 }
 
 const classes = sharedLive(
@@ -16,7 +18,7 @@ const classes = sharedLive(
   (v) =>
     Object.entries((v ?? {}) as Record<string, Partial<ClassInfo>>)
       .filter(([, c]) => typeof c?.name === 'string')
-      .map(([id, c]) => ({id, name: c.name!, createdAt: typeof c.createdAt === 'number' ? c.createdAt : 0}))
+      .map(([id, c]) => ({id, name: c.name!, createdAt: typeof c.createdAt === 'number' ? c.createdAt : 0, ...(typeof c.n === 'number' ? {n: c.n} : {})}))
       .sort((a, b) => a.name.localeCompare(b.name, 'mn', {numeric: true})),
   [] as ClassInfo[],
 );
@@ -37,14 +39,24 @@ export async function createClass(name: string, members: string[]) {
 
 export const renameClass = (id: string, name: string) => set(ref(db, `classes/${id}/name`), cleanName(name));
 
-/** Removes a class; its students stay (without a class), with all their results. Its class polls go with it. */
-export const deleteClass = (id: string, members: string[]) =>
-  update(ref(db), {
+/**
+ * Removes a class; its students stay (without a class), with all their results. Its class polls go with it, and the
+ * class leaders' things for it (notes, reminders, questions shown to them, the counts of who is done).
+ */
+export async function deleteClass(id: string, members: string[]) {
+  const counts = ((await get(ref(db, 'doneCount')).catch(() => null))?.val() ?? {}) as Record<string, Record<string, unknown>>;
+  return update(ref(db), {
     [`classes/${id}`]: null,
     [`classPolls/${id}`]: null,
     [`classPollVotes/${id}`]: null,
+    [`classNotes/${id}`]: null,
+    [`classReminders/${id}`]: null,
+    [`helpQueue/${id}`]: null,
+    [`helpAnswers/${id}`]: null,
+    ...Object.fromEntries(Object.entries(counts).flatMap(([aid, byCls]) => (byCls?.[id] !== undefined ? [[`doneCount/${aid}/${id}`, null]] : []))),
     ...Object.fromEntries(members.map((uid) => [`users/${uid}/class`, null])),
   });
+}
 
 export const moveToClass = (uid: string, id: string | null) => set(ref(db, `users/${uid}/class`), id);
 

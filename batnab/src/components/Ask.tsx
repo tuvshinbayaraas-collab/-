@@ -2,6 +2,8 @@ import {Check, MessageCircleQuestion} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {askQuestion, type Question} from '../lib/classroom';
 import {Link} from '../lib/router';
+import {useSession} from '../lib/session';
+import {useSettings} from '../lib/settings';
 import Sheet from './Sheet';
 
 /** "Багшаас асуух": a student's question about one problem, answered by the teacher in the dashboard. */
@@ -11,12 +13,17 @@ export default function AskButton({ctx}: {ctx: Question['ctx']}) {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const cls = useSession().profile?.class;
+  const settings = useSettings();
+  const helpOn = !!cls && settings?.leadHelp !== false;
+  // The class leader may answer too (the teacher lets it through); they don't see who asked.
+  const [share, setShare] = useState(true);
   const send = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await askQuestion(ctx, text);
+      await askQuestion(ctx, text, helpOn && share ? cls : undefined);
       setSent(true);
       setText('');
     } catch (err) {
@@ -64,6 +71,14 @@ export default function AskButton({ctx}: {ctx: Question['ctx']}) {
                 placeholder="Юуг нь ойлгосонгүй вэ? Жишээ нь: 2-р алхам яагаад ийм болсон бэ?"
                 className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500"
               />
+              {helpOn && (
+                <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm text-neutral-300">
+                  <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                  <span>
+                    Ангийн дарга ч тайлбарлаж болно <span className="text-neutral-500">(хэн асуусныг харахгүй; тайлбарыг нь багш шалгаж байж танд илгээнэ)</span>
+                  </span>
+                </label>
+              )}
               {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button type="button" onClick={close} className="rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700">

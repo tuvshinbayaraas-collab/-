@@ -1,9 +1,12 @@
 // What the teacher sends a class, and what students ask back:
 //   assignments/{id}         {kind: 'topic' | 'test', ref, due, createdAt, classes?}   "do this by then"
 //   announcements/{id}       {text, at, classes?}                                     a note on the home page
-//   questions/{uid}/{id}     {text, at, ctx: {s, t, q, label}, reply?: {text, at}, seen?}   a student's question
-import {push, ref, serverTimestamp, set, update} from 'firebase/database';
+//   questions/{uid}/{id}     {text, at, ctx: {s, t, q, label}, reply?: {text, at}, seen?, help?: class, peer?}   a
+//                            student's question; `help`: shown to the class leader too (lib/lead), `peer`: their answer
+//                            the teacher let through
+import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db} from './firebase';
+import {helpPaths} from './lead';
 import {entries, useLive} from './live';
 
 export interface Assignment {
@@ -32,6 +35,10 @@ export interface Question {
   ctx: {s: 'p' | 't'; t: string; q?: string; label: string};
   reply?: {text: string; at: number};
   seen?: boolean;
+  /** Shown to the class leader too (this class), without who asked. */
+  help?: string;
+  /** The class leader's answer, let through by the teacher. */
+  peer?: {text: string; name: string; at: number};
 }
 
 const pick = (classes?: Record<string, true>) => (classes && Object.keys(classes).length ? classes : null);
@@ -67,7 +74,17 @@ export function topicGap(classes: Record<string, true> | undefined, topic: {clas
   return {names: shut.map((id) => all.find((c) => c.id === id)?.name ?? '').filter(Boolean), open: to ? {...open, ...to} : null};
 }
 
-export const deleteAssignment = (id: string) => set(ref(db, `assignments/${id}`), null);
+/** An assignment gone, with what the class leaders had for it (counts, reminders) and everyone's «done» mark of it. */
+export async function deleteAssignment(id: string) {
+  const read = async (path: string) => ((await get(ref(db, path)).catch(() => null))?.val() ?? {}) as Record<string, Record<string, unknown>>;
+  const [reminders, done] = await Promise.all([read('classReminders'), read('doneBy')]);
+  return update(ref(db), {
+    [`assignments/${id}`]: null,
+    [`doneCount/${id}`]: null,
+    ...Object.fromEntries(Object.entries(reminders).flatMap(([cls, byA]) => (byA?.[id] !== undefined ? [[`classReminders/${cls}/${id}`, null]] : []))),
+    ...Object.fromEntries(Object.entries(done).flatMap(([uid, byA]) => (byA?.[id] !== undefined ? [[`doneBy/${uid}/${id}`, null]] : []))),
+  });
+}
 
 export const useAnnouncements = () =>
   useLive('announcements', (v) => entries<Omit<Announcement, 'id'>>(v).filter((a) => typeof a.text === 'string').sort((a, b) => b.at - a.at));
@@ -93,21 +110,30 @@ export const useAllQuestions = (on = true) =>
       .sort((a, b) => Number(!!a.reply) - Number(!!b.reply) || b.at - a.at),
   );
 
-export function askQuestion(ctx: Question['ctx'], text: string) {
+/** Asks the teacher; `help` (the student's class): the class leader may answer too (they see it without who asked). */
+export function askQuestion(ctx: Question['ctx'], text: string, help?: string) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
   const label = ctx.label.slice(0, 120);
-  return set(push(ref(db, `questions/${uid}`)), {text: text.trim().slice(0, 600), at: serverTimestamp(), ctx: {...ctx, label}});
+  const t = text.trim().slice(0, 600);
+  const id = push(ref(db, `questions/${uid}`)).key!;
+  return update(ref(db), {
+    [`questions/${uid}/${id}`]: {text: t, at: serverTimestamp(), ctx: {...ctx, label}, ...(help ? {help} : {})},
+    ...(help ? {[`helpQueue/${help}/${id}`]: {text: t, label, at: serverTimestamp()}} : {}),
+  });
 }
 
-export const replyQuestion = (uid: string, id: string, text: string) => update(ref(db, `questions/${uid}/${id}`), {reply: {text: text.trim().slice(0, 1000), at: serverTimestamp()}, seen: null});
+/** The teacher's answer (and the leader's copy, answered now, gone). */
+export const replyQuestion = (q: Pick<Question, 'uid' | 'id' | 'help'>, text: string) =>
+  update(ref(db), {[`questions/${q.uid}/${q.id}/reply`]: {text: text.trim().slice(0, 1000), at: serverTimestamp()}, [`questions/${q.uid}/${q.id}/seen`]: null, ...helpPaths(q, true)});
 /** One answer to several questions (students asking about the same problem), in one write. */
-export const replyQuestions = (qs: {uid: string; id: string}[], text: string) =>
+export const replyQuestions = (qs: Pick<Question, 'uid' | 'id' | 'help'>[], text: string) =>
   update(
     ref(db),
-    Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}/reply`, {text: text.trim().slice(0, 1000), at: serverTimestamp()}], [`questions/${q.uid}/${q.id}/seen`, null]])),
+    Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}/reply`, {text: text.trim().slice(0, 1000), at: serverTimestamp()}], [`questions/${q.uid}/${q.id}/seen`, null], ...Object.entries(helpPaths(q, true))])),
   );
 /** Several questions deleted in one write. */
-export const deleteQuestions = (qs: {uid: string; id: string}[]) => update(ref(db), Object.fromEntries(qs.map((q) => [`questions/${q.uid}/${q.id}`, null])));
+export const deleteQuestions = (qs: Pick<Question, 'uid' | 'id' | 'help'>[]) => update(ref(db), Object.fromEntries(qs.flatMap((q) => [[`questions/${q.uid}/${q.id}`, null], ...Object.entries(helpPaths(q, true))])));
 export const markSeen = (uid: string, id: string) => set(ref(db, `questions/${uid}/${id}/seen`), true);
-export const deleteQuestion = (uid: string, id: string) => set(ref(db, `questions/${uid}/${id}`), null);
+/** A question gone (by its asker, or the teacher: `teacher`), with the class leader's copy. */
+export const deleteQuestion = (q: Pick<Question, 'uid' | 'id' | 'help'>, teacher = false) => update(ref(db), {[`questions/${q.uid}/${q.id}`]: null, ...helpPaths(q, teacher)});

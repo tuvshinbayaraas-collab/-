@@ -226,7 +226,7 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
 }
 
 const remove = (q: Question) =>
-  confirm(q.reply ? 'Энэ асуулт, таны хариуг устгах уу? Сурагчид ч харагдахгүй болно.' : 'Энэ асуултыг устгах уу?') && deleteQuestion(q.uid, q.id).catch((e) => alert(e.message));
+  confirm(q.reply ? 'Энэ асуулт, таны хариуг устгах уу? Сурагчид ч харагдахгүй болно.' : 'Энэ асуултыг устгах уу?') && deleteQuestion(q, true).catch((e) => alert(e.message));
 
 function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
   const [text, setText] = useState(q.reply?.text ?? '');
@@ -236,7 +236,7 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
   const send = async () => {
     setBusy(true);
     try {
-      await replyQuestion(q.uid, q.id, text);
+      await replyQuestion(q, text);
       setEditing(false);
     } catch (e) {
       alert(`Алдаа: ${(e as Error).message}`);

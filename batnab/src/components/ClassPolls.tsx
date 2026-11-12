@@ -31,7 +31,7 @@ const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Ил�
 
 /**
  * «Ангийн санал асуулга» on a student's home page: their class's polls, asked by classmates (who asked is not shown;
- * the teacher sees it), and their own (at most three at a time) — only a «Багшийн хариуцагч» (marked so by the
+ * the teacher sees it), and their own (at most three at a time) — only a class leader («Ангийн дарга», marked so by the
  * teacher) asks one; the others answer. Answered: how the class answered, never who.
  */
 export default function ClassPolls({uid, classId}: {uid: string; classId?: string}) {

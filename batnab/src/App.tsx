@@ -43,6 +43,7 @@ const TopicView = lazy(() => import('./pages/TopicView'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Daily = lazy(() => import('./pages/Daily'));
 const Questions = lazy(() => import('./pages/Questions'));
+const LeadPage = lazy(() => import('./pages/LeadPage'));
 const Live = lazy(() => import('./pages/Live'));
 const PrintTopic = lazy(() => import('./pages/PrintTopic'));
 
@@ -92,6 +93,7 @@ export default function App() {
   else if (path === '/mistakes') page = <Mistakes />;
   else if (path === '/daily') page = <Daily />;
   else if (path === '/questions') page = <Questions />;
+  else if (path === '/lead') page = <LeadPage />;
   else if (path === '/live') page = <Live />;
   else if (parts[0] === 'print' && parts[1] === 'topic' && parts.length === 3) page = <PrintTopic id={parts[2]} />;
   else if (parts[0] === 'topics' && parts.length === 2) page = <TopicView id={parts[1]} />;

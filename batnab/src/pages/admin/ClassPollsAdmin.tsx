@@ -1,7 +1,6 @@
-import {ChevronDown, Lock, LockOpen, Trash2, Users, X} from 'lucide-react';
+import {ChevronDown, Lock, LockOpen, Trash2, Users} from 'lucide-react';
 import {useState} from 'react';
 import Switch from '../../components/Switch';
-import {setLead} from '../../lib/accounts';
 import {useFolded} from '../../lib/fold';
 import PollHead from './PollHead';
 import {closeClassPoll, declinedOf, deleteClassPoll, reopenClassPoll, tally, useAllClassPolls, useAllClassVotes, votesOf, type ClassPoll, type ClassVotes} from '../../lib/classPolls';
@@ -49,12 +48,11 @@ export default function ClassPollsAdmin({data, picked}: {data: AdminData; picked
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Сурагчид ангидаа санал асуулга гаргаж болно</span>
             <span className="mt-1 block text-sm text-neutral-400">
-              Доор сонгосон «Багшийн хариуцагч» сурагч бүр зэрэг 3 хүртэл асуулга гаргана, бусад нь хариулна. Ангийнхан нь сонголтоо хийгээд нийт дүнг харна, хэн гаргаж хэн юу сонгосныг харахгүй. Та бүгдийг харж, хааж, устгаж болно. Унтраавал асуулгууд
+              «Ангийн дарга» хэсэгт сонгосон ангийн дарга бүр зэрэг 3 хүртэл асуулга гаргана, бусад нь хариулна. Ангийнхан нь сонголтоо хийгээд нийт дүнг харна, хэн гаргаж хэн юу сонгосныг харахгүй. Та бүгдийг харж, хааж, устгаж болно. Унтраавал асуулгууд
               сурагчдад харагдахгүй болж, шинээр гаргах, сонголт хийх боломжгүй болно (устахгүй).
             </span>
           </span>
         </Switch>
-        <Leads data={data} picked={picked} />
       </div>
       {error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">Хадгалж чадсангүй: {error}</p>}
       {polls && votes && !shown.length && <p className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm text-neutral-400">Одоохондоо сурагчдын гаргасан асуулга алга.</p>}
@@ -160,61 +158,3 @@ function Row({poll, votes, data}: {poll: ClassPoll; votes: ClassVotes | undefine
     </li>
   );
 }
-
-/** «Багшийн хариуцагч»: the students (of the picked class) who may ask their class a poll; added and taken off here. */
-function Leads({data, picked}: {data: AdminData; picked: string}) {
-  const classes = useClasses() ?? [];
-  const [busy, setBusy] = useState('');
-  const cls = (id?: string) => classes.find((c) => c.id === id)?.name ?? '';
-  const students = data.students
-    .filter((s) => !s.profile.disabled && s.profile.class && (!picked || s.profile.class === picked))
-    .sort((a, b) => cls(a.profile.class).localeCompare(cls(b.profile.class), 'mn', {numeric: true}) || a.profile.name.localeCompare(b.profile.name, 'mn'));
-  const leads = students.filter((s) => s.profile.lead === true);
-  const others = students.filter((s) => s.profile.lead !== true);
-  const change = async (uid: string, on: boolean) => {
-    setBusy(uid);
-    try {
-      await setLead(uid, on);
-    } catch (e) {
-      alert(`Хадгалж чадсангүй: ${(e as Error).message}`);
-    } finally {
-      setBusy('');
-    }
-  };
-  return (
-    <div className="space-y-2 border-t border-neutral-800 p-4">
-      <p className="text-sm font-semibold">Багшийн хариуцагч ({leads.length})</p>
-      <p className="text-xs text-neutral-400">Зөвхөн эдгээр сурагч ангидаа асуулга гаргана. Бусад нь асуулгад хариулна.</p>
-      <div className="flex flex-wrap gap-1.5">
-        {leads.map((s) => (
-          <span key={s.uid} className="flex items-center gap-1 rounded-full bg-sky-500/15 py-1 pl-3 pr-1 text-sm text-sky-100">
-            {s.profile.name}
-            {!picked && <span className="text-xs text-sky-300/80">· {cls(s.profile.class)}</span>}
-            <button type="button" disabled={busy === s.uid} onClick={() => change(s.uid, false)} aria-label={`${s.profile.name}-ийг хариуцагчаас хасах`} className="rounded-full p-1 text-sky-300 hover:bg-sky-500/20 hover:text-white disabled:opacity-50">
-              <X size={13} />
-            </button>
-          </span>
-        ))}
-        {!leads.length && <span className="text-sm text-neutral-500">Одоохондоо алга — асуулга гаргах хүн алга.</span>}
-      </div>
-      {others.length > 0 && (
-        <select
-          value=""
-          disabled={!!busy}
-          onChange={(e) => e.target.value && change(e.target.value, true)}
-          aria-label="Хариуцагч нэмэх"
-          className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-400 sm:w-auto"
-        >
-          <option value="">+ Хариуцагч нэмэх…</option>
-          {others.map((s) => (
-            <option key={s.uid} value={s.uid}>
-              {s.profile.name}
-              {picked ? '' : ` · ${cls(s.profile.class)}`}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
-}
-
