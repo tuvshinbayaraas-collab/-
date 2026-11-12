@@ -1,28 +1,36 @@
 import {MessageCircleQuestion, Trash2} from 'lucide-react';
 import {useEffect} from 'react';
 import {InactiveNote, LockedNote} from '../components/Notices';
+import AskedProblem, {problemHref} from '../components/AskedProblem';
 import {Rich} from '../components/TopicParts';
-import {deleteQuestion, markSeen, useMyQuestions, type Question} from '../lib/classroom';
-import {formatDate} from '../lib/results';
+import {deleteQuestion, markSeen, useMyQuestions} from '../lib/classroom';
+import {formatDate, useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {isStudent, useSession} from '../lib/session';
 import Loading from '../components/Loading';
 
-/** Where a question was asked from, as a link back to it. */
-export const questionHref = (q: Question) => (q.ctx.s === 'p' ? `/topics/${q.ctx.t}` : '/mistakes');
-
-/** /questions: the student's questions to the teacher and the answers; opening the page marks answers as read. A question can be taken back while unanswered, deleted once answered. */
+/**
+ * /questions: the student's questions to the teacher and the answers, each with the problem it is about in full (a tap
+ * goes to it); opening the page marks answers as read. A question can be taken back while unanswered, deleted once
+ * answered.
+ */
 export default function Questions() {
   const session = useSession();
   const uid = isStudent(session) ? session.user!.uid : undefined;
   const questions = useMyQuestions(uid);
+  const results = useMyResults();
   useEffect(() => {
     for (const q of questions ?? []) if ((q.reply || q.peer) && !q.seen) markSeen(q.uid, q.id).catch(() => {});
   }, [questions]);
 
   if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Асуултаа харахын тулд нэвтэрнэ үү." />;
-  if (!uid) return session.admin ? <p className="py-24 text-center text-neutral-400">Сурагчдын асуулт багшийн самбарын «Асуулт» хэсэгт байна.</p> : <InactiveNote blocked={!!session.profile?.disabled} />;
+  if (!uid)
+    return session.admin ? (
+      <p className="py-24 text-center text-neutral-400">Сурагчдын асуулт багшийн самбарын «Асуулт» хэсэгт байна.</p>
+    ) : (
+      <InactiveNote blocked={!!session.profile?.disabled} />
+    );
   if (!questions) return <Loading />;
 
   return (
@@ -40,47 +48,65 @@ export default function Questions() {
         <p className="mt-6 rounded-2xl bg-neutral-900 p-6 text-center text-neutral-400">Одоогоор асуулт асуугаагүй байна.</p>
       ) : (
         <ul className="mt-6 space-y-3">
-          {questions.map((q) => (
-            <li key={q.id} className={`rounded-2xl bg-neutral-900 p-4 ${(q.reply || q.peer) && !q.seen ? 'ring-1 ring-sky-400/50' : ''}`}>
-              <div className="flex items-start gap-2">
-                <Link href={questionHref(q)} className="min-w-0 flex-1 text-sm font-medium text-blue-300 hover:underline">
-                  {q.ctx.label}
-                </Link>
-                <span className="shrink-0 text-xs text-neutral-500">{formatDate(q.at)}</span>
-              </div>
-              <Rich text={q.text} className="mt-2 text-neutral-100" />
-              {q.peer && (
-                <div className="mt-3 rounded-xl bg-teal-500/10 p-3">
-                  <p className="text-xs font-semibold text-teal-300">
-                    Ангийн дарга {q.peer.name}-ийн тайлбар · багш зөвшөөрсөн · {formatDate(q.peer.at)}
-                  </p>
-                  <Rich text={q.peer.text} className="mt-1 text-sm text-neutral-100" />
-                </div>
-              )}
-              {q.reply || q.peer ? (
-                <div className={q.reply ? 'mt-3 rounded-xl bg-sky-500/10 p-3' : 'mt-1'}>
-                  {q.reply && (
-                    <>
-                      <p className="text-xs font-semibold text-sky-300">Багшийн хариу · {formatDate(q.reply.at)}</p>
-                      <Rich text={q.reply.text} className="mt-1 text-sm text-neutral-100" />
-                    </>
+          {questions.map((q) => {
+            const href = problemHref(q.ctx, results);
+            return (
+              <li key={q.id} className={`rounded-2xl bg-neutral-900 p-4 ${(q.reply || q.peer) && !q.seen ? 'ring-1 ring-sky-400/50' : ''}`}>
+                <div className="flex items-start gap-2">
+                  {href ? (
+                    <Link href={href} className="min-w-0 flex-1 text-sm font-medium text-blue-300 hover:underline">
+                      {q.ctx.label}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 flex-1 text-sm font-medium text-neutral-300">{q.ctx.label}</span>
                   )}
-                  <div className="mt-2 flex justify-end">
-                    <button onClick={() => confirm('Энэ асуулт, хариуг нь устгах уу?') && deleteQuestion(q).catch(() => {})} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-red-300">
-                      <Trash2 size={13} /> Устгах
+                  <span className="shrink-0 text-xs text-neutral-500">{formatDate(q.at)}</span>
+                </div>
+                {q.ctx.q !== undefined && <AskedProblem ctx={q.ctx} href={href} />}
+                <p className="mt-3 text-xs font-semibold text-neutral-400">Таны асуулт</p>
+                <Rich text={q.text} className="mt-1 text-neutral-100" />
+                {q.peer && (
+                  <div className="mt-3 rounded-xl bg-teal-500/10 p-3">
+                    <p className="text-xs font-semibold text-teal-300">
+                      Ангийн дарга {q.peer.name}-ийн тайлбар · багш зөвшөөрсөн · {formatDate(q.peer.at)}
+                    </p>
+                    <Rich text={q.peer.text} className="mt-1 text-sm text-neutral-100" />
+                  </div>
+                )}
+                {q.reply || q.peer ? (
+                  <div className={q.reply ? 'mt-3 rounded-xl bg-sky-500/10 p-3' : 'mt-1'}>
+                    {q.reply && (
+                      <>
+                        <p className="text-xs font-semibold text-sky-300">Багшийн хариу · {formatDate(q.reply.at)}</p>
+                        <Rich text={q.reply.text} className="mt-1 text-sm text-neutral-100" />
+                      </>
+                    )}
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => confirm('Энэ асуулт, хариуг нь устгах уу?') && deleteQuestion(q).catch(() => {})}
+                        className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-red-300"
+                      >
+                        <Trash2 size={13} /> Устгах
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-sm text-neutral-500">
+                      Хариу хүлээж байна…
+                      {q.help ? ' (ангийн дарга ч тайлбарлаж болно)' : ''}
+                    </span>
+                    <button
+                      onClick={() => confirm('Энэ асуултыг буцааж авах уу?') && deleteQuestion(q).catch(() => {})}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800"
+                    >
+                      <Trash2 size={13} /> Буцааж авах
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-sm text-neutral-500">Хариу хүлээж байна…{q.help ? ' (ангийн дарга ч тайлбарлаж болно)' : ''}</span>
-                  <button onClick={() => confirm('Энэ асуултыг буцааж авах уу?') && deleteQuestion(q).catch(() => {})} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800">
-                    <Trash2 size={13} /> Буцааж авах
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

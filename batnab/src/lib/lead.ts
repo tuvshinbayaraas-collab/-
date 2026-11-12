@@ -9,7 +9,7 @@
 //                                              (their own page knows it) says so; once in 3 hours
 //   classNotes/{class}/{uid}{1–3} = {by, name, text, at}   the leader's notes on the class's home page (three at most)
 //   reports/{uid}/{id} = {kind, ref, q, label, text, at, done?}   a mistake in a test or topic problem, to the teacher
-//   helpQueue/{class}/{question} = {text, label, at}   a classmate's question to the teacher, shown to the leader
+//   helpQueue/{class}/{question} = {text, label, at, ctx}   a classmate's question to the teacher, shown to the leader
 //                                              too if they let it (without who asked); made with the question, gone
 //                                              with it
 //   helpAnswers/{class}/{question} = {by, name, text, at}   the leader's answer, waiting for the teacher: let through,
@@ -172,7 +172,14 @@ export interface HelpItem {
   text: string;
   label: string;
   at: number;
+  /** The problem it is about (as the question's), to show it in full; not on copies made before it was kept. */
+  ctx?: {s: 'p' | 't'; t: string; q?: string};
 }
+
+const parseCtx = (c: unknown): HelpItem['ctx'] => {
+  const x = c as {s?: unknown; t?: unknown; q?: unknown} | null;
+  return x && (x.s === 'p' || x.s === 't') && typeof x.t === 'string' ? {s: x.s, t: x.t, ...(typeof x.q === 'string' ? {q: x.q} : {})} : undefined;
+};
 export interface HelpAnswer {
   qid: string;
   by: string;
@@ -184,7 +191,7 @@ export interface HelpAnswer {
 export const useHelpQueue = (cls: string | undefined, on = true) =>
   useLive(on && cls ? `helpQueue/${cls}` : null, (v) =>
     Object.entries((v ?? {}) as Record<string, Partial<HelpItem>>)
-      .flatMap(([qid, x]) => (x && typeof x.text === 'string' ? [{qid, text: x.text, label: String(x.label ?? ''), at: Number(x.at) || 0}] : []))
+      .flatMap(([qid, x]) => (x && typeof x.text === 'string' ? [{qid, text: x.text, label: String(x.label ?? ''), at: Number(x.at) || 0, ctx: parseCtx(x.ctx)}] : []))
       .sort((a, b) => b.at - a.at),
   );
 

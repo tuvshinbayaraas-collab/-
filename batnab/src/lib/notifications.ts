@@ -110,7 +110,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     notes.push({id: `cr:${a.id}:${r.at}`, kind: 'due', at: r.at, text: `Ангийн дарга сануулж байна: ${assignmentTitle(a, topics)} · ${dayLabel(a.due)} ${clock(a.due)} хүртэл`, href: a.kind === 'topic' ? `/topics/${a.ref}` : `/test/${a.ref}`});
   }
   for (const n of classNotes ?? []) if (n.by !== uid && n.at > now - NOTE_DAYS * DAY) notes.push({id: `cn:${n.nid}:${n.at}`, kind: 'news', at: n.at, text: `Ангийн дарга ${n.name}: ${n.text}`, href: '/'});
-  for (const h of helpQueue ?? []) notes.push({id: `hq:${h.qid}`, kind: 'question', at: h.at, text: `Ангийн сурагч асуулт асуулаа: ${h.label}`, href: '/lead'});
+  for (const h of helpQueue ?? []) notes.push({id: `hq:${h.qid}`, kind: 'question', at: h.at, text: `Ангийн сурагч асуулт асуулаа: ${h.label}`, href: '/lead?tab=help'});
   for (const p of (polls ?? []).filter((x) => !x.closed && forClass(x.classes, classId))) notes.push({id: `p:${p.id}`, kind: 'news', at: p.at, text: `Санал асуулга: ${p.q}`, href: '/'});
   for (const [test, e] of Object.entries(exams ?? {})) {
     const title = testInfo(test)?.title ?? test;

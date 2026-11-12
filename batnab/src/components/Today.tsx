@@ -145,11 +145,11 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
       ))}
 
       {lead && (
-        <Link href="/lead" className="flex items-center gap-3 rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4 hover:bg-teal-500/15">
+        <Link href={toHelp > 0 ? '/lead?tab=help' : '/lead'} className="flex items-center gap-3 rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4 hover:bg-teal-500/15">
           <BadgeCheck size={22} className="shrink-0 text-teal-300" />
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Ангийн даргын хэсэг</span>
-            <span className="block text-xs text-neutral-400">Сануулга, зарлал, бодлогын алдаа, ангийнхандаа туслах</span>
+            <span className="block font-semibold">Ангийн даргын самбар</span>
+            <span className="block text-xs text-neutral-400">{toHelp > 0 ? `${toHelp} асуулт таны тайлбарыг хүлээж байна` : 'Сануулга, зарлал, ангийнхандаа туслах, бодлогын алдаа'}</span>
           </span>
           {toHelp > 0 && <span className="min-w-6 rounded-full bg-teal-400 px-1.5 text-center text-xs font-bold leading-6 text-black">{toHelp}</span>}
           <ChevronRight size={18} className="shrink-0 text-neutral-500" />

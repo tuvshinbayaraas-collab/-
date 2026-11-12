@@ -1,5 +1,5 @@
 import {ArrowLeft} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import Loading from '../components/Loading';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {isPerfect, PerfectBadge, perfectText} from '../components/Perfect';
@@ -12,7 +12,8 @@ import {choiceAt, grade, percent, useKeys} from '../lib/keys';
 import {asResult, awayTimes, awayTotal, useExamAnswer, useExamEvents, useExams} from '../lib/exams';
 import AwayList from '../components/AwayList';
 import {formatDate, useResult} from '../lib/results';
-import {Link} from '../lib/router';
+import {focusOn} from '../lib/focus';
+import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {skillStats} from '../lib/skills';
 import {useNow} from '../lib/time';
@@ -44,6 +45,16 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const [onlyWrong, setOnlyWrong] = useState(false);
   const info = testInfo(testId);
 
+  // Opened at one question (?q=<index>, e.g. from a question about it): every card laid out, so it lands on it.
+  const focus = useLocation().query.get('q');
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    if (focus === null || focused.current === focus || !test || !result) return;
+    const el = document.getElementById(`q${Number(focus) + 1}`);
+    if (!el) return;
+    focused.current = focus;
+    focusOn(el);
+  });
   const [failed, setFailed] = useState(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   useEffect(() => {
@@ -151,11 +162,12 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
         )}
         <p className="mt-2 text-sm text-neutral-500">Бодлогууд номын дарааллаар харагдаж байна.</p>
       </div>
-      <QuestionList>
+      <QuestionList full={focus !== null}>
         {test.questions.map((q, i) =>
           (onlyWrong || skill) && (!missed.includes(i) || (skill && skillOf(testId, i) !== skill)) ? null : (
             <QuestionCard
               key={i}
+              id={`q${i + 1}`}
               num={i + 1}
               q={q}
               chosen={choiceAt(result.answers, i)}

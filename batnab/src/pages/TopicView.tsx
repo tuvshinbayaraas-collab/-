@@ -5,7 +5,8 @@ import {isPerfect, PerfectTitle, ResultCard} from '../components/Perfect';
 import {ProblemView, Rich, TopicPicture} from '../components/TopicParts';
 import VideoEmbed from '../components/VideoEmbed';
 import {addMistakes, useMistakes} from '../lib/mistakes';
-import {Link} from '../lib/router';
+import {focusOn} from '../lib/focus';
+import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {topicTimeKey, useTimeOn} from '../lib/timeOn';
 import {forClassOf, problemNo, readKey, useMarks, useProgress, useRounds, useTopics, verdict, type Problem} from '../lib/topics';
@@ -42,6 +43,17 @@ export default function TopicView({id}: {id: string}) {
   useTimeOn(student && open && current === 1 ? `timeOn/${session.user!.uid}/${topicTimeKey(id)}` : null, () => {
     const kids = list.current ? [...list.current.children] : [];
     return (t0?.problems ?? []).map((p, i) => ({el: kids[i] ?? null, key: p.id, open: !!progress && !progress[id]?.[p.id]}));
+  });
+  // Opened at one problem (?p=…, e.g. from a question about it): brought into view and lit up, once it is on screen.
+  const focus = useLocation().query.get('p');
+  const focused = useRef<string | null>(null);
+  const loaded = !!topics && !!progress && !!marks && (!uid || !!rounds);
+  useEffect(() => {
+    if (!loaded || !focus || focused.current === focus || !t0) return;
+    const el = list.current?.children[t0.problems.findIndex((p) => p.id === focus)];
+    if (!(el instanceof HTMLElement)) return;
+    focused.current = focus;
+    focusOn(el);
   });
   // Keys of the problems answered the first time (readable since), for the times whose problems aren't on screen.
   const firstDone = Object.keys(progress?.[id] ?? {}).sort().join(',');

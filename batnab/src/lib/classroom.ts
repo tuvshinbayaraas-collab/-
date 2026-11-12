@@ -119,7 +119,8 @@ export function askQuestion(ctx: Question['ctx'], text: string, help?: string) {
   const id = push(ref(db, `questions/${uid}`)).key!;
   return update(ref(db), {
     [`questions/${uid}/${id}`]: {text: t, at: serverTimestamp(), ctx: {...ctx, label}, ...(help ? {help} : {})},
-    ...(help ? {[`helpQueue/${help}/${id}`]: {text: t, label, at: serverTimestamp()}} : {}),
+    // The leader's copy: the problem too (as the question's), to show it in full.
+    ...(help ? {[`helpQueue/${help}/${id}`]: {text: t, label, at: serverTimestamp(), ctx: {s: ctx.s, t: ctx.t, ...(ctx.q !== undefined ? {q: ctx.q} : {})}}} : {}),
   });
 }
 

@@ -978,7 +978,7 @@
         ".read": "auth != null && root.child('users').child(auth.uid).child('lead').val() === true && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('settings/leadHelp').val() !== false",
         "$qid": {
           ".write": "auth != null && (newData.exists() ? (!data.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('settings/leadHelp').val() !== false && !root.child('questions').child(auth.uid).child($qid).exists() && newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('help').val() === $cls) : root.child('questions').child(auth.uid).child($qid).child('help').val() === $cls)",
-          ".validate": "newData.hasChildren(['text', 'label', 'at']) && newData.child('text').val() === newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('text').val()",
+          ".validate": "newData.hasChildren(['text', 'label', 'at']) && newData.child('text').val() === newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('text').val() && (!newData.child('ctx').exists() || (newData.child('ctx/s').val() === newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('ctx/s').val() && newData.child('ctx/t').val() === newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('ctx/t').val() && newData.child('ctx/q').val() === newData.parent().parent().parent().child('questions').child(auth.uid).child($qid).child('ctx/q').val()))",
           "text": {
             ".validate": "newData.isString() && newData.val().length <= 600"
           },
@@ -987,6 +987,21 @@
           },
           "at": {
             ".validate": "newData.val() === now"
+          },
+          "ctx": {
+            ".validate": "newData.hasChildren(['s', 't'])",
+            "s": {
+              ".validate": "newData.isString()"
+            },
+            "t": {
+              ".validate": "newData.isString()"
+            },
+            "q": {
+              ".validate": "newData.isString()"
+            },
+            "$other": {
+              ".validate": false
+            }
           },
           "$other": {
             ".validate": false

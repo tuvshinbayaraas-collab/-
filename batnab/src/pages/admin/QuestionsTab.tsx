@@ -1,10 +1,11 @@
-import {ChevronDown, Eraser, MessageCircleQuestion, Send, Trash2, Users} from 'lucide-react';
+import {ChevronDown, ChevronRight, Eraser, MessageCircleQuestion, Send, Trash2, Users} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {deleteQuestion, deleteQuestions, replyQuestion, replyQuestions, useAllQuestions, type Question} from '../../lib/classroom';
 import {choiceAt} from '../../lib/keys';
 import {useLive} from '../../lib/live';
 import {formatDate} from '../../lib/results';
 import {Link} from '../../lib/router';
+import {problemHref} from '../../components/AskedProblem';
 import {LETTER_CODES, LETTER_LABELS, readKey, useAllProgress, useTopics, type Letter} from '../../lib/topics';
 import {loadTest} from '../../tests';
 import type {Test} from '../../tests/types';
@@ -115,8 +116,9 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
   const [ticked, setTicked] = useState<Set<string> | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState(false);
   const open = qs.filter((q) => !q.reply);
+  // The problem shows while some wait for an answer (the teacher answers looking at it).
+  const [problem, setProblem] = useState(open.length > 0);
   // Until the teacher ticks: the unanswered ones (or, all answered, every one).
   const picked = ticked ?? new Set((open.length ? open : qs).map(idOf));
   const chosen = qs.filter((q) => picked.has(idOf(q)));
@@ -126,7 +128,7 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
     setTicked(next);
   };
   const first = qs[0];
-  const where = first.ctx.s === 'p' ? `/topics/${first.ctx.t}` : `/admin?tab=keys&test=${first.ctx.t}`;
+  const where = first.ctx.s === 'p' ? problemHref(first.ctx)! : `/admin?tab=keys&test=${first.ctx.t}`;
   // What each one answered to the problem: a test's last attempt, a topic's first answer.
   const progress = useAllProgress(first.ctx.s === 'p');
   const answerOf = (q: Question) => {
@@ -171,7 +173,7 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
           <ChevronDown size={14} className={`transition-transform ${problem ? 'rotate-180' : ''}`} /> {problem ? 'Бодлогыг нуух' : 'Бодлогыг харах'}
         </button>
       )}
-      {problem && <ProblemPreview q={first} data={data} mine={false} />}
+      {problem && <ProblemPreview q={first} data={data} mine={false} href={where} />}
       <ul className="mt-3 divide-y divide-neutral-800 rounded-xl border border-neutral-800">
         {qs.map((q) => {
           const a = answerOf(q);
@@ -232,7 +234,8 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
   const [text, setText] = useState(q.reply?.text ?? '');
   const [editing, setEditing] = useState(!q.reply);
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState(false);
+  // The problem shows until it is answered (the teacher answers looking at it).
+  const [problem, setProblem] = useState(!q.reply);
   const send = async () => {
     setBusy(true);
     try {
@@ -244,7 +247,8 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
       setBusy(false);
     }
   };
-  const where = q.ctx.s === 'p' ? `/topics/${q.ctx.t}` : `/admin?tab=keys&test=${q.ctx.t}`;
+  // The problem itself: a topic's on its page, a test's in this student's latest attempt (else the key's page).
+  const where = problemHref(q.ctx, data.results.filter((r) => r.uid === q.uid), q.uid) ?? `/admin?tab=keys&test=${q.ctx.t}`;
   const del = (
     <button onClick={() => remove(q)} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
       <Trash2 size={14} /> Устгах
@@ -268,7 +272,7 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
           <ChevronDown size={14} className={`transition-transform ${problem ? 'rotate-180' : ''}`} /> {problem ? 'Бодлогыг нуух' : 'Бодлогыг харах'}
         </button>
       )}
-      {problem && <ProblemPreview q={q} data={data} />}
+      {problem && <ProblemPreview q={q} data={data} href={where} />}
       {editing ? (
         <div className="mt-3 space-y-2">
           <textarea
@@ -314,8 +318,17 @@ function Item({q, name, data}: {q: Question; name: string; data: AdminData}) {
 }
 
 /** The problem a question is about, with what the student answered and the right answer (the teacher may see it). */
-function ProblemPreview({q, data, mine = true}: {q: Question; data: AdminData; mine?: boolean}) {
-  return <div className="mt-2 rounded-xl border border-neutral-800 bg-neutral-950/40 p-2">{q.ctx.s === 't' ? <TestProblem q={q} data={data} mine={mine} /> : <TopicProblem q={q} mine={mine} />}</div>;
+function ProblemPreview({q, data, mine = true, href}: {q: Question; data: AdminData; mine?: boolean; href?: string}) {
+  return (
+    <div className="mt-2 rounded-xl border border-neutral-800 bg-neutral-950/40 p-2">
+      {q.ctx.s === 't' ? <TestProblem q={q} data={data} mine={mine} /> : <TopicProblem q={q} mine={mine} />}
+      {href && (
+        <Link href={href} className="mx-2 mb-1 inline-flex items-center gap-0.5 text-xs font-semibold text-sky-300 hover:underline">
+          Бодлого руу очих <ChevronRight size={14} />
+        </Link>
+      )}
+    </div>
+  );
 }
 
 function TestProblem({q, data, mine}: {q: Question; data: AdminData; mine: boolean}) {
