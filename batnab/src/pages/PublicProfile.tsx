@@ -1,7 +1,7 @@
 import {ArrowLeft, Crown, Medal as MedalIcon} from 'lucide-react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
-import {overall, PLACES, percentOf, ranking, usePhotos, useMedals, useWeekBoard} from '../lib/leaderboard';
+import {overall, PLACES, percentOf, ranking, usePics, useMedals, useWeekBoard} from '../lib/leaderboard';
 import MedalBadge from '../components/MedalBadge';
 import {formatDuration} from '../lib/attempt';
 import {Link} from '../lib/router';
@@ -20,7 +20,7 @@ export default function PublicProfile({uid}: {uid: string}) {
   const settings = useSettings();
   const allowed = session.ready && !!session.user && (session.admin || (!!session.profile && !session.profile.disabled)) && !!settings?.leaderboard;
   const board = useWeekBoard(allowed);
-  const photos = usePhotos(allowed ? [uid] : []);
+  const pics = usePics(allowed ? [uid] : []);
   const medals = useMedals(uid, allowed);
 
   if (session.ready && !session.user) return <LockedNote />;
@@ -49,7 +49,7 @@ export default function PublicProfile({uid}: {uid: string}) {
       <section className="flex flex-col items-center rounded-2xl bg-neutral-900 px-5 pb-6 pt-7 text-center">
         {leader && <Crown size={26} className="mb-1 text-amber-300" />}
         <span className={`rounded-full ${leader ? 'ring-4 ring-amber-400' : ''}`}>
-          <Avatar name={name.replace(/^@/, '')} photo={photos[uid]} size={104} />
+          <Avatar name={name.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame} size={104} />
         </span>
         <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{name}</h1>
         {top > 0 && top <= 3 && (

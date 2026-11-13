@@ -86,14 +86,14 @@ export default function Header() {
             )}
             <div className="relative">
               <button onClick={() => setMenuOpen((o) => !o)} aria-label="Миний бүртгэл" className="block rounded-full">
-                <Avatar name={name} photo={profile?.photo} size={32} />
+                <Avatar name={name} photo={profile?.photo} frame={profile?.frame} size={32} />
               </button>
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
                   <div className="absolute right-0 top-11 z-50 max-h-[calc(100vh-4rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-xl bg-neutral-800 py-2 shadow-xl supports-[height:100dvh]:max-h-[calc(100dvh-4rem)]">
                     <div className="flex items-center gap-3 border-b border-neutral-700 px-4 pb-2.5 pt-1">
-                      <Avatar name={name} photo={profile?.photo} size={40} />
+                      <Avatar name={name} photo={profile?.photo} frame={profile?.frame} size={40} />
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{name}</p>
                         <p className="truncate text-sm text-neutral-400">{profile ? `@${profile.username}` : ''}</p>

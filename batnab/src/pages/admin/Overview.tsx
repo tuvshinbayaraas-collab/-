@@ -51,7 +51,7 @@ export function StudentName({student, sub}: {student: Student; sub?: ReactNode})
   const p = student.profile;
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <Avatar name={shownName(p)} photo={p.photo} size={32} />
+      <Avatar name={shownName(p)} photo={p.photo} frame={p.frame} size={32} />
       <span className="min-w-0">
         <span className="block truncate font-medium">
           {p.name}

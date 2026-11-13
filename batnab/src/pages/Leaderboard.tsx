@@ -2,7 +2,7 @@ import {ArrowRight, CircleHelp, Crown, Trophy} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {CenterNote, LockedNote} from '../components/Notices';
-import {animalOf, overall, PLACES, percentOf, ranking, usePhotos, useWeekBoard, type Entry} from '../lib/leaderboard';
+import {animalOf, overall, PLACES, percentOf, ranking, usePics, useWeekBoard, type Entry} from '../lib/leaderboard';
 import {MedalArt, OrderArt} from '../components/MedalBadge';
 import {serverNow} from '../lib/time';
 import {useKeys} from '../lib/keys';
@@ -203,7 +203,7 @@ const Who = ({uid, children}: {uid: string; children: ReactNode}) => (
 
 /** 2nd, 1st, 3rd side by side, the winner highest; `badge`: the prize, in the top-right corner. */
 function Podium({top, sum, me, badge}: {top: Entry[]; sum: boolean; me: string; badge: ReactNode}) {
-  const photos = usePhotos(top.map((e) => e.uid));
+  const pics = usePics(top.map((e) => e.uid));
   const slots = [
     {place: 2, h: 'h-16', size: 56},
     {place: 1, h: 'h-24', size: 72},
@@ -225,7 +225,7 @@ function Podium({top, sum, me, badge}: {top: Entry[]; sum: boolean; me: string; 
             {e ? (
               <Who uid={e.uid}>
                 <span className={`rounded-full ring-4 ${look.ring}`}>
-                  <Avatar name={e.name.replace(/^@/, '')} photo={photos[e.uid]} size={size} />
+                  <Avatar name={e.name.replace(/^@/, '')} photo={pics[e.uid]?.photo} frame={pics[e.uid]?.frame} size={size} />
                 </span>
                 <p className={`mt-3 line-clamp-2 w-full break-words text-sm font-semibold leading-tight ${e.uid === me ? 'text-blue-300' : ''}`}>{e.name}</p>
               </Who>

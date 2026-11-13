@@ -83,6 +83,10 @@
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && (newData.val().matches(/^avatar:[a-z]{2,20}$/) || (newData.val().beginsWith('data:image/') && newData.val().length <= 60000 && root.child('settings/photos').val() !== false))"
         },
+        "frame": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+        },
         "createdAt": {
           ".validate": "newData.isNumber()"
         },
@@ -331,6 +335,9 @@
         ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true",
         "photo": {
           ".validate": "newData.isString() && newData.val() === root.child('users').child($uid).child('photo').val()"
+        },
+        "frame": {
+          ".validate": "newData.isString() && newData.val() === newData.parent().parent().parent().child('users').child($uid).child('frame').val()"
         },
         "$other": {
           ".validate": false

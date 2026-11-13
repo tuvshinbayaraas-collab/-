@@ -63,7 +63,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
         <ArrowLeft size={16} /> Сурагчид
       </Link>
       <section className="flex flex-wrap items-center gap-5 rounded-2xl bg-neutral-900 p-5">
-        <Avatar name={shownName(p)} photo={p.photo} size={72} />
+        <Avatar name={shownName(p)} photo={p.photo} frame={p.frame} size={72} />
         <div className="min-w-0 flex-1">
           {editing ? (
             <form

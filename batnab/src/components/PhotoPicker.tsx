@@ -16,7 +16,7 @@ const saveError = (e: unknown) => (/permission/i.test((e as Error)?.message ?? '
  * Changing one's picture: a photo (camera or gallery on a phone; choose, drop or paste on a PC) placed in a round frame
  * before it is saved, or one of the ready-made pictures. While the teacher has photos off, only the ready-made ones.
  */
-export default function PhotoPicker({name, photo, onSave, onClose}: {name: string; photo?: string; onSave: (photo: string | null) => Promise<void>; onClose: () => void}) {
+export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name: string; photo?: string; frame?: string; onSave: (photo: string | null) => Promise<void>; onClose: () => void}) {
   const allowed = useSettings()?.photos !== false;
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [choice, setChoice] = useState<string | null>(photo ?? null);
@@ -116,7 +116,7 @@ export default function PhotoPicker({name, photo, onSave, onClose}: {name: strin
   return (
     <Sheet title="Зураг солих" sub={allowed ? 'Өөрийн зураг эсвэл бэлэн дүрс.' : undefined} onClose={onClose}>
       <div className="flex justify-center">
-        <Avatar name={name} photo={choice} size={96} />
+        <Avatar name={name} photo={choice} frame={frame} size={96} />
       </div>
       {allowed ? (
         // On a PC the buttons sit in a zone a picture can be dropped on; a phone has no dropping, so just the buttons.

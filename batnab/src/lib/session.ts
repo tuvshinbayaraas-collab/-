@@ -23,6 +23,8 @@ export interface Profile {
   nickname?: string;
   /** Small JPEG data URL, set by the student. */
   photo?: string;
+  /** The frame around the picture (lib/frames), picked by the student. */
+  frame?: string;
   createdAt?: number;
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */

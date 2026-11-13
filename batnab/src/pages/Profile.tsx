@@ -1,4 +1,4 @@
-import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Medal as MedalIcon} from 'lucide-react';
+import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Lock, Medal as MedalIcon, Sparkles} from 'lucide-react';
 import {useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {BadgeGrid, useBadgeFacts} from '../components/Badges';
@@ -6,7 +6,8 @@ import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import {ProgressChart, useWeeks} from '../components/Progress';
 import Sheet from '../components/Sheet';
-import {saveNickname, savePhoto} from '../lib/accounts';
+import {saveFrame, saveNickname, savePhoto} from '../lib/accounts';
+import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
 import {refreshMine, useMedals} from '../lib/leaderboard';
@@ -14,6 +15,7 @@ import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
+import {badges} from '../lib/stats';
 import Loading from '../components/Loading';
 import MedalBadge from '../components/MedalBadge';
 
@@ -23,7 +25,7 @@ const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-blac
 const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
-type Open = 'nickname' | 'password' | null;
+type Open = 'nickname' | 'password' | 'frame' | null;
 
 /**
  * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
@@ -44,12 +46,14 @@ export default function Profile() {
       <Identity profile={profile} />
       <div className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
         <Row icon={<AtSign size={18} />} label="Nickname" value={nickname || <span className="text-neutral-500">Тавиагүй</span>} onClick={() => setOpen('nickname')} />
+        <Row icon={<Sparkles size={18} />} label="Хүрээ" value={frameOf(profile.frame)?.name ?? <span className="text-neutral-500">Хүрээгүй</span>} onClick={() => setOpen('frame')} />
         <Row icon={<KeyRound size={18} />} label="Нууц үг" value={<span className="tracking-widest">••••••</span>} onClick={() => setOpen('password')} />
       </div>
       {!session.admin && <Medals uid={session.user.uid} />}
       {!session.admin && <Growth uid={session.user.uid} />}
       {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
+      {open === 'frame' && <FrameSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -131,7 +135,7 @@ function Identity({profile}: {profile: ProfileData}) {
   return (
     <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
       <button onClick={pick} aria-label="Зураг солих" className="relative rounded-full">
-        <Avatar name={name} photo={profile.photo} size={104} />
+        <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
         <span className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
           <Camera size={16} />
         </span>
@@ -150,8 +154,89 @@ function Identity({profile}: {profile: ProfileData}) {
           {status.ok && <Check size={16} />} {status.text}
         </p>
       )}
-      {picking && <PhotoPicker name={name} photo={profile.photo} onSave={save} onClose={() => setPicking(false)} />}
+      {picking && <PhotoPicker name={name} photo={profile.photo} frame={profile.frame} onSave={save} onClose={() => setPicking(false)} />}
     </section>
+  );
+}
+
+/** A frame around the picture: the plain ones open to all, the special ones once earned (a tap on a shut one says how). */
+function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
+  const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
+  const facts = useBadgeFacts(uid, results, keys);
+  const [pick, setPick] = useState<string | null>(frameOf(profile.frame)?.id ?? null);
+  const [why, setWhy] = useState<Frame | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const name = shownName(profile);
+  const got = new Set(facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])) : []);
+  const open = (f: Frame) => isOpen(f, got, !!profile.lead);
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveFrame(pick);
+      await refreshMine({...profile, frame: pick ?? undefined}).catch(() => {});
+      onClose();
+    } catch (e) {
+      setError(/permission/i.test((e as Error).message) ? 'Энэ хүрээ танд хараахан нээгдээгүй байна.' : authError(e));
+      setBusy(false);
+    }
+  };
+  const option = (f: Frame | null) => {
+    const shut = !!f && !open(f);
+    const on = pick === (f?.id ?? null);
+    return (
+      <button
+        key={f?.id ?? 'none'}
+        type="button"
+        onClick={() => (shut ? setWhy(f) : (setPick(f?.id ?? null), setWhy(null)))}
+        aria-pressed={on}
+        aria-label={`${f?.name ?? 'Хүрээгүй'}${shut ? ' (түгжээтэй)' : ''}`}
+        className={`flex flex-col items-center gap-1.5 rounded-xl px-1 py-2 ${on ? 'bg-blue-500/15 ring-1 ring-blue-400' : 'hover:bg-neutral-800'}`}
+      >
+        <span className="relative">
+          <Avatar name={name} photo={profile.photo} frame={f?.id} size={52} />
+          {shut && (
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-neutral-200">
+              <Lock size={16} />
+            </span>
+          )}
+        </span>
+        <span className={`text-xs ${shut ? 'text-neutral-500' : 'text-neutral-200'}`}>{f?.name ?? 'Хүрээгүй'}</span>
+      </button>
+    );
+  };
+  return (
+    <Sheet title="Хүрээ" sub="Зургийн тань эргэн тойронд, сайтын хаа сайгүй харагдана. Тусгай хүрээ амжилтаар нээгдэнэ." onClose={onClose}>
+      <div className="flex justify-center pb-3 pt-1">
+        <Avatar name={name} photo={profile.photo} frame={pick} size={104} />
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Энгийн</p>
+      <div className="mt-1 grid grid-cols-4 gap-1">
+        {option(null)}
+        {FRAMES.filter((f) => !f.earn).map(option)}
+      </div>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">Тусгай</p>
+      <div className="mt-1 grid grid-cols-4 gap-1">{FRAMES.filter((f) => f.earn).map(option)}</div>
+      {why?.earn && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300">
+          <Lock size={15} className="mt-0.5 shrink-0 text-neutral-400" />
+          <span>
+            «{why.name}» хүрээ нээгдэх нь: {why.earn.hint}.
+          </span>
+        </p>
+      )}
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <button type="button" onClick={onClose} className={secondary}>
+          Болих
+        </button>
+        <button type="button" onClick={save} disabled={busy || pick === (frameOf(profile.frame)?.id ?? null)} className={primary}>
+          {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -186,7 +271,7 @@ function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () =>
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs tabular-nums text-neutral-500">{nickname.length}/30</span>
         </div>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-800/50 px-3 py-2.5">
-          <Avatar name={preview} photo={profile.photo} size={32} />
+          <Avatar name={preview} photo={profile.photo} frame={profile.frame} size={32} />
           <div className="min-w-0">
             <p className="text-xs text-neutral-500">Ингэж харагдана</p>
             <p className="truncate font-medium">{preview}</p>

@@ -5,7 +5,8 @@
 // animal medals (medals/{uid}/{weekStart}_{test}, with `round`: the week's number from 31 October 2026, which gives its
 // animal), the top 3 of "Шилдэг оноогоор" (every test's best added up) the «Шилдэг» orders (medals/{uid}/{weekStart},
 // `top`). Older medals at medals/{uid}/{weekStart} without `top` were for the week's best single score.
-// pub/{uid}/photo carries the photo (or ready-made picture) of students on the leaderboard, so the podium can show it.
+// pub/{uid}/photo carries the photo (or ready-made picture) of students on the leaderboard, so the podium can show it;
+// pub/{uid}/frame the frame around it (lib/frames).
 import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {TESTS} from '../tests';
@@ -156,29 +157,36 @@ export function useWeekBoard(enabled = true) {
   return board?.week === week ? board.byTest : null;
 }
 
-/** Photos of the students shown (null entries while loading or without a photo). */
-export function usePhotos(uids: string[]) {
-  const [photos, setPhotos] = useState<Record<string, string | null>>({});
+/** The pictures of the students shown, each with its frame (missing while loading; nulls when there is none). */
+export function usePics(uids: string[]) {
+  const [pics, setPics] = useState<Record<string, {photo: string | null; frame: string | null}>>({});
   const sig = uids.join(',');
   const signIns = useSignIns();
   useEffect(() => {
+    const str = (v: unknown) => (typeof v === 'string' ? v : null);
     const stops = sig
       .split(',')
       .filter(Boolean)
       .map((uid) =>
         onValue(
-          ref(db, `pub/${uid}/photo`),
-          (s) => setPhotos((p) => ({...p, [uid]: typeof s.val() === 'string' ? s.val() : null})),
-          () => setPhotos((p) => ({...p, [uid]: null})),
+          ref(db, `pub/${uid}`),
+          (s) => setPics((p) => ({...p, [uid]: {photo: str(s.val()?.photo), frame: str(s.val()?.frame)}})),
+          () => setPics((p) => ({...p, [uid]: {photo: null, frame: null}})),
         ),
       );
     return () => stops.forEach((f) => f());
   }, [sig, signIns]);
-  return photos;
+  return pics;
 }
 
-/** What classmates may see of a student's picture: a ready-made one always, a photo only while photos are allowed. */
-export const pubOf = (photo: string | null | undefined, photos = photosAllowed()) => (photo && (photo.startsWith('avatar:') || photos) ? {photo} : null);
+/**
+ * What classmates may see of a student's picture: a ready-made one always, a photo only while photos are allowed; the
+ * frame always. Null when there is nothing to show.
+ */
+export function pubOf(photo: string | null | undefined, frame: string | null | undefined, photos = photosAllowed()) {
+  const p = photo && (photo.startsWith('avatar:') || photos) ? photo : null;
+  return p || frame ? {...(p ? {photo: p} : {}), ...(frame ? {frame} : {})} : null;
+}
 
 /**
  * Puts a handed-in test on the leaderboard, if it beats the student's entry for that test this week.
@@ -194,7 +202,7 @@ export async function submitScore(test: string, g: Grade, seconds: number, rid: 
   const keep = old && compare(old, mine) <= 0 ? old : mine;
   await update(ref(db), {
     [path]: {score: keep.score, total: keep.total, seconds: keep.seconds, name: mine.name, rid: keep.rid, at: keep === mine ? serverTimestamp() : keep.at},
-    [`pub/${uid}`]: pubOf(profile.photo),
+    [`pub/${uid}`]: pubOf(profile.photo, profile.frame),
   });
 }
 
@@ -206,7 +214,7 @@ export async function withdraw() {
   await update(ref(db), Object.fromEntries([...TESTS.map((t) => [`leaderboard/${week}/${t.id}/${uid}`, null]), [`pub/${uid}`, null]]));
 }
 
-/** After a nickname or photo change: the student's entries this week show the new name and photo. */
+/** After a nickname, photo or frame change: the student's entries this week show the new name and picture. */
 export async function refreshMine(profile: Profile) {
   const uid = auth.currentUser?.uid;
   if (!uid || profile.prefs?.lbOff) return;
@@ -218,7 +226,7 @@ export async function refreshMine(profile: Profile) {
   if (!tests.length) return;
   await update(ref(db), {
     ...Object.fromEntries(tests.map((t) => [`leaderboard/${week}/${t}/${uid}/name`, publicName(profile)])),
-    [`pub/${uid}`]: pubOf(profile.photo),
+    [`pub/${uid}`]: pubOf(profile.photo, profile.frame),
   });
 }
 

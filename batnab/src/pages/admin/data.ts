@@ -169,7 +169,7 @@ export function leaderboardFixes(
   results: Record<string, Record<string, unknown>>,
   keys: Record<string, string>,
   leaderboard: Record<string, Record<string, Record<string, Partial<Entry>>>>,
-  pub: Record<string, {photo?: string}>,
+  pub: Record<string, {photo?: string; frame?: string}>,
   photos = true,
 ) {
   const ops: Record<string, unknown> = {};
@@ -198,11 +198,12 @@ export function leaderboardFixes(
     }
     for (const uid of have.keys()) ops[`leaderboard/${week}/${test}/${uid}`] = null;
   }
-  // Photos for the podium: only of students on the leaderboard (and while photos are off, only ready-made pictures).
+  // Pictures for the podium, with their frames: only of students on the leaderboard (and while photos are off, only
+  // ready-made pictures).
   const shown = new Set(Object.values(want).flatMap((t) => Object.keys(t)));
   for (const uid of new Set([...shown, ...Object.keys(pub)])) {
-    const photo = shown.has(uid) ? (pubOf(users[uid]?.photo, photos)?.photo ?? null) : null;
-    if ((pub[uid]?.photo ?? null) !== photo) ops[`pub/${uid}`] = photo ? {photo} : null;
+    const pic = shown.has(uid) ? pubOf(users[uid]?.photo, users[uid]?.frame, photos) : null;
+    if ((pub[uid]?.photo ?? null) !== (pic?.photo ?? null) || (pub[uid]?.frame ?? null) !== (pic?.frame ?? null)) ops[`pub/${uid}`] = pic;
   }
   // Finished weeks: medals for each test's top 3 (the week's animal's, lib/leaderboard) and «Шилдэг» orders for the top 3
   // of the sum, then the week's entries go.
