@@ -1,6 +1,7 @@
 import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Lock, Medal as MedalIcon, MessageSquareText, Sparkles, UserRound} from 'lucide-react';
 import {useEffect, useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
+import {ORNAMENTED} from '../components/FrameOrnament';
 import {BadgeGrid, useBadgeFacts} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
@@ -167,9 +168,12 @@ function Identity({profile}: {profile: ProfileData}) {
     <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
       <button onClick={pick} aria-label="Зураг солих" className="relative rounded-full">
         <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
-        <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
-          <Camera size={16} />
-        </span>
+        {/* Not over a special frame's ornament («Зураг солих» is just below). */}
+        {!ORNAMENTED.has(profile.frame ?? '') && (
+          <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
+            <Camera size={16} />
+          </span>
+        )}
       </button>
       <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
       <p className="text-sm text-neutral-400">
@@ -190,18 +194,25 @@ function Identity({profile}: {profile: ProfileData}) {
   );
 }
 
-/** A frame around the picture: the plain ones open to all, the special ones once earned (a tap on a shut one says how). */
+/**
+ * «Хүрээ сонгох»: the frame picked shows big at the top (and small, as in a list, at the bottom); the plain ones and
+ * the special ones on two tabs. A special one not earned yet shows with a lock beside its name; a tap on it says how to
+ * earn it.
+ */
 function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
   const results = useMyResults();
   const keys = useKeys(results ? results.map((r) => r.test) : []);
   const facts = useBadgeFacts(uid, results, keys);
-  const [pick, setPick] = useState<string | null>(frameOf(profile.frame)?.id ?? null);
+  const now = frameOf(profile.frame)?.id ?? null;
+  const [pick, setPick] = useState<string | null>(now);
+  const [tab, setTab] = useState<'plain' | 'special'>(frameOf(now)?.earn ? 'special' : 'plain');
   const [why, setWhy] = useState<Frame | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const name = shownName(profile);
   const got = new Set(facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])) : []);
   const open = (f: Frame) => isOpen(f, got, !!profile.lead);
+  const picked = frameOf(pick);
   const save = async () => {
     setBusy(true);
     setError('');
@@ -215,41 +226,70 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
     }
   };
   const option = (f: Frame | null) => {
+    const id = f?.id ?? null;
     const shut = !!f && !open(f);
-    const on = pick === (f?.id ?? null);
+    const on = pick === id;
     return (
       <button
-        key={f?.id ?? 'none'}
+        key={id ?? 'none'}
         type="button"
-        onClick={() => (shut ? setWhy(f) : (setPick(f?.id ?? null), setWhy(null)))}
+        onClick={() => (shut ? setWhy(f) : (setPick(id), setWhy(null)))}
         aria-pressed={on}
         aria-label={`${f?.name ?? 'Хүрээгүй'}${shut ? ' (түгжээтэй)' : ''}`}
-        className={`flex flex-col items-center gap-1.5 rounded-xl px-1 py-2 ${on ? 'bg-blue-500/15 ring-1 ring-blue-400' : 'hover:bg-neutral-800'}`}
+        className={`relative flex flex-col items-center gap-1.5 rounded-2xl border px-1 pb-2.5 pt-4 ${on ? 'border-blue-400 bg-blue-500/10' : 'border-transparent hover:bg-neutral-800/60'}`}
       >
-        <span className="relative">
-          <Avatar name={name} photo={profile.photo} frame={f?.id} size={52} />
-          {shut && (
-            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-neutral-200">
-              <Lock size={16} />
-            </span>
-          )}
+        {on && (
+          <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-black">
+            <Check size={14} strokeWidth={3} />
+          </span>
+        )}
+        <Avatar name={name} photo={profile.photo} frame={id} size={64} />
+        <span className={`mt-1 flex items-center gap-1 text-sm font-medium ${shut ? 'text-neutral-300' : 'text-neutral-100'}`}>
+          {f?.name ?? 'Хүрээгүй'}
+          {shut && <Lock size={13} className="text-neutral-400" />}
         </span>
-        <span className={`text-xs ${shut ? 'text-neutral-500' : 'text-neutral-200'}`}>{f?.name ?? 'Хүрээгүй'}</span>
+        {id === now && <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[11px] font-semibold text-blue-200">Одоогийн</span>}
       </button>
     );
   };
   return (
-    <Sheet title="Хүрээ" sub="Зургийн тань эргэн тойронд, сайтын хаа сайгүй харагдана. Тусгай хүрээ амжилтаар нээгдэнэ." onClose={onClose}>
-      <div className="flex justify-center pb-3 pt-1">
-        <Avatar name={name} photo={profile.photo} frame={pick} size={104} />
+    <Sheet title="Хүрээ сонгох" sub="Таны зурагт тохирох жижиг чимэглэл." onClose={onClose}>
+      {/* The one picked, as it will look. */}
+      <div className="flex items-center gap-4 rounded-2xl bg-neutral-800/50 p-4">
+        <span className="shrink-0 p-2">
+          <Avatar name={name} photo={profile.photo} frame={pick} size={88} />
+        </span>
+        <span className="h-16 w-px shrink-0 bg-neutral-700" aria-hidden />
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-lg font-semibold">{picked?.name ?? 'Хүрээгүй'}</span>
+            <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-200">Сонгосон</span>
+          </span>
+          <span className="mt-0.5 block text-sm text-neutral-400">Таны профайл дээр ингэж харагдана</span>
+        </span>
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Энгийн</p>
-      <div className="mt-1 grid grid-cols-4 gap-1">
-        {option(null)}
-        {FRAMES.filter((f) => !f.earn).map(option)}
+
+      <div className="mt-4 grid grid-cols-2 rounded-full bg-neutral-800/60 p-1 text-sm font-medium" role="tablist" aria-label="Хүрээний төрөл">
+        {(
+          [
+            ['plain', 'Энгийн'],
+            ['special', 'Тусгай'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => (setTab(id), setWhy(null))}
+            className={`rounded-full py-2 ${tab === id ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:text-neutral-100'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">Тусгай</p>
-      <div className="mt-1 grid grid-cols-4 gap-1">{FRAMES.filter((f) => f.earn).map(option)}</div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">{tab === 'plain' ? [option(null), ...FRAMES.filter((f) => !f.earn).map(option)] : FRAMES.filter((f) => f.earn).map(option)}</div>
       {why?.earn && (
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300">
           <Lock size={15} className="mt-0.5 shrink-0 text-neutral-400" />
@@ -258,12 +298,24 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
           </span>
         </p>
       )}
+
+      {/* Small, as in the students' list. */}
+      <p className="mt-4 border-t border-neutral-800 pt-3 text-sm font-semibold">Жижиг хэмжээнд</p>
+      <div className="mt-2 flex items-center gap-3 rounded-2xl bg-neutral-800/50 px-4 py-3" aria-hidden>
+        <Avatar name={name} photo={profile.photo} frame={pick} size={44} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold">{profile.name}</span>
+          <span className="block truncate text-sm text-neutral-400">@{profile.nickname?.trim() || profile.username}</span>
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-neutral-500" />
+      </div>
+
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-      <div className="mt-5 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
         <button type="button" onClick={onClose} className={secondary}>
           Болих
         </button>
-        <button type="button" onClick={save} disabled={busy || pick === (frameOf(profile.frame)?.id ?? null)} className={primary}>
+        <button type="button" onClick={save} disabled={busy || pick === now} className={primary}>
           {busy ? 'Хадгалж байна…' : 'Хадгалах'}
         </button>
       </div>

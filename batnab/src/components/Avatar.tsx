@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {avatarOf} from '../lib/avatars';
 import {frameOf} from '../lib/frames';
+import FrameOrnament, {ORNAMENTED} from './FrameOrnament';
 import {useSettings} from '../lib/settings';
 
 // Deep enough for the white letter on them (4.5:1 and up).
@@ -19,23 +20,15 @@ function avatarColor(name: string): string {
 export default function Avatar({name, photo, frame, size = 36}: {name: string; photo?: string | null; frame?: string | null; size?: number}) {
   const f = frameOf(frame);
   if (!f) return <Picture name={name} photo={photo} size={size} />;
-  // The ring, then a thin dark gap, so the picture stands apart from it.
-  const ring = Math.max(2, Math.round(size * 0.07));
-  const gap = Math.max(1, Math.round(size * 0.025));
+  // A thin ring, then a thin dark gap so the picture stands apart from it; a special frame's ornament over it.
+  const ring = Math.max(2, Math.round(size * 0.05));
+  const gap = Math.max(1, Math.round(size * 0.03));
   return (
     <div className="relative shrink-0 rounded-full" style={{width: size, height: size, padding: ring, background: f.bg}} data-frame={f.id}>
       <div className="rounded-full bg-neutral-950" style={{padding: gap}}>
         <Picture name={name} photo={photo} size={size - 2 * ring - 2 * gap} />
       </div>
-      {f.mark && size >= 72 && (
-        <span
-          className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-neutral-950 leading-none"
-          style={{bottom: -Math.round(size * 0.06), width: size * 0.3, height: size * 0.3, fontSize: size * 0.17}}
-          aria-hidden
-        >
-          {f.mark}
-        </span>
-      )}
+      {ORNAMENTED.has(f.id) && size >= 28 && <FrameOrnament id={f.id} />}
     </div>
   );
 }
