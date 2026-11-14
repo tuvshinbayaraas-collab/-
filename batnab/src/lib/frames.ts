@@ -18,6 +18,8 @@ export const FRAMES: Frame[] = [
   {id: 'rose', name: 'Ягаан', bg: '#f472b6'},
   {id: 'amber', name: 'Шар', bg: '#fbbf24'},
   {id: 'white', name: 'Цагаан', bg: '#e5e5e5'},
+  {id: 'dawn', name: 'Үүр', bg: 'linear-gradient(135deg, #f472b6, #fb923c, #fde047)'},
+  {id: 'aqua', name: 'Ус', bg: 'linear-gradient(135deg, #22d3ee, #6366f1)'},
   // The special ones carry an ornament too (components/FrameOrnament).
   {id: 'fire', name: 'Галт', bg: 'conic-gradient(from 200deg, #f97316, #ef4444, #facc15, #f97316)', earn: {badge: 'streak7', hint: '7 өдөр дараалан өдрийн дасгал хийх'}},
   {id: 'perfect', name: 'Төгс', bg: 'linear-gradient(135deg, #86efac, #16a34a)', earn: {badge: 'perfect', hint: 'Тестэд бүх бодлогыг зөв бодох'}},

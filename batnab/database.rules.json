@@ -85,7 +85,7 @@
         },
         "frame": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|dawn|aqua|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
         },
         "banner": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",

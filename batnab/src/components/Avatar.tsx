@@ -28,7 +28,7 @@ export default function Avatar({name, photo, frame, size = 36}: {name: string; p
       <div className="rounded-full bg-neutral-950" style={{padding: gap}}>
         <Picture name={name} photo={photo} size={size - 2 * ring - 2 * gap} />
       </div>
-      {ORNAMENTED.has(f.id) && size >= 28 && <FrameOrnament id={f.id} />}
+      {ORNAMENTED.has(f.id) && size >= 28 && <FrameOrnament id={f.id} live={size >= 60} />}
     </div>
   );
 }

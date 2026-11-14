@@ -8,7 +8,7 @@ import {bannerOf, NO_BANNER} from '../lib/banners';
 export default function ProfileBanner({id, className = '', children}: {id?: string | null; className?: string; children?: ReactNode}) {
   const b = bannerOf(id);
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{background: b?.bg ?? NO_BANNER}} data-banner={b?.id ?? ''}>
+    <div className={`relative overflow-hidden ${b?.fx ? `banner-${b.fx}` : ''} ${className}`} style={{background: b?.bg ?? NO_BANNER}} data-banner={b?.id ?? ''}>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-neutral-900/70 to-transparent" aria-hidden />
       {children}
     </div>

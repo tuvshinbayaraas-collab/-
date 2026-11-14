@@ -23,12 +23,13 @@ const FLAME = 'M0 0C-.55 0-.62-.45-.36-.72C-.3-.5-.16-.45-.1-.56C-.2-.82 0-1 .16
 
 export const ORNAMENTED = new Set(['fire', 'perfect', 'master', 'rainbow', 'gold', 'galaxy', 'lead']);
 
-export default function FrameOrnament({id}: {id: string}) {
+/** `live`: it moves a little (big pictures only; never where reduced motion is asked for). */
+export default function FrameOrnament({id, live}: {id: string; live?: boolean}) {
   const uid = useId().replace(/:/g, '');
   const g = (name: string) => `${name}-${uid}`;
   const url = (name: string) => `url(#${g(name)})`;
   return (
-    <svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+    <svg viewBox="0 0 100 100" className={`pointer-events-none absolute inset-0 h-full w-full overflow-visible ${live ? 'fx-live' : ''}`} aria-hidden>
       {id === 'fire' && (
         <>
           <defs>
@@ -38,9 +39,11 @@ export default function FrameOrnament({id}: {id: string}) {
               <stop offset="1" stopColor="#fde047" />
             </linearGradient>
           </defs>
-          <path d={FLAME} transform="translate(86 99) rotate(-28) scale(30)" fill={url('f')} />
-          <path d={FLAME} transform="translate(85 97) rotate(-28) scale(16)" fill="#fef08a" />
-          <path d={FLAME} transform="translate(73 104) rotate(-55) scale(15)" fill={url('f')} opacity=".9" />
+          <g className="fx fx-base fx-flicker">
+            <path d={FLAME} transform="translate(86 99) rotate(-28) scale(30)" fill={url('f')} />
+            <path d={FLAME} transform="translate(85 97) rotate(-28) scale(16)" fill="#fef08a" />
+            <path d={FLAME} transform="translate(73 104) rotate(-55) scale(15)" fill={url('f')} opacity=".9" />
+          </g>
         </>
       )}
       {id === 'perfect' && (
@@ -62,7 +65,7 @@ export default function FrameOrnament({id}: {id: string}) {
           </defs>
           <path d={arc(-72, -22, 53)} fill="none" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" />
           <path d={arc(-66, -30, 53)} fill="none" stroke="#cffafe" strokeWidth="1.4" strokeLinecap="round" opacity=".8" />
-          <path d={gem(50, 99, 8.5)} fill={url('m')} stroke="#e0f2fe" strokeWidth=".9" />
+          <path d={gem(50, 99, 8.5)} fill={url('m')} stroke="#e0f2fe" strokeWidth=".9" className="fx-glint" />
           <path d="M41.5 99 L58.5 99 M50 90.5 L50 109.6" stroke="#e0f2fe" strokeWidth=".6" opacity=".7" />
         </>
       )}
@@ -75,8 +78,10 @@ export default function FrameOrnament({id}: {id: string}) {
               <stop offset="1" stopColor="#fb923c" />
             </linearGradient>
           </defs>
-          <path d={arc(-100, -12, 57)} fill="none" stroke={url('r')} strokeWidth="4.5" strokeLinecap="round" />
-          <circle cx={at(-12, 57)[0]} cy={at(-12, 57)[1]} r="3" fill="#fdba74" />
+          <g className="fx-hub fx-orbit">
+            <path d={arc(-100, -12, 57)} fill="none" stroke={url('r')} strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx={at(-12, 57)[0]} cy={at(-12, 57)[1]} r="3" fill="#fdba74" />
+          </g>
         </>
       )}
       {id === 'gold' && (
@@ -89,7 +94,7 @@ export default function FrameOrnament({id}: {id: string}) {
           </defs>
           <path d="M36 7 L33.5 -10 L43.5 -1.5 L50 -14 L56.5 -1.5 L66.5 -10 L64 7 Z" fill={url('c')} stroke="#b45309" strokeWidth="1" strokeLinejoin="round" />
           <circle cx="33.5" cy="-10" r="2.3" fill="#fde68a" stroke="#b45309" strokeWidth=".8" />
-          <circle cx="50" cy="-14" r="2.6" fill="#fde68a" stroke="#b45309" strokeWidth=".8" />
+          <circle cx="50" cy="-14" r="2.6" fill="#fde68a" stroke="#b45309" strokeWidth=".8" className="fx-glint" />
           <circle cx="66.5" cy="-10" r="2.3" fill="#fde68a" stroke="#b45309" strokeWidth=".8" />
         </>
       )}
@@ -102,8 +107,8 @@ export default function FrameOrnament({id}: {id: string}) {
             </radialGradient>
           </defs>
           <path d={arc(-78, -38, 56)} fill="none" stroke="#c4b5fd" strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
-          <path d={star(87, 13, 12)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" />
-          <path d={star(12, 88, 8)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" />
+          <path d={star(87, 13, 12)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" className="fx fx-twinkle" />
+          <path d={star(12, 88, 8)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" className="fx fx-twinkle fx-late" />
           <path d={star(96, 31, 3.5)} fill="#ede9fe" />
         </>
       )}
@@ -113,7 +118,7 @@ export default function FrameOrnament({id}: {id: string}) {
           <path d={arc(-25, 25, 58)} fill="none" stroke="#2dd4bf" strokeWidth="4" strokeLinecap="round" />
           <path d={arc(164, 196, 63)} fill="none" stroke="#99f6e4" strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
           <path d={arc(-16, 16, 63)} fill="none" stroke="#99f6e4" strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
-          <path d={gem(50, 99, 7)} fill="#5eead4" stroke="#ccfbf1" strokeWidth=".9" />
+          <path d={gem(50, 99, 7)} fill="#5eead4" stroke="#ccfbf1" strokeWidth=".9" className="fx-glint" />
         </>
       )}
     </svg>

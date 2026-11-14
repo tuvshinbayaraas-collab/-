@@ -72,6 +72,54 @@
   }
 }
 
+/* The special frames' ornaments and banners move a little (components/FrameOrnament, lib/banners): only where motion
+   is welcome, and only on the big pictures (lists stay still). */
+@keyframes fx-flicker {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.07, 1.12) rotate(-2deg); }
+  70% { transform: scale(0.96, 1.04) rotate(2deg); }
+}
+@keyframes fx-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.55); opacity: 0.55; }
+}
+@keyframes fx-sway {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes fx-glint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes fx-orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes banner-drift {
+  to { background-position-x: 160px, 0, 0; }
+}
+@keyframes banner-shine {
+  from { background-position: 160% 0, 0 0; }
+  to { background-position: -60% 0, 0 0; }
+}
+@keyframes banner-glow {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(18deg) brightness(1.12); }
+}
+.fx { transform-box: fill-box; transform-origin: center; }
+.fx-base { transform-origin: 50% 100%; }
+.fx-hub { transform-box: view-box; transform-origin: 50px 50px; }
+@media (prefers-reduced-motion: no-preference) {
+  .fx-live .fx-flicker { animation: fx-flicker 1.6s ease-in-out infinite; }
+  .fx-live .fx-twinkle { animation: fx-twinkle 2.4s ease-in-out infinite; }
+  .fx-live .fx-twinkle.fx-late { animation-delay: -1.2s; }
+  .fx-live .fx-sway { animation: fx-sway 4s ease-in-out infinite; }
+  .fx-live .fx-glint { animation: fx-glint 2.8s ease-in-out infinite; }
+  .fx-live .fx-orbit { animation: fx-orbit 9s linear infinite; }
+  .banner-drift { animation: banner-drift 28s linear infinite; }
+  .banner-shine { animation: banner-shine 5s ease-in-out infinite; }
+  .banner-glow { animation: banner-glow 7s ease-in-out infinite; }
+}
+
 /* KaTeX's invisible spacing boxes reach well outside a formula. A tap there has to land on the answer button that is
    actually under the finger, not on the neighbouring answer the formula belongs to. */
 .katex,
