@@ -106,6 +106,8 @@
     mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.35));
   }
   :root {
+    /* A profile without a banner picked (lib/banners). */
+    --banner-none: linear-gradient(135deg, #1f2937, #111827);
     --paper-line: rgb(255 255 255 / 0.012);
     /* Test figures (graphs, geometry): a third larger on a computer, where there's room. */
     --fig-scale: 1;
@@ -116,6 +118,7 @@
     }
   }
   :root[data-theme='light'] {
+    --banner-none: linear-gradient(135deg, #dbe3f4, #c5cfe6);
     --paper-line: rgb(20 30 80 / 0.03);
   }
   /* A link in running text is underlined, not only blue, so it stands apart from the grey words around it without its

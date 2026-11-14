@@ -10,6 +10,7 @@ import {assignmentFor, assignmentState, assignmentTitle} from '../components/Tod
 import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
+import {opened} from './cosmetics';
 import {medalName, useMedals} from './leaderboard';
 import {WEEK} from './week';
 import {liveOn, useLiveQuiz} from './liveQuiz';
@@ -23,7 +24,7 @@ import {useSession} from './session';
 import {clock, dayLabel, serverNow, useNow} from './time';
 import {problemNo, useAllMarks, useAllProgress, useAllTopicKeys, useMarks, useProgress, useTopics, verdict} from './topics';
 
-export type NoteKind = 'task' | 'due' | 'news' | 'exam' | 'mark' | 'reply' | 'medal' | 'live' | 'question' | 'check';
+export type NoteKind = 'task' | 'due' | 'news' | 'exam' | 'mark' | 'reply' | 'medal' | 'live' | 'question' | 'check' | 'unlock';
 
 export interface Note {
   id: string;
@@ -73,7 +74,7 @@ export function useSeen(uid: string | undefined) {
 }
 
 /** The signed-in student's notes, newest first (null while loading). */
-function useStudentNotes(uid: string | undefined, classId: string | undefined, on: boolean, lead = false): Note[] | null {
+function useStudentNotes(uid: string | undefined, classId: string | undefined, on: boolean, lead = false, unlocked?: Record<string, number>): Note[] | null {
   const now = useNow(60_000);
   // The class leader's reminders and notes; for the leader, classmates' questions they may answer.
   const reminders = useReminders(classId, on);
@@ -143,6 +144,20 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
   }
   for (const q of questions) if (q.reply) notes.push({id: `r:${q.id}`, kind: 'reply', at: q.reply.at, text: `Багш асуултад тань хариуллаа: ${q.ctx.label}`, href: '/questions'});
   for (const q of questions) if (q.peer) notes.push({id: `pa:${q.id}`, kind: 'reply', at: q.peer.at, text: `Ангийн дарга ${q.peer.name} асуултад тань тайлбар бичлээ: ${q.ctx.label}`, href: '/questions'});
+  // A special frame or banner just opened to them (lib/cosmetics): those opened together, in one line; for two weeks.
+  const groups: {at: number; keys: string[]}[] = [];
+  for (const [k, at] of Object.entries(unlocked ?? {})
+    .filter(([, at]) => typeof at === 'number' && at > now - 14 * DAY)
+    .sort((a, b) => a[1] - b[1])) {
+    const g = groups[groups.length - 1];
+    // (The line takes the time of the newest of them, so it shows as new again.)
+    if (g && at - g.at < 60_000) (g.keys.push(k), (g.at = at));
+    else groups.push({at, keys: [k]});
+  }
+  for (const g of groups) {
+    const what = opened(g.keys);
+    if (what.length) notes.push({id: `ul:${g.keys.join('+')}`, kind: 'unlock', at: g.at, text: `Шинээр нээгдлээ: ${what.join(', ')}. Профайлдаа тавиарай!`, href: '/profile'});
+  }
   for (const m of medals ?? [])
     notes.push({
       id: `md:${m.key}`,
@@ -199,7 +214,7 @@ export function useNotes() {
   const session = useSession();
   const uid = session.user?.uid;
   const student = !!session.profile && !session.profile.disabled && !session.admin;
-  const studentNotes = useStudentNotes(uid, session.profile?.class, student, session.profile?.lead === true);
+  const studentNotes = useStudentNotes(uid, session.profile?.class, student, session.profile?.lead === true, session.profile?.prefs?.unlocked);
   const teacherNotes = useTeacherNotes(session.admin);
   // What the student cleared off the list.
   const cleared = Number(session.profile?.prefs?.notesCleared) || 0;

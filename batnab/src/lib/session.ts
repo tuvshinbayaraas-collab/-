@@ -35,8 +35,9 @@ export interface Profile {
   class?: string;
   /** «Багшийн хариуцагч», set by the teacher: may ask their class a poll (lib/classPolls). */
   lead?: boolean;
-  /** The student's own settings (see lib/prefs.ts), and what they cleared from the bell's list (lib/notifications). */
-  prefs?: Partial<Record<PrefKey, boolean>> & {notesCleared?: number; notesHidden?: Record<string, number>};
+  /** The student's own settings (see lib/prefs.ts), what they cleared from the bell's list (lib/notifications), and
+   * when each special frame or banner opened to them (lib/cosmetics). */
+  prefs?: Partial<Record<PrefKey, boolean>> & {notesCleared?: number; notesHidden?: Record<string, number>; unlocked?: Record<string, number>};
 }
 
 export interface Session {

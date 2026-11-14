@@ -135,6 +135,11 @@
           "profileHidden": {
             ".validate": "newData.isBoolean()"
           },
+          "unlocked": {
+            "$k": {
+              ".validate": "$k.matches(/^[a-z0-9]{1,20}$/) && newData.isNumber() && newData.val() <= now"
+            }
+          },
           "$other": {
             ".validate": false
           }

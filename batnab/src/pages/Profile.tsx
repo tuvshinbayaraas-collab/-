@@ -14,11 +14,11 @@ import {
   Sparkles,
   UserRound,
 } from 'lucide-react';
-import {useEffect, useState, type FormEvent, type ReactNode} from 'react';
+import {useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {ORNAMENTED} from '../components/FrameOrnament';
 import ProfileBanner from '../components/ProfileBanner';
-import {BadgeGrid, useBadgeFacts} from '../components/Badges';
+import {BadgeGrid, useBadgeFacts, useEarned} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import {ProgressChart, useWeeks} from '../components/Progress';
@@ -29,12 +29,11 @@ import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
 import {refreshMine, useMedals} from '../lib/leaderboard';
-import {ABOUT_MAX, saveAbout, syncMine, usePerson} from '../lib/people';
+import {ABOUT_MAX, saveAbout, syncMine} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
-import {badges} from '../lib/stats';
 import Loading from '../components/Loading';
 import MedalBadge from '../components/MedalBadge';
 
@@ -62,7 +61,7 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-xl space-y-4 py-4 sm:py-6">
       <h1 className="sr-only">Миний профайл</h1>
-      <Identity profile={profile} onBanner={() => setOpen('banner')} />
+      <Identity profile={profile} onOpen={setOpen} meter={!session.admin} />
       <div className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
         <Row
           icon={<AtSign size={18} />}
@@ -123,19 +122,6 @@ function Growth({uid}: {uid: string}) {
   const keys = useKeys(results ? results.map((r) => r.test) : []);
   const weeks = useWeeks(uid, results, keys);
   const facts = useBadgeFacts(uid, results, keys);
-  // The badges earned go on the public profile (lib/people).
-  const {profile} = useSession();
-  const person = usePerson(uid);
-  const earned = facts
-    ? badges(facts)
-        .flatMap((b) => (b.earned ? [b.id] : []))
-        .join(',')
-    : null;
-  useEffect(() => {
-    if (earned === null || person === null || !profile || profile.prefs?.profileHidden || (person?.badges.join(',') ?? '') === earned) return;
-    syncMine(profile, earned ? earned.split(',') : []).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earned, person?.badges.join(','), person === null]);
   return (
     <>
       {weeks && <ProgressChart points={weeks} />}
@@ -187,7 +173,7 @@ function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; val
 }
 
 /** The banner, the photo over its lower edge, the name the site shows, the login name; tap the photo to change it. */
-function Identity({profile, onBanner}: {profile: ProfileData; onBanner: () => void}) {
+function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: Open) => void; meter: boolean}) {
   const [picking, setPicking] = useState(false);
   const myClass = useClasses()?.find((c) => c.id === profile.class)?.name;
   const [status, setStatus] = useState<Status>(null);
@@ -209,7 +195,7 @@ function Identity({profile, onBanner}: {profile: ProfileData; onBanner: () => vo
       <ProfileBanner id={profile.banner} className="h-28 sm:h-32">
         <button
           type="button"
-          onClick={onBanner}
+          onClick={() => onOpen('banner')}
           className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/60"
         >
           <ImageIcon size={14} /> Баннер
@@ -239,9 +225,48 @@ function Identity({profile, onBanner}: {profile: ProfileData; onBanner: () => vo
             {status.ok && <Check size={16} />} {status.text}
           </p>
         )}
+        {meter && <Completeness profile={profile} onPhoto={pick} onOpen={onOpen} />}
         {picking && <PhotoPicker name={name} photo={profile.photo} frame={profile.frame} onSave={save} onClose={() => setPicking(false)} />}
       </div>
     </section>
+  );
+}
+
+/**
+ * How much of the profile is filled in (picture, frame, banner, «Миний тухай», nickname): a bar, and a tap on what is
+ * missing opens it. Gone once all five are there.
+ */
+function Completeness({profile, onPhoto, onOpen}: {profile: ProfileData; onPhoto: () => void; onOpen: (o: Open) => void}) {
+  const parts: [string, boolean, () => void][] = [
+    ['Зураг', !!profile.photo, onPhoto],
+    ['Хүрээ', !!frameOf(profile.frame), () => onOpen('frame')],
+    ['Баннер', !!bannerOf(profile.banner), () => onOpen('banner')],
+    ['Миний тухай', !!profile.about?.trim(), () => onOpen('about')],
+    ['Nickname', !!profile.nickname?.trim(), () => onOpen('nickname')],
+  ];
+  const done = parts.filter(([, ok]) => ok).length;
+  if (done === parts.length) return null;
+  return (
+    <div className="mt-4 w-full rounded-xl bg-neutral-800/50 p-3 text-left" data-profile-meter>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <span className="shrink-0">
+          Профайл {done}/{parts.length}
+        </span>
+        <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-700" aria-hidden>
+          <span className="block h-full rounded-full bg-blue-500" style={{width: `${(done / parts.length) * 100}%`}} />
+        </span>
+      </p>
+      <p className="mt-0.5 text-xs text-neutral-400">Дутууг нь нэмбэл ангийнхан тань профайлыг тань бүрэн харна:</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {parts
+          .filter(([, ok]) => !ok)
+          .map(([label, , open]) => (
+            <button key={label} type="button" onClick={open} className="rounded-full border border-blue-500/40 px-2.5 py-1 text-xs font-medium text-blue-200 hover:bg-blue-500/10">
+              + {label}
+            </button>
+          ))}
+      </div>
+    </div>
   );
 }
 
@@ -251,9 +276,7 @@ function Identity({profile, onBanner}: {profile: ProfileData; onBanner: () => vo
  * earn it.
  */
 function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
-  const results = useMyResults();
-  const keys = useKeys(results ? results.map((r) => r.test) : []);
-  const facts = useBadgeFacts(uid, results, keys);
+  const earned = useEarned(uid);
   const now = frameOf(profile.frame)?.id ?? null;
   const [pick, setPick] = useState<string | null>(now);
   const [tab, setTab] = useState<'plain' | 'special'>(frameOf(now)?.earn ? 'special' : 'plain');
@@ -261,7 +284,7 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const name = shownName(profile);
-  const got = new Set(facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])) : []);
+  const got = earned?.open ?? new Set<string>();
   const open = (f: Frame) => isOpen(f, got, !!profile.lead);
   const picked = frameOf(pick);
   const save = async () => {
@@ -378,9 +401,7 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
 
 /** «Баннер сонгох»: as the frames are picked — the plain ones and the special ones on two tabs, a lock on one not earned. */
 function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
-  const results = useMyResults();
-  const keys = useKeys(results ? results.map((r) => r.test) : []);
-  const facts = useBadgeFacts(uid, results, keys);
+  const earned = useEarned(uid);
   const now = bannerOf(profile.banner)?.id ?? null;
   const [pick, setPick] = useState<string | null>(now);
   const [tab, setTab] = useState<'plain' | 'special'>(bannerOf(now)?.earn ? 'special' : 'plain');
@@ -388,7 +409,7 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const name = shownName(profile);
-  const got = new Set(facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])) : []);
+  const got = earned?.open ?? new Set<string>();
   const open = (b: Banner) => isOpen(b, got, !!profile.lead);
   const save = async () => {
     setBusy(true);

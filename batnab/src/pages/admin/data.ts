@@ -16,6 +16,7 @@ import {TESTS, testInfo, type TestInfo} from '../../tests';
 
 /** Where the class leaders' things were kept before: the teacher's page clears them away. */
 const LEGACY = ['doneBy', 'doneCount', 'helpAnswers'];
+let legacyDone = false;
 
 export interface Student {
   uid: string;
@@ -107,7 +108,10 @@ export function useAdminData() {
         n[p.class] = (n[p.class] ?? 0) + 1;
         (roster[p.class] ??= {})[uid] = String(p.name ?? '').slice(0, 60) || p.username;
       }
-    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), get(ref(db, 'people')), ...LEGACY.map((path) => get(ref(db, path)))])
+    // (What was kept before is looked for once a visit.)
+    const old = legacyDone ? [] : LEGACY;
+    legacyDone = true;
+    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), get(ref(db, 'people')), ...old.map((path) => get(ref(db, path)))])
       .then(([classes, have, people, ...legacy]) => {
         // Everyone's picture and directory entry (lib/people); those on this week's leaderboard keep a picture.
         const onBoard = new Set(Object.values((raw.leaderboard ?? {})[weekKey()] ?? {}).flatMap((t) => Object.keys(t ?? {})));
@@ -122,7 +126,7 @@ export function useAdminData() {
         }
         // What the class leaders' counts were kept in before (replaced by classWork, and their explanations going
         // straight to the asker): cleared away.
-        legacy.forEach((x, i) => x.exists() && (ops[LEGACY[i]] = null));
+        legacy.forEach((x, i) => x.exists() && (ops[old[i]] = null));
         if (Object.keys(ops).length) return update(ref(db), ops);
       })
       .catch(() => {});

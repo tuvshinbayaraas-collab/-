@@ -1,7 +1,9 @@
-import {ChevronRight, Copy, Download, RefreshCw, School, Search, UserPlus} from 'lucide-react';
+import {ChevronDown, ChevronRight, Copy, Download, MessageSquareText, RefreshCw, School, Search, UserPlus} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {createStudent, randomPassword, suggestUsername} from '../../lib/accounts';
 import {useClasses} from '../../lib/classes';
+import {useFolded} from '../../lib/fold';
+import {removeAbout} from '../../lib/people';
 import {percent} from '../../lib/keys';
 import {Link} from '../../lib/router';
 import {authError} from '../../lib/session';
@@ -113,7 +115,56 @@ export default function Students({data, all, picked}: {data: AdminData; all: Adm
           </ul>
         )}
       </section>
+      <Abouts data={data} />
     </div>
+  );
+}
+
+/**
+ * What the students wrote of themselves («Миний тухай», on the profile others see), in one place for the teacher to
+ * read through and take down what shouldn't be there. Shut until opened.
+ */
+function Abouts({data}: {data: AdminData}) {
+  const [open, toggle] = useFolded('admin.abouts.open');
+  const [busy, setBusy] = useState('');
+  const list = data.students.filter((s) => s.profile.about?.trim());
+  if (!list.length) return null;
+  const drop = (uid: string) => {
+    if (!confirm('«Миний тухай» бичвэрийг нь арилгах уу?')) return;
+    setBusy(uid);
+    removeAbout(uid)
+      .catch((e) => alert((e as Error).message))
+      .finally(() => setBusy(''));
+  };
+  return (
+    <section>
+      <h2 className="font-semibold">
+        <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 rounded-lg text-left hover:opacity-80">
+          <MessageSquareText size={18} className="shrink-0 text-blue-300" /> Сурагчдын «Миний тухай» ({list.length})
+          <ChevronDown size={18} aria-hidden className={`ml-auto shrink-0 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </h2>
+      {open && (
+        <>
+          <p className="mt-1 text-sm text-neutral-400">Сурагчид профайл дээрээ өөрийнхөө тухай бичсэн нь бусад сурагчдад харагдана. Тохиромжгүйг нь эндээс арилгана.</p>
+          <ul className="mt-2 divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
+            {list.map((s) => (
+              <li key={s.uid} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1">
+                  <Link href={`/admin/student/${s.uid}`} className="font-medium hover:underline">
+                    {s.profile.name}
+                  </Link>
+                  <span className="mt-0.5 block break-words text-neutral-300">{s.profile.about}</span>
+                </span>
+                <button type="button" disabled={busy === s.uid} onClick={() => drop(s.uid)} className="shrink-0 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-red-300 disabled:opacity-50">
+                  Арилгах
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 

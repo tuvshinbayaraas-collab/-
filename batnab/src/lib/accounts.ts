@@ -59,6 +59,8 @@ export async function setLead(uid: string, lead: boolean) {
   const [frame, banner] = await Promise.all(['frame', 'banner'].map(async (k) => (await get(ref(db, `users/${uid}/${k}`)).catch(() => null))?.val()));
   return update(ref(db), {
     [`users/${uid}/lead`]: null,
+    // (So that being made a leader again says «… нээгдлээ» again.)
+    [`users/${uid}/prefs/unlocked/lead`]: null,
     ...(frame === 'lead' ? {[`users/${uid}/frame`]: null, [`pub/${uid}/frame`]: null, [`people/${uid}/frame`]: null} : {}),
     ...(banner === 'lead' ? {[`users/${uid}/banner`]: null, [`people/${uid}/banner`]: null} : {}),
   });

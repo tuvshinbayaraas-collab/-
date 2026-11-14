@@ -1,6 +1,7 @@
-import {ref, set} from 'firebase/database';
-import {useEffect} from 'react';
+import {ref, serverTimestamp, set, update} from 'firebase/database';
+import {useEffect, useState} from 'react';
 import {useAssignments} from '../lib/classroom';
+import {openKeys} from '../lib/cosmetics';
 import {db} from '../lib/firebase';
 import {setMyWork, useMyWork, type Work} from '../lib/lead';
 import {pubOf} from '../lib/leaderboard';
@@ -8,8 +9,10 @@ import {useLive} from '../lib/live';
 import {entryOf, fieldsOf, syncMine, usePerson} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {isStudent, useSession, type Profile} from '../lib/session';
+import {useLocation} from '../lib/router';
 import {useNow} from '../lib/time';
 import {useProgress, useTopics} from '../lib/topics';
+import {useEarned} from './Badges';
 import {assignmentFor, assignmentState} from './Today';
 
 const DAY = 86_400_000;
@@ -17,18 +20,56 @@ const DAY = 86_400_000;
 /**
  * Kept from whatever page a student is on (nothing on screen): how far they are with each of their class's assignments
  * (lib/lead: started / done), so one who did it from a link straight to the topic or test isn't on the leader's
- * «not started» list; and their own directory entry and picture for others (lib/people).
+ * «not started» list; their own directory entry and picture for others (lib/people); the badges they have earned, and
+ * the frames and banners those open.
  */
 export default function WorkSync() {
   const session = useSession();
   const uid = isStudent(session) ? session.user!.uid : undefined;
   const cls = uid ? session.profile?.class : undefined;
+  // The badges wait a moment after the page is up, and stay out of a test, an exam or a live quiz.
+  const {path} = useLocation();
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setLate(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+  const busy = /^\/(test|live|print)(\/|$)/.test(path);
   return uid ? (
     <>
       {cls && <Marks uid={uid} cls={cls} />}
       <Mine uid={uid} profile={session.profile!} />
+      {late && !busy && <Earned uid={uid} profile={session.profile!} />}
     </>
   ) : null;
+}
+
+/**
+ * The badges the student has earned, published on their profile (lib/people); and each special frame or banner that
+ * has just opened to them noted with the time (lib/cosmetics), for the bell to say so.
+ */
+function Earned({uid, profile}: {uid: string; profile: Profile}) {
+  const earned = useEarned(uid);
+  const person = usePerson(uid);
+  const sig = earned ? earned.all.join(',') : null;
+  const published = person === null ? null : (person?.badges.join(',') ?? '');
+  const hidden = !!profile.prefs?.profileHidden;
+  useEffect(() => {
+    if (sig === null || published === null || hidden || published === sig) return;
+    syncMine(profile, sig ? sig.split(',') : []).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig, published, hidden]);
+  const noted = profile.prefs?.unlocked ?? {};
+  const fresh = earned
+    ? openKeys(earned.open, !!profile.lead)
+        .filter((k) => !noted[k])
+        .join(',')
+    : '';
+  useEffect(() => {
+    if (!fresh) return;
+    update(ref(db, `users/${uid}/prefs/unlocked`), Object.fromEntries(fresh.split(',').map((k) => [k, serverTimestamp()]))).catch(() => {});
+  }, [fresh, uid]);
+  return null;
 }
 
 /**

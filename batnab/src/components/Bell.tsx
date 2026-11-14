@@ -1,4 +1,4 @@
-import {Bell as BellIcon, BellRing, CalendarClock, ClipboardCheck, Megaphone, MessageCircleQuestion, MessageCircleReply, Trophy, X, Zap} from 'lucide-react';
+import {Bell as BellIcon, BellRing, CalendarClock, ClipboardCheck, Megaphone, MessageCircleQuestion, MessageCircleReply, Sparkles, Trophy, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type ReactNode} from 'react';
 import {canNotify, clearNotes, showSystemNote, useNotes, type Note, type NoteKind} from '../lib/notifications';
 import {Link} from '../lib/router';
@@ -12,6 +12,7 @@ const ICONS: Record<NoteKind, [ReactNode, string]> = {
   mark: [<ClipboardCheck key="m" size={16} />, 'bg-violet-500/15 text-violet-300'],
   reply: [<MessageCircleReply key="r" size={16} />, 'bg-green-500/15 text-green-300'],
   medal: [<Trophy key="md" size={16} />, 'bg-amber-500/15 text-amber-300'],
+  unlock: [<Sparkles key="ul" size={16} />, 'bg-violet-500/15 text-violet-300'],
   live: [<Zap key="l" size={16} />, 'bg-pink-500/15 text-pink-300'],
   question: [<MessageCircleQuestion key="q" size={16} />, 'bg-green-500/15 text-green-300'],
   check: [<ClipboardCheck key="c" size={16} />, 'bg-violet-500/15 text-violet-300'],

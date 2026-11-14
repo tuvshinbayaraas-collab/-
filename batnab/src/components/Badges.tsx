@@ -1,10 +1,11 @@
 import {Award, ChevronDown} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {useMyQuestions} from '../lib/classroom';
-import {grade} from '../lib/keys';
+import {grade, useKeys} from '../lib/keys';
 import {useHistory} from '../lib/history';
 import {useMedals} from '../lib/leaderboard';
-import type {Result} from '../lib/results';
+import {useLive} from '../lib/live';
+import {useMyResults, type Result} from '../lib/results';
 import {badges, useStats, type BadgeFacts} from '../lib/stats';
 import {readKey, useMarks, useProgress, useTopics, verdict} from '../lib/topics';
 import {testInfo} from '../tests';
@@ -59,6 +60,28 @@ export function useBadgeFacts(uid: string | undefined, results: Result[] | null,
     asked: (questions?.length ?? 0) > 0,
     weeks,
   };
+}
+
+/**
+ * The signed-in student's badges, as ids: `all` every one earned (shown, and published on their profile), `open` the
+ * ones that count for opening a frame or banner — «medal» only once a medal is awarded to them, as the rules check that
+ * (a finished week's medal can show before the teacher's page has awarded it). Null while loading.
+ */
+export function useEarned(uid: string | undefined): {all: string[]; open: Set<string>} | null {
+  const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
+  const facts = useBadgeFacts(uid, results, keys);
+  const awarded = useLive(uid ? `medals/${uid}` : null, (v) => !!v && Object.keys(v as object).length > 0);
+  const sig = facts
+    ? badges(facts)
+        .flatMap((b) => (b.earned ? [b.id] : []))
+        .join(',')
+    : null;
+  return useMemo(() => {
+    if (sig === null || awarded === null) return null;
+    const all = sig ? sig.split(',') : [];
+    return {all, open: new Set(all.filter((id) => id !== 'medal' || awarded))};
+  }, [sig, awarded]);
 }
 
 const OPEN_KEY = 'batnab.badges.open';

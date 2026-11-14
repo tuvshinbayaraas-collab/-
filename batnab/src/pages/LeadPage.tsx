@@ -501,10 +501,10 @@ function TaskRow(props: {
                 return (
                   <li key={u} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-sm">
                     {/* On a narrow screen with big text the name keeps its room: what is beside it goes under it. */}
-                    <span className="min-w-[7rem] flex-1 break-words">
+                    <Link href={`/u/${u}`} className="min-w-[7rem] flex-1 break-words hover:underline">
                       {who}
                       {u === me && <span className="text-neutral-500"> (та)</span>}
-                    </span>
+                    </Link>
                     {u === me || over ? null : left > 0 ? (
                       <span className="ml-auto flex shrink-0 items-center gap-1 text-xs text-neutral-400">
                         <Check size={13} className="text-teal-300" /> {clock(n!.at)}-д сануулсан
@@ -687,7 +687,13 @@ function HelpRow({cls, uid, name, item, href}: {cls: string; uid: string; name: 
   return (
     <li className="rounded-2xl bg-neutral-900 p-4">
       <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-neutral-500">
-        <span className="text-sm font-semibold text-neutral-100">{item.name || 'Ангийн сурагч'}</span>
+        {item.uid ? (
+          <Link href={`/u/${item.uid}`} className="text-sm font-semibold text-neutral-100 hover:underline">
+            {item.name || 'Ангийн сурагч'}
+          </Link>
+        ) : (
+          <span className="text-sm font-semibold text-neutral-100">{item.name || 'Ангийн сурагч'}</span>
+        )}
         <span>асуусан · {formatDate(item.at)}</span>
         <span className="font-medium text-neutral-300">{item.label}</span>
       </p>

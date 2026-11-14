@@ -135,6 +135,10 @@ export default function Leaderboard() {
 
       <p className="mt-3 text-center text-xs text-neutral-500">
         {list.length ? `${list.length} сурагч оролцож байна` : tab === 'test' ? 'Энэ долоо хоногт энэ тестийг хараахан хэн ч өгөөгүй байна.' : 'Энэ долоо хоногт хараахан хэн ч оноо аваагүй байна.'}
+        {' · '}
+        <Link href="/people" className="font-medium text-blue-300 underline underline-offset-2">
+          Бүх сурагчийн профайл
+        </Link>
       </p>
 
       {!session.admin && (

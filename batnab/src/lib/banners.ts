@@ -44,5 +44,5 @@ export const BANNERS: Banner[] = [
 
 export const bannerOf = (id: string | null | undefined) => (id ? (BANNERS.find((b) => b.id === id) ?? null) : null);
 
-/** The banner without one picked: a quiet one. */
-export const NO_BANNER = 'linear-gradient(135deg, #1f2937, #111827)';
+/** The banner without one picked: a quiet one (its colours from the look, index.css). */
+export const NO_BANNER = 'var(--banner-none)';

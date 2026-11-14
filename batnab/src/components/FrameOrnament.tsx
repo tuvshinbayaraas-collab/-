@@ -102,8 +102,8 @@ export default function FrameOrnament({id}: {id: string}) {
             </radialGradient>
           </defs>
           <path d={arc(-78, -38, 56)} fill="none" stroke="#c4b5fd" strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
-          <path d={star(87, 13, 12)} fill={url('s')} />
-          <path d={star(12, 88, 8)} fill={url('s')} />
+          <path d={star(87, 13, 12)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" />
+          <path d={star(12, 88, 8)} fill={url('s')} stroke="#f59e0b" strokeWidth=".5" />
           <path d={star(96, 31, 3.5)} fill="#ede9fe" />
         </>
       )}
