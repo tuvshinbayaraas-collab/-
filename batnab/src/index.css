@@ -20,8 +20,10 @@
   --color-blue-800: oklch(41% 0.185 270);
   --color-blue-900: oklch(36% 0.14 270);
   --color-blue-950: oklch(27% 0.1 270);
-  /* Small grey text (dates, hints) a little stronger than the stock grey on the dark page: 5.2:1 rather than 4:1. */
-  --color-neutral-500: oklch(61% 0 0);
+  /* Grey text a little lighter than the stock greys on the dark page, so hints, handles and dates read easily: the
+     secondary grey about 9:1, the small grey (dates, hints) about 6:1 rather than 4:1. (The light look sets its own.) */
+  --color-neutral-400: oklch(75% 0 0);
+  --color-neutral-500: oklch(66% 0 0);
   /* The logo's gold dot, and the odd golden touch next to it. */
   --color-gold: #ffbf2e;
 }
@@ -104,7 +106,7 @@
     mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.35));
   }
   :root {
-    --paper-line: rgb(255 255 255 / 0.02);
+    --paper-line: rgb(255 255 255 / 0.012);
     /* Test figures (graphs, geometry): a third larger on a computer, where there's room. */
     --fig-scale: 1;
   }
@@ -115,6 +117,13 @@
   }
   :root[data-theme='light'] {
     --paper-line: rgb(20 30 80 / 0.03);
+  }
+  /* A link in running text is underlined, not only blue, so it stands apart from the grey words around it without its
+     colour (WCAG 1.4.1). Not a link made to look like a button (it has a background). */
+  p a:is(.text-blue-300, .text-blue-400):not([class*='bg-']) {
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in oklab, currentColor 55%, transparent);
   }
 }
 

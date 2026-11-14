@@ -15,7 +15,7 @@ import {BADGES} from '../lib/stats';
 type Scope = 'class' | 'all';
 const ICON = new Map(BADGES.map((b) => [b.id, b.icon]));
 /** Lower case, «ё» as «е», for matching what was typed. */
-const fold = (s: string) => s.toLocaleLowerCase('mn').replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+const fold = (s: string) => s.toLocaleLowerCase('mn').replace(/ё/g, 'е').replace(/@/g, '').replace(/\s+/g, ' ').trim();
 
 /**
  * /people — «Сурагчид»: find a student by name and open their profile. Classmates first (by their real names, which
@@ -56,24 +56,24 @@ export default function People() {
 
   return (
     <div className="mx-auto max-w-2xl py-4 sm:py-6">
-      <header className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-300">
-          <Users size={24} />
+      <header className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
+          <Users size={18} />
         </span>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">Сурагчид</h1>
-          <p className="text-sm text-neutral-400">Нэрээр нь хайгаад профайлыг нь үзээрэй.</p>
+          <h1 className="text-xl font-bold leading-tight">Сурагчид</h1>
+          <p className="text-sm text-neutral-400">Сурагч хайж, профайлыг нь үзээрэй</p>
         </div>
       </header>
 
-      <div className="relative mt-5">
+      <div className="relative mt-3">
         <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Нэрээр хайх…"
-          aria-label="Нэрээр хайх"
+          placeholder="Нэр эсвэл @хочоор хайх"
+          aria-label="Нэр эсвэл @хочоор хайх"
           className="w-full rounded-full border border-neutral-700 bg-neutral-950 py-2.5 pl-10 pr-10 outline-none focus:border-blue-500 [&::-webkit-search-cancel-button]:hidden"
         />
         {q && (
@@ -84,7 +84,7 @@ export default function People() {
       </div>
 
       {myClass && (
-        <div className="mt-3 grid grid-cols-2 rounded-full bg-neutral-900 p-1 text-sm font-medium" role="tablist" aria-label="Хэнийг харах">
+        <div className="mt-2 grid grid-cols-2 rounded-full bg-neutral-900 p-1 text-sm font-medium" role="tablist" aria-label="Хэнийг харах">
           {(
             [
               ['class', `Миний анги (${mates.length})`],
@@ -106,16 +106,24 @@ export default function People() {
       )}
 
       {!list.length ? (
-        <p className="mt-6 rounded-2xl bg-neutral-900 p-6 text-center text-neutral-400">
-          {words ? `«${q.trim()}» нэртэй сурагч олдсонгүй.` : 'Одоогоор энд сурагч алга.'}
-          {words && shown === 'class' && (
-            <button type="button" onClick={() => setScope('all')} className="mt-2 block w-full text-sm text-blue-400 hover:underline">
-              Бүх сурагчаас хайх
-            </button>
+        <div className="mt-4 rounded-2xl bg-neutral-900 p-6 text-center">
+          <p className="font-medium">{words ? 'Сурагч олдсонгүй' : 'Одоогоор энд сурагч алга'}</p>
+          {words && <p className="mt-1 text-sm text-neutral-400">«{q.trim()}» гэсэн нэр, хоч алга.</p>}
+          {words && (
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={() => setQ('')} className="rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700">
+                Хайлтаа цэвэрлэх
+              </button>
+              {shown === 'class' && (
+                <button type="button" onClick={() => setScope('all')} className="rounded-full px-4 py-1.5 text-sm font-medium text-blue-300 hover:bg-neutral-800">
+                  Бүх сурагчаас хайх
+                </button>
+              )}
+            </div>
           )}
-        </p>
+        </div>
       ) : (
-        <ul className="mt-4 divide-y divide-neutral-800 overflow-hidden rounded-2xl bg-neutral-900">
+        <ul className="@container mt-3 divide-y divide-neutral-800 overflow-hidden rounded-2xl bg-neutral-900">
           {list.map(({p, real}) => (
             <PersonRow key={p.uid} p={p} real={real} me={p.uid === me} className={shown === 'all' ? classOf(p.cls) : ''} />
           ))}
@@ -125,7 +133,15 @@ export default function People() {
   );
 }
 
-/** One student: picture (loaded as the row comes into view), name, class, a line of «Миний тухай», badges. */
+/** A name as a handle: «@хоч» (the nickname), or the login name already written so. */
+const handle = (name: string) => (name.startsWith('@') ? name : `@${name}`);
+/** How many badges show in a row; the rest as «+N» (all of them on the profile). */
+const SHOWN = 3;
+
+/**
+ * One student, every row the same shape: picture (loaded as the row comes into view) → the name in bold, «@хоч» under
+ * it (and the class, among everyone) → up to three badges. «Миний тухай» is on the profile.
+ */
 function PersonRow({p, real, me, className}: {p: Person; real?: string; me: boolean; className: string}) {
   const row = useRef<HTMLLIElement>(null);
   const [seen, setSeen] = useState(false);
@@ -137,29 +153,34 @@ function PersonRow({p, real, me, className}: {p: Person; real?: string; me: bool
     return () => io.disconnect();
   }, [seen]);
   const pics = usePics(seen ? [p.uid] : []);
-  const icons = p.badges.flatMap((id) => ICON.get(id) ?? []).slice(0, 6);
+  const icons = p.badges.flatMap((id) => ICON.get(id) ?? []);
+  const main = real ?? p.name.replace(/^@/, '');
   return (
     <li ref={row}>
-      <Link href={`/u/${p.uid}`} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-800/60">
-        <Avatar name={p.name.replace(/^@/, '')} photo={pics[p.uid]?.photo} frame={pics[p.uid]?.frame ?? p.frame} size={48} />
+      <Link href={`/u/${p.uid}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-800/60">
+        <Avatar name={p.name.replace(/^@/, '')} photo={pics[p.uid]?.photo} frame={pics[p.uid]?.frame ?? p.frame} size={44} />
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-semibold break-words">
-              {real ?? p.name}
-              {me && <span className="font-normal text-neutral-500"> (та)</span>}
-            </span>
-            {real && real !== p.name && <span className="text-xs text-neutral-500">{p.name}</span>}
-            {className && <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-300">{className}</span>}
+          <span className="flex items-center gap-1.5">
+            <span className="truncate font-semibold">{main}</span>
+            {me && <span className="shrink-0 rounded-full bg-blue-500/20 px-1.5 py-px text-[10px] font-semibold leading-4 text-blue-200">Та</span>}
           </span>
-          {p.about && <span className="block truncate text-sm text-neutral-400">{p.about}</span>}
-          {icons.length > 0 && (
-            <span className="mt-0.5 block text-sm leading-tight" aria-label={`${p.badges.length} амжилт`}>
-              {icons.join(' ')}
-              {p.badges.length > icons.length && <span className="ml-1 text-xs text-neutral-500">+{p.badges.length - icons.length}</span>}
-            </span>
-          )}
+          <span className="block truncate text-sm text-neutral-400">
+            {handle(p.name)}
+            {className && ` · ${className}`}
+          </span>
         </span>
-        <ChevronRight size={18} className="shrink-0 text-neutral-600" />
+        {icons.length > 0 && (
+          // Only where the row has room: on a narrow screen with big text the name keeps it (all are on the profile).
+          <span className="hidden shrink-0 items-center gap-0.5 text-[15px] leading-none @[20rem]:flex" aria-label={`${icons.length} амжилт`}>
+            {icons.slice(0, SHOWN).map((icon, i) => (
+              <span key={i} aria-hidden>
+                {icon}
+              </span>
+            ))}
+            {icons.length > SHOWN && <span className="ml-0.5 text-xs font-medium text-neutral-400">+{icons.length - SHOWN}</span>}
+          </span>
+        )}
+        <ChevronRight size={18} className="shrink-0 text-neutral-500" />
       </Link>
     </li>
   );

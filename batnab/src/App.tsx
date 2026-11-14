@@ -118,16 +118,17 @@ export default function App() {
       <Header />
       <OfflineBar />
       <UpdateBar path={path} />
-      <main className="flex-1 px-4 pb-10 pt-4 sm:px-6">
+      <main className="flex-1 px-4 pb-6 pt-4 sm:px-6 sm:pb-10">
         <ErrorBoundary resetKey={path}>
           <Suspense fallback={<Loading />}>{page}</Suspense>
         </ErrorBoundary>
       </main>
       {path !== '/credits' && (
         <footer className="border-t border-neutral-800/80 px-4 sm:px-6">
-          <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 py-5 text-xs text-neutral-500 sm:flex-row sm:justify-between">
-            <p className="flex items-center gap-2">
-              <LogoMark size={18} />
+          {/* Low on a phone: two small lines. */}
+          <div className="mx-auto flex max-w-6xl flex-col items-center gap-0.5 py-3 text-[11px] text-neutral-500 sm:flex-row sm:justify-between sm:py-4 sm:text-xs">
+            <p className="flex items-center gap-1.5 sm:gap-2">
+              <LogoMark size={14} />
               <span className="font-semibold text-neutral-300">Batnab</span>
               <span>· Ангийн математикийн тест, дасгал</span>
             </p>
