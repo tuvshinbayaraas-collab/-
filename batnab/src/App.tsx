@@ -13,6 +13,7 @@ import {safePage, useStale} from './lib/newVersion';
 import {usePrefs} from './lib/prefs';
 import {loadTest} from './tests';
 import Loading from './components/Loading';
+import WorkSync from './components/WorkSync';
 
 // The test pages carry the questions, figures and KaTeX, so they load on first visit.
 const TestPage = lazy(() => import('./pages/TestPage'));
@@ -134,6 +135,7 @@ export default function App() {
           </div>
         </footer>
       )}
+      <WorkSync />
       <GuideHost />
       <InstallHelpHost />
     </div>

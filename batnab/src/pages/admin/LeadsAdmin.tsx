@@ -145,15 +145,22 @@ function NotesList({data, picked}: {data: AdminData; picked: string}) {
 }
 
 /** Reminders the leaders sent this week. */
+/** What the leaders reminded (the last week): the class, and one classmate each («→ name»). */
 function RemindersList({data, picked}: {data: AdminData; picked: string}) {
   const now = useNow(60_000);
   const all = useLive('classReminders', (v) => (v ?? {}) as Record<string, Record<string, {by?: string; at?: number}>>);
+  const nudges = useLive('classNudges', (v) => (v ?? {}) as Record<string, Record<string, Record<string, {by?: string; at?: number}>>>);
   const assignments = useAssignments();
   const topics = useTopics();
   const classes = useClasses() ?? [];
   const name = (uid?: string) => data.students.find((s) => s.uid === uid)?.profile.name ?? 'устгагдсан сурагч';
-  const list = Object.entries(all ?? {})
-    .flatMap(([cls, byA]) => (!picked || cls === picked ? Object.entries(byA ?? {}).map(([aid, r]) => ({cls, aid, by: r?.by, at: Number(r?.at) || 0})) : []))
+  const mine = (cls: string) => !picked || cls === picked;
+  const list = [
+    ...Object.entries(all ?? {}).flatMap(([cls, byA]) => (mine(cls) ? Object.entries(byA ?? {}).map(([aid, r]) => ({cls, aid, to: '', by: r?.by, at: Number(r?.at) || 0})) : [])),
+    ...Object.entries(nudges ?? {}).flatMap(([cls, byU]) =>
+      mine(cls) ? Object.entries(byU ?? {}).flatMap(([to, byA]) => Object.entries(byA ?? {}).map(([aid, r]) => ({cls, aid, to, by: r?.by, at: Number(r?.at) || 0}))) : [],
+    ),
+  ]
     .filter((r) => r.at > now - 7 * 86_400_000)
     .sort((a, b) => b.at - a.at);
   if (!list.length || !assignments || !topics) return null;
@@ -162,10 +169,10 @@ function RemindersList({data, picked}: {data: AdminData; picked: string}) {
       {list.map((r) => {
         const a = assignments.find((x) => x.id === r.aid);
         return (
-          <li key={`${r.cls}/${r.aid}`} className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm">
+          <li key={`${r.cls}/${r.to}/${r.aid}`} className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm">
             <span className="font-medium">{a ? assignmentTitle(a, topics) : 'Устгасан даалгавар'}</span>
             <span className="block text-xs text-neutral-500">
-              {name(r.by)} · {classes.find((c) => c.id === r.cls)?.name ?? ''} · {dayLabel(r.at)} {clock(r.at)}
+              {name(r.by)} → {r.to ? name(r.to) : 'анги бүхэлдээ'} · {classes.find((c) => c.id === r.cls)?.name ?? ''} · {dayLabel(r.at)} {clock(r.at)}
             </span>
           </li>
         );

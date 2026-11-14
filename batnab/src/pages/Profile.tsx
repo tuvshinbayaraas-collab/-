@@ -136,7 +136,7 @@ function Identity({profile}: {profile: ProfileData}) {
     <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
       <button onClick={pick} aria-label="Зураг солих" className="relative rounded-full">
         <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
-        <span className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
+        <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
           <Camera size={16} />
         </span>
       </button>

@@ -192,6 +192,11 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
                   </span>
                   <Rich text={q.text} className="mt-1" />
                   {q.reply && <span className="mt-1 block text-xs text-sky-300/90 [overflow-wrap:anywhere]">Таны хариу: {q.reply.text}</span>}
+                  {q.peer && (
+                    <span className="mt-1 block text-xs text-teal-300/90 [overflow-wrap:anywhere]">
+                      Ангийн дарга {q.peer.name}: {q.peer.text}
+                    </span>
+                  )}
                 </span>
               </label>
             </li>

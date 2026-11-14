@@ -46,15 +46,18 @@ export function ClassBar({data, picked}: {data: AdminData; picked: string}) {
           </button>
         </div>
       ) : (
-        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="Анги">
-          <button role="tab" aria-selected={!picked} onClick={() => pickClass('')} className={chip(!picked)}>
-            Бүх анги <span className="opacity-60">{data.students.length}</span>
-          </button>
-          {classes.map((c) => (
-            <button key={c.id} role="tab" aria-selected={picked === c.id} onClick={() => pickClass(c.id)} className={chip(picked === c.id)}>
-              <School size={14} /> {c.name} <span className="opacity-60">{count(c.id)}</span>
+        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+          {/* The classes to pick from (tabs); «Шинэ анги» beside them is a plain button. */}
+          <div role="tablist" aria-label="Анги" className="flex shrink-0 gap-2 sm:flex-wrap">
+            <button role="tab" aria-selected={!picked} onClick={() => pickClass('')} className={chip(!picked)}>
+              Бүх анги <span className="opacity-60">{data.students.length}</span>
             </button>
-          ))}
+            {classes.map((c) => (
+              <button key={c.id} role="tab" aria-selected={picked === c.id} onClick={() => pickClass(c.id)} className={chip(picked === c.id)}>
+                <School size={14} /> {c.name} <span className="opacity-60">{count(c.id)}</span>
+              </button>
+            ))}
+          </div>
           <button onClick={() => setCreating(true)} className={`${chip(false)} border border-dashed border-neutral-700`}>
             <Plus size={14} /> Шинэ анги
           </button>

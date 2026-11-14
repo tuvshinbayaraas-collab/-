@@ -89,8 +89,8 @@ export async function deleteStudent(uid: string) {
   });
 }
 export const deleteResult = (uid: string, test: string, id: string) => set(ref(db, `results/${uid}/${test}/${id}`), null);
-/** The teacher takes a student's photo down (from the leaderboard podium too). */
-export const removePhoto = (uid: string) => update(ref(db), {[`users/${uid}/photo`]: null, [`pub/${uid}`]: null});
+/** The teacher takes a student's photo down (from the leaderboard podium too; their frame stays). */
+export const removePhoto = (uid: string) => update(ref(db), {[`users/${uid}/photo`]: null, [`pub/${uid}/photo`]: null});
 
 function me() {
   const uid = auth.currentUser?.uid;

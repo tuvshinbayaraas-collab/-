@@ -1,7 +1,7 @@
 import {BadgeCheck, CheckCircle2, ChevronRight, ClipboardList, Flame, Megaphone, MessageCircleQuestion, NotebookPen, X, Zap} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 import {useAnnouncements, useAssignments, useMyQuestions, type Assignment} from '../lib/classroom';
-import {NOTE_DAYS, setMyWork, useClassNotes, useHelpQueue, useMyWork, waitingHelp, type Work} from '../lib/lead';
+import {NOTE_DAYS, useClassNotes, useHelpQueue, waitingHelp} from '../lib/lead';
 import {forClass} from '../lib/live';
 import {liveOn, useLiveQuiz} from '../lib/liveQuiz';
 import {isDue, useMistakes} from '../lib/mistakes';
@@ -81,17 +81,6 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
   const queue = useHelpQueue(classId, helpOn);
   // Classmates' questions no leader has explained yet (not one's own).
   const toHelp = waitingHelp(queue, uid, now).length;
-  // How far the student is with each of their class's assignments, kept for the class leaders (lib/lead: who hasn't
-  // started yet). Once everything it depends on is here.
-  const work =
-    classId && assignments && topics && progress && myResults
-      ? assignments
-          .filter((a) => a.due > now - 3 * DAY && assignmentFor(a, topics, classId))
-          .map((a) => {
-            const s = assignmentState(a, topics, progress, myResults);
-            return {aid: a.id, want: (s.done ? 'done' : s.count > 0 ? 'started' : null) as Work | null};
-          })
-      : [];
   const tasks = (assignments ?? []).filter((a) => a.due > now - 3 * DAY && !!topics && assignmentFor(a, topics, classId));
   const hide = (id: string) => {
     const next = [...hidden, id].slice(-50);
@@ -105,7 +94,6 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
 
   return (
     <div className="mt-5 space-y-3">
-      {classId && work.map((x) => <WorkMark key={x.aid} cls={classId} aid={x.aid} uid={uid} want={x.want} />)}
       {liveOn(live, now) && forClass(live.classes, classId) && (
         <Link href="/live" className="flex items-center gap-3 rounded-2xl bg-pink-500 p-4 text-black hover:bg-pink-400">
           <Zap size={24} className="shrink-0" />
@@ -202,16 +190,6 @@ export default function Today({uid, classId}: {uid: string; classId?: string}) {
 }
 
 /** Today's practice, the notebook and the questions, each with what's waiting there. */
-/** Keeps the student's own «started / done» of one assignment as it is (nothing on screen). */
-function WorkMark({cls, aid, uid, want}: {cls: string; aid: string; uid: string; want: Work | null}) {
-  const have = useMyWork(cls, aid, uid);
-  useEffect(() => {
-    if (have === null || have === (want ?? '')) return;
-    setMyWork(cls, aid, want).catch(() => {});
-  }, [cls, aid, have, want]);
-  return null;
-}
-
 function useShortcuts(uid: string) {
   const stats = useStats(uid);
   const mistakes = useMistakes(uid);

@@ -34,6 +34,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
         <h2 className="font-semibold">Туршилтын тест</h2>
         <p className="mt-1 text-sm text-neutral-400">Бүртгэлгүй хүн нэвтрэхгүйгээр өгч үзэх тест. Дүн нь хадгалагдахгүй, дуусгахад аль бодлого дээр алдсан нь харагдана.</p>
         <select
+          aria-label="Туршилтын тест"
           value={settings.trial}
           onChange={(e) => change('trial', e.target.value)}
           className="mt-3 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500 sm:w-auto"
