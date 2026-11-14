@@ -1,0 +1,200 @@
+@import "tailwindcss";
+/* Inter comes with the site (not from Google Fonts), so a slow or blocked font server never holds the page back. */
+@import "@fontsource-variable/inter";
+@import "./theme-light.css";
+
+/* The page behind everything (bg-page); charts' track and muted bars. The light look sets its own (theme-light.css). */
+@theme {
+  --color-page: #0f0f0f;
+  /* Batnab's own blue (the logo's): an indigo-leaning royal blue in place of the stock one, everywhere "blue-" is
+     used for the main actions, links and the picked answer. Things that mean the colour blue itself (a live quiz's
+     Б tile, the Цэнхэр team) are sky. Kept apart from violet, which means "the teacher checks it". */
+  --color-blue-50: oklch(97% 0.014 270);
+  --color-blue-100: oklch(93.6% 0.03 270);
+  --color-blue-200: oklch(88.4% 0.056 270);
+  --color-blue-300: oklch(80.5% 0.096 270);
+  --color-blue-400: oklch(71.5% 0.142 270);
+  --color-blue-500: oklch(62.5% 0.2 270);
+  --color-blue-600: oklch(54.5% 0.225 270);
+  --color-blue-700: oklch(48% 0.22 270);
+  --color-blue-800: oklch(41% 0.185 270);
+  --color-blue-900: oklch(36% 0.14 270);
+  --color-blue-950: oklch(27% 0.1 270);
+  /* Grey text a little lighter than the stock greys on the dark page, so hints, handles and dates read easily: the
+     secondary grey about 9:1, the small grey (dates, hints) about 6:1 rather than 4:1. (The light look sets its own.) */
+  --color-neutral-400: oklch(75% 0 0);
+  --color-neutral-500: oklch(66% 0 0);
+  /* The logo's gold dot, and the odd golden touch next to it. */
+  --color-gold: #ffbf2e;
+}
+:root {
+  --chart-track: #1a2766;
+  --chart-muted: #525252;
+}
+
+/* Profile sheets slide up from the bottom on a phone. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes guide-next {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes guide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes saved-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The special frames' ornaments and banners move a little (components/FrameOrnament, lib/banners): only where motion
+   is welcome, and only on the big pictures (lists stay still). */
+@keyframes fx-flicker {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.07, 1.12) rotate(-2deg); }
+  70% { transform: scale(0.96, 1.04) rotate(2deg); }
+}
+@keyframes fx-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.55); opacity: 0.55; }
+}
+@keyframes fx-sway {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes fx-glint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes fx-orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes banner-drift {
+  to { background-position-x: 160px, 0, 0; }
+}
+@keyframes banner-shine {
+  from { background-position: 160% 0, 0 0; }
+  to { background-position: -60% 0, 0 0; }
+}
+@keyframes banner-glow {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(18deg) brightness(1.12); }
+}
+.fx { transform-box: fill-box; transform-origin: center; }
+.fx-base { transform-origin: 50% 100%; }
+.fx-hub { transform-box: view-box; transform-origin: 50px 50px; }
+@media (prefers-reduced-motion: no-preference) {
+  .fx-live .fx-flicker { animation: fx-flicker 1.6s ease-in-out infinite; }
+  .fx-live .fx-twinkle { animation: fx-twinkle 2.4s ease-in-out infinite; }
+  .fx-live .fx-twinkle.fx-late { animation-delay: -1.2s; }
+  .fx-live .fx-sway { animation: fx-sway 4s ease-in-out infinite; }
+  .fx-live .fx-glint { animation: fx-glint 2.8s ease-in-out infinite; }
+  .fx-live .fx-orbit { animation: fx-orbit 9s linear infinite; }
+  .banner-drift { animation: banner-drift 28s linear infinite; }
+  .banner-shine { animation: banner-shine 5s ease-in-out infinite; }
+  .banner-glow { animation: banner-glow 7s ease-in-out infinite; }
+}
+
+/* KaTeX's invisible spacing boxes reach well outside a formula. A tap there has to land on the answer button that is
+   actually under the finger, not on the neighbouring answer the formula belongs to. */
+.katex,
+.katex * {
+  pointer-events: none;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--color-page);
+    color: #f1f1f1;
+    -webkit-font-smoothing: antialiased;
+  }
+  :root[data-theme='light'] body {
+    color: #161616;
+  }
+  /* Squared paper, as in a maths exercise book, very faint behind every page (cards and the header sit on it),
+     strongest at the top. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: linear-gradient(to right, var(--paper-line) 1px, transparent 1px), linear-gradient(to bottom, var(--paper-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: center top;
+    mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.35));
+  }
+  :root {
+    /* A profile without a banner picked (lib/banners). */
+    --banner-none: linear-gradient(135deg, #1f2937, #111827);
+    --paper-line: rgb(255 255 255 / 0.012);
+    /* Test figures (graphs, geometry): a third larger on a computer, where there's room. */
+    --fig-scale: 1;
+  }
+  @media (min-width: 640px) {
+    :root {
+      --fig-scale: 1.35;
+    }
+  }
+  :root[data-theme='light'] {
+    --banner-none: linear-gradient(135deg, #dbe3f4, #c5cfe6);
+    --paper-line: rgb(20 30 80 / 0.03);
+  }
+  /* A link in running text is underlined, not only blue, so it stands apart from the grey words around it without its
+     colour (WCAG 1.4.1). Not a link made to look like a button (it has a background). */
+  p a:is(.text-blue-300, .text-blue-400):not([class*='bg-']) {
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in oklab, currentColor 55%, transparent);
+  }
+}
+
+/* Printing (the teacher's class report): the page on white, without the site's header, footer and menus. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body > #root > div > header,
+  body > #root > div > footer,
+  body::before {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
