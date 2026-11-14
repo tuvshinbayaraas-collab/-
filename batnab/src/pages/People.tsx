@@ -158,7 +158,7 @@ function PersonRow({p, real, me, className}: {p: Person; real?: string; me: bool
   return (
     <li ref={row}>
       <Link href={`/u/${p.uid}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-800/60">
-        <Avatar name={p.name.replace(/^@/, '')} photo={pics[p.uid]?.photo} frame={pics[p.uid]?.frame ?? p.frame} size={44} />
+        <Avatar name={(real ?? p.name).replace(/^@/, '')} photo={pics[p.uid]?.photo} frame={pics[p.uid]?.frame ?? p.frame} size={44} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate font-semibold">{main}</span>

@@ -25,7 +25,8 @@ const DAY = 86_400_000;
  */
 export default function WorkSync() {
   const session = useSession();
-  const uid = isStudent(session) ? session.user!.uid : undefined;
+  // (Not the teacher, who has a profile too: they are not in the students' directory.)
+  const uid = isStudent(session) && !session.admin ? session.user!.uid : undefined;
   const cls = uid ? session.profile?.class : undefined;
   // The badges wait a moment after the page is up, and stay out of a test, an exam or a live quiz.
   const {path} = useLocation();

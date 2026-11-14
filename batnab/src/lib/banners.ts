@@ -58,3 +58,11 @@ export const bannerOf = (id: string | null | undefined) => (id ? (BANNERS.find((
 
 /** The banner without one picked: a quiet one (its colours from the look, index.css). */
 export const NO_BANNER = 'var(--banner-none)';
+
+/** A soft banner for a profile with none picked: two hues from the name, with faint squared paper over it. */
+export function ownBanner(seed: string) {
+  let h = 0;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const hue = h % 360;
+  return `${GRID}, linear-gradient(135deg, hsl(${hue} 55% 34%), hsl(${(hue + 50) % 360} 60% 24%))`;
+}

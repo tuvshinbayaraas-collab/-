@@ -77,11 +77,11 @@ export default function PublicProfile({uid}: {uid: string}) {
         <ArrowLeft size={16} /> Буцах
       </button>
       <section className="overflow-hidden rounded-2xl bg-neutral-900 text-center">
-        <ProfileBanner id={person?.banner} className="h-28 sm:h-32">
+        <ProfileBanner id={person?.banner} seed={publicName} className="h-28 sm:h-32">
           {leader && <Crown size={24} className="absolute left-3 top-3 text-amber-300 drop-shadow" aria-label="Энэ долоо хоногийн тэргүүлэгч" />}
         </ProfileBanner>
         <div className="flex flex-col items-center px-5 pb-6">
-          <span className={`-mt-16 rounded-full bg-neutral-900 p-1.5 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
+          <span className={`relative z-10 -mt-16 rounded-full bg-neutral-900 p-1.5 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
             <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
           </span>
           <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{title}</h1>

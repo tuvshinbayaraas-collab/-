@@ -28,7 +28,7 @@ import {BANNERS, bannerOf, type Banner} from '../lib/banners';
 import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
-import {refreshMine, useMedals} from '../lib/leaderboard';
+import {publicName, refreshMine, useMedals} from '../lib/leaderboard';
 import {ABOUT_MAX, saveAbout, syncMine} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
@@ -192,7 +192,7 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
 
   return (
     <section className={`${card} overflow-hidden text-center`}>
-      <ProfileBanner id={profile.banner} className="h-28 sm:h-32">
+      <ProfileBanner id={profile.banner} seed={publicName(profile)} className="h-28 sm:h-32">
         <button
           type="button"
           onClick={() => onOpen('banner')}
@@ -202,7 +202,7 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
         </button>
       </ProfileBanner>
       <div className="flex flex-col items-center px-5 pb-5">
-        <button onClick={pick} aria-label="Зураг солих" className="relative -mt-16 rounded-full bg-neutral-900 p-1.5">
+        <button onClick={pick} aria-label="Зураг солих" className="relative z-10 -mt-16 rounded-full bg-neutral-900 p-1.5">
           <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
           {/* Not over a special frame's ornament («Зураг солих» is just below). */}
           {!ORNAMENTED.has(profile.frame ?? '') && (
@@ -456,7 +456,7 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
       <div className="overflow-hidden rounded-2xl bg-neutral-800/50">
         <ProfileBanner id={pick} className="h-20" />
         <div className="flex items-end gap-3 px-4 pb-3">
-          <span className="-mt-8 shrink-0 rounded-full bg-neutral-900 p-1">
+          <span className="relative z-10 -mt-8 shrink-0 rounded-full bg-neutral-900 p-1">
             <Avatar name={name} photo={profile.photo} frame={profile.frame} size={60} />
           </span>
           <span className="min-w-0 pb-0.5">
