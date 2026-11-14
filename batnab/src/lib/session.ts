@@ -27,6 +27,8 @@ export interface Profile {
   frame?: string;
   /** «Миний тухай»: a few words of their own on their public profile (lib/people). */
   about?: string;
+  /** The banner across the top of their profile (lib/banners), picked by the student. */
+  banner?: string;
   createdAt?: number;
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */

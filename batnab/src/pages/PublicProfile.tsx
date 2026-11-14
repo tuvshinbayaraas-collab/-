@@ -1,5 +1,6 @@
 import {ArrowLeft, Award, Crown, Medal as MedalIcon, Pencil, Trophy} from 'lucide-react';
 import Avatar from '../components/Avatar';
+import ProfileBanner from '../components/ProfileBanner';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePics, useMedals, useWeekBoard} from '../lib/leaderboard';
 import MedalBadge from '../components/MedalBadge';
@@ -75,30 +76,37 @@ export default function PublicProfile({uid}: {uid: string}) {
       <button type="button" onClick={() => history.back()} className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
         <ArrowLeft size={16} /> Буцах
       </button>
-      <section className="flex flex-col items-center rounded-2xl bg-neutral-900 px-5 pb-6 pt-7 text-center">
-        {leader && <Crown size={26} className="mb-1 text-amber-300" />}
-        <span className={`rounded-full ${leader ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-neutral-900' : ''}`}>
-          <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
-        </span>
-        <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{title}</h1>
-        <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 text-sm text-neutral-400">
-          {real && real !== publicName && <span>{publicName}</span>}
-          {className && <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300">{className} анги</span>}
-        </p>
-        {person?.about && <p className="mt-3 max-w-sm whitespace-pre-wrap break-words text-[15px] text-neutral-200">“{person.about}”</p>}
-        {top > 0 && top <= 3 && (
-          <p className={`mt-3 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
-            {leader ? `Энэ долоо хоногийн тэргүүлэгч · ${sumRank[0].score} оноо` : `«Шилдэг оноогоор» ${top}-р байр · ${sumRank[top - 1].score} оноо`}
+      <section className="overflow-hidden rounded-2xl bg-neutral-900 text-center">
+        <ProfileBanner id={person?.banner} className="h-28 sm:h-32">
+          {leader && <Crown size={24} className="absolute left-3 top-3 text-amber-300 drop-shadow" aria-label="Энэ долоо хоногийн тэргүүлэгч" />}
+        </ProfileBanner>
+        <div className="flex flex-col items-center px-5 pb-6">
+          <span className={`-mt-16 rounded-full bg-neutral-900 p-1.5 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
+            <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
+          </span>
+          <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{title}</h1>
+          <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 text-sm text-neutral-400">
+            {real && real !== publicName && <span>{publicName}</span>}
+            {className && <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300">{className} анги</span>}
           </p>
-        )}
-        {mine && (
-          <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-neutral-400">
-            Бусдад таны профайл ингэж харагдана.
-            <Link href="/profile" className="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-3 py-1 font-medium text-neutral-200 hover:bg-neutral-700">
-              <Pencil size={14} /> Засах
-            </Link>
-          </p>
-        )}
+          {person?.about && <p className="mt-3 max-w-sm whitespace-pre-wrap break-words text-[15px] text-neutral-200">“{person.about}”</p>}
+          {top > 0 && top <= 3 && (
+            <p className={`mt-3 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
+              {leader ? `Энэ долоо хоногийн тэргүүлэгч · ${sumRank[0].score} оноо` : `«Шилдэг оноогоор» ${top}-р байр · ${sumRank[top - 1].score} оноо`}
+            </p>
+          )}
+          {mine && (
+            <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-neutral-400">
+              Бусдад таны профайл ингэж харагдана.
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-3 py-1 font-medium text-neutral-200 hover:bg-neutral-700"
+              >
+                <Pencil size={14} /> Засах
+              </Link>
+            </p>
+          )}
+        </div>
       </section>
 
       {person && (
@@ -129,7 +137,8 @@ export default function PublicProfile({uid}: {uid: string}) {
       {lb && (
         <section className="rounded-2xl bg-neutral-900 p-5">
           <h2 className="flex items-center gap-2 font-semibold">
-            <MedalIcon size={18} className="text-amber-300" /> Медалиуд {medals!.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals!.length}</span>}
+            <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
+            {medals!.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals!.length}</span>}
           </h2>
           {medals!.length ? (
             <ul className="mt-4 grid grid-cols-3 gap-3">

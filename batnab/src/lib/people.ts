@@ -1,7 +1,7 @@
 // The students' directory, for finding a classmate by name and opening their profile:
-//   people/{uid} = {name, cls?, frame?, about?, badges?}   every signed-in student reads it. name is the public one
-//                                              (nickname, or @login name); the teacher's page keeps name, class, frame
-//                                              and «Миний тухай» for everyone, the student's own page too (and the
+//   people/{uid} = {name, cls?, frame?, banner?, about?, badges?}   every signed-in student reads it. name is the public one
+//                                              (nickname, or @login name); the teacher's page keeps name, class, frame,
+//                                              banner and «Миний тухай» for everyone, the student's own page too (and the
 //                                              badges they earned, from their profile page). Not there while they
 //                                              hide their profile (users/{uid}/prefs/profileHidden).
 //   users/{uid}/about                          «Миний тухай»: a few words of their own (the teacher may take it down)
@@ -19,6 +19,7 @@ export interface Person {
   name: string;
   cls?: string;
   frame?: string;
+  banner?: string;
   about?: string;
   badges: string[];
 }
@@ -27,7 +28,9 @@ const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 const parse = (uid: string, v: unknown): Person | null => {
   const x = v as Record<string, unknown> | null;
   const name = str(x?.name);
-  return x && name ? {uid, name, cls: str(x.cls), frame: str(x.frame), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)} : null;
+  return x && name
+    ? {uid, name, cls: str(x.cls), frame: str(x.frame), banner: str(x.banner), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)}
+    : null;
 };
 
 /** Everyone in the directory (null while loading). */
@@ -38,7 +41,10 @@ export const usePeople = (on = true) =>
 export const usePerson = (uid: string | undefined) => useLive(uid ? `people/${uid}` : null, (v) => parse(uid!, v) ?? undefined);
 
 /** What the directory says of a student, from their profile (the badges are their own page's to add). */
-export const entryOf = (p: Profile) => ({name: publicName(p), cls: p.class ?? null, frame: p.frame ?? null, about: p.about?.trim() || null});
+export const entryOf = (p: Profile) => ({name: publicName(p), cls: p.class ?? null, frame: p.frame ?? null, banner: p.banner ?? null, about: p.about?.trim() || null});
+
+/** The same fields read back from an entry, to compare with entryOf. */
+export const fieldsOf = (p: Person) => ({name: p.name, cls: p.cls ?? null, frame: p.frame ?? null, banner: p.banner ?? null, about: p.about ?? null});
 
 /** The signed-in student's own entry, brought up to date (with their badges, when given); taken out while hidden. */
 export function syncMine(p: Profile, badges?: string[]) {

@@ -53,11 +53,15 @@ export async function createStudent(name: string, username: string, password: st
 
 export const renameStudent = (uid: string, name: string) => set(ref(db, `users/${uid}/name`), name.trim().replace(/\s+/g, ' ').slice(0, 60));
 export const setBlocked = (uid: string, blocked: boolean) => set(ref(db, `users/${uid}/disabled`), blocked || null);
-/** «Ангийн дарга» on or off; taken off, the class leader's frame (lib/frames) goes with it. */
+/** «Ангийн дарга» on or off; taken off, the class leader's frame and banner (lib/frames, lib/banners) go with it. */
 export async function setLead(uid: string, lead: boolean) {
   if (lead) return set(ref(db, `users/${uid}/lead`), true);
-  const frame = (await get(ref(db, `users/${uid}/frame`)).catch(() => null))?.val();
-  return update(ref(db), {[`users/${uid}/lead`]: null, ...(frame === 'lead' ? {[`users/${uid}/frame`]: null, [`pub/${uid}/frame`]: null} : {})});
+  const [frame, banner] = await Promise.all(['frame', 'banner'].map(async (k) => (await get(ref(db, `users/${uid}/${k}`)).catch(() => null))?.val()));
+  return update(ref(db), {
+    [`users/${uid}/lead`]: null,
+    ...(frame === 'lead' ? {[`users/${uid}/frame`]: null, [`pub/${uid}/frame`]: null, [`people/${uid}/frame`]: null} : {}),
+    ...(banner === 'lead' ? {[`users/${uid}/banner`]: null, [`people/${uid}/banner`]: null} : {}),
+  });
 }
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
 /**
@@ -101,6 +105,8 @@ export const saveNickname = (nickname: string) => set(ref(db, `users/${me()}/nic
 export const savePhoto = (photo: string | null) => set(ref(db, `users/${me()}/photo`), photo);
 /** The frame around the picture (lib/frames), or none. */
 export const saveFrame = (frame: string | null) => set(ref(db, `users/${me()}/frame`), frame);
+/** The banner across the top of the profile (lib/banners), or none. */
+export const saveBanner = (banner: string | null) => set(ref(db, `users/${me()}/banner`), banner);
 
 const CYRILLIC: Record<string, string> = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'j', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n',

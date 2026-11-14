@@ -1,13 +1,30 @@
-import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Lock, Medal as MedalIcon, MessageSquareText, Sparkles, UserRound} from 'lucide-react';
+import {
+  AtSign,
+  Camera,
+  Check,
+  ChevronRight,
+  Circle,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  KeyRound,
+  Lock,
+  Medal as MedalIcon,
+  MessageSquareText,
+  Sparkles,
+  UserRound,
+} from 'lucide-react';
 import {useEffect, useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {ORNAMENTED} from '../components/FrameOrnament';
+import ProfileBanner from '../components/ProfileBanner';
 import {BadgeGrid, useBadgeFacts} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import {ProgressChart, useWeeks} from '../components/Progress';
 import Sheet from '../components/Sheet';
-import {saveFrame, saveNickname, savePhoto} from '../lib/accounts';
+import {saveBanner, saveFrame, saveNickname, savePhoto} from '../lib/accounts';
+import {BANNERS, bannerOf, type Banner} from '../lib/banners';
 import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
@@ -27,7 +44,7 @@ const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-blac
 const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
-type Open = 'nickname' | 'password' | 'frame' | 'about' | null;
+type Open = 'nickname' | 'password' | 'frame' | 'banner' | 'about' | null;
 
 /**
  * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
@@ -45,10 +62,26 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-xl space-y-4 py-4 sm:py-6">
       <h1 className="sr-only">Миний профайл</h1>
-      <Identity profile={profile} />
+      <Identity profile={profile} onBanner={() => setOpen('banner')} />
       <div className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
-        <Row icon={<AtSign size={18} />} label="Nickname" value={nickname || <span className="text-neutral-500">Тавиагүй</span>} onClick={() => setOpen('nickname')} />
-        <Row icon={<Sparkles size={18} />} label="Хүрээ" value={frameOf(profile.frame)?.name ?? <span className="text-neutral-500">Хүрээгүй</span>} onClick={() => setOpen('frame')} />
+        <Row
+          icon={<AtSign size={18} />}
+          label="Nickname"
+          value={nickname || <span className="text-neutral-500">Тавиагүй</span>}
+          onClick={() => setOpen('nickname')}
+        />
+        <Row
+          icon={<Sparkles size={18} />}
+          label="Хүрээ"
+          value={frameOf(profile.frame)?.name ?? <span className="text-neutral-500">Хүрээгүй</span>}
+          onClick={() => setOpen('frame')}
+        />
+        <Row
+          icon={<ImageIcon size={18} />}
+          label="Баннер"
+          value={bannerOf(profile.banner)?.name ?? <span className="text-neutral-500">Баннергүй</span>}
+          onClick={() => setOpen('banner')}
+        />
         {!session.admin && (
           <Row
             icon={<MessageSquareText size={18} />}
@@ -66,7 +99,9 @@ export default function Profile() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-medium">Бусдад хэрхэн харагдах вэ?</span>
-            <span className="block text-sm text-neutral-400">{profile.prefs?.profileHidden ? 'Профайлаа нуусан байна (Тохиргоо)' : 'Ангийнхан тань «Сурагчид» хэсгээс таныг олж харна'}</span>
+            <span className="block text-sm text-neutral-400">
+              {profile.prefs?.profileHidden ? 'Профайлаа нуусан байна (Тохиргоо)' : 'Ангийнхан тань «Сурагчид» хэсгээс таныг олж харна'}
+            </span>
           </span>
           <ChevronRight size={18} className="shrink-0 text-neutral-500" />
         </Link>
@@ -76,6 +111,7 @@ export default function Profile() {
       {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
       {open === 'frame' && <FrameSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
+      {open === 'banner' && <BannerSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'about' && <AboutSheet profile={profile} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -90,7 +126,11 @@ function Growth({uid}: {uid: string}) {
   // The badges earned go on the public profile (lib/people).
   const {profile} = useSession();
   const person = usePerson(uid);
-  const earned = facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])).join(',') : null;
+  const earned = facts
+    ? badges(facts)
+        .flatMap((b) => (b.earned ? [b.id] : []))
+        .join(',')
+    : null;
   useEffect(() => {
     if (earned === null || person === null || !profile || profile.prefs?.profileHidden || (person?.badges.join(',') ?? '') === earned) return;
     syncMine(profile, earned ? earned.split(',') : []).catch(() => {});
@@ -112,7 +152,8 @@ function Medals({uid}: {uid: string}) {
   return (
     <section className={`${card} p-5`}>
       <h2 className="flex items-center gap-2 font-semibold">
-        <MedalIcon size={18} className="text-amber-300" /> Медалиуд {medals.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals.length}</span>}
+        <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
+        {medals.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals.length}</span>}
       </h2>
       {medals.length ? (
         <ul className="mt-4 grid grid-cols-3 gap-3">
@@ -122,7 +163,6 @@ function Medals({uid}: {uid: string}) {
         </ul>
       ) : (
         <p className="mt-1 text-sm text-neutral-400">
-          
           <Link href="/leaderboard" className="text-blue-400 hover:underline">
             leaderboard
           </Link>
@@ -146,8 +186,8 @@ function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; val
   );
 }
 
-/** Photo, the name the site shows, the login name; tap the photo to change it. */
-function Identity({profile}: {profile: ProfileData}) {
+/** The banner, the photo over its lower edge, the name the site shows, the login name; tap the photo to change it. */
+function Identity({profile, onBanner}: {profile: ProfileData; onBanner: () => void}) {
   const [picking, setPicking] = useState(false);
   const myClass = useClasses()?.find((c) => c.id === profile.class)?.name;
   const [status, setStatus] = useState<Status>(null);
@@ -165,31 +205,42 @@ function Identity({profile}: {profile: ProfileData}) {
   };
 
   return (
-    <section className={`${card} flex flex-col items-center px-5 pb-5 pt-7 text-center`}>
-      <button onClick={pick} aria-label="Зураг солих" className="relative rounded-full">
-        <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
-        {/* Not over a special frame's ornament («Зураг солих» is just below). */}
-        {!ORNAMENTED.has(profile.frame ?? '') && (
-          <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
-            <Camera size={16} />
-          </span>
-        )}
-      </button>
-      <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
-      <p className="text-sm text-neutral-400">
-        @{profile.username}
-        {myClass && ` · ${myClass}`}
-      </p>
-      {profile.nickname?.trim() && <p className="mt-1 text-sm text-neutral-500">Жинхэнэ нэр: {profile.name}</p>}
-      <button onClick={pick} className="mt-4 flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
-        <Camera size={16} /> Зураг солих
-      </button>
-      {status && (
-        <p className={`mt-3 flex items-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
-          {status.ok && <Check size={16} />} {status.text}
+    <section className={`${card} overflow-hidden text-center`}>
+      <ProfileBanner id={profile.banner} className="h-28 sm:h-32">
+        <button
+          type="button"
+          onClick={onBanner}
+          className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/60"
+        >
+          <ImageIcon size={14} /> Баннер
+        </button>
+      </ProfileBanner>
+      <div className="flex flex-col items-center px-5 pb-5">
+        <button onClick={pick} aria-label="Зураг солих" className="relative -mt-16 rounded-full bg-neutral-900 p-1.5">
+          <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
+          {/* Not over a special frame's ornament («Зураг солих» is just below). */}
+          {!ORNAMENTED.has(profile.frame ?? '') && (
+            <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
+              <Camera size={16} />
+            </span>
+          )}
+        </button>
+        <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
+        <p className="text-sm text-neutral-400">
+          @{profile.username}
+          {myClass && ` · ${myClass}`}
         </p>
-      )}
-      {picking && <PhotoPicker name={name} photo={profile.photo} frame={profile.frame} onSave={save} onClose={() => setPicking(false)} />}
+        {profile.nickname?.trim() && <p className="mt-1 text-sm text-neutral-500">Жинхэнэ нэр: {profile.name}</p>}
+        <button onClick={pick} className="mt-4 flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
+          <Camera size={16} /> Зураг солих
+        </button>
+        {status && (
+          <p className={`mt-3 flex items-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
+            {status.ok && <Check size={16} />} {status.text}
+          </p>
+        )}
+        {picking && <PhotoPicker name={name} photo={profile.photo} frame={profile.frame} onSave={save} onClose={() => setPicking(false)} />}
+      </div>
     </section>
   );
 }
@@ -289,7 +340,9 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
         ))}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">{tab === 'plain' ? [option(null), ...FRAMES.filter((f) => !f.earn).map(option)] : FRAMES.filter((f) => f.earn).map(option)}</div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {tab === 'plain' ? [option(null), ...FRAMES.filter((f) => !f.earn).map(option)] : FRAMES.filter((f) => f.earn).map(option)}
+      </div>
       {why?.earn && (
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300">
           <Lock size={15} className="mt-0.5 shrink-0 text-neutral-400" />
@@ -310,6 +363,122 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
         <ChevronRight size={18} className="shrink-0 text-neutral-500" />
       </div>
 
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
+        <button type="button" onClick={onClose} className={secondary}>
+          Болих
+        </button>
+        <button type="button" onClick={save} disabled={busy || pick === now} className={primary}>
+          {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** «Баннер сонгох»: as the frames are picked — the plain ones and the special ones on two tabs, a lock on one not earned. */
+function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
+  const results = useMyResults();
+  const keys = useKeys(results ? results.map((r) => r.test) : []);
+  const facts = useBadgeFacts(uid, results, keys);
+  const now = bannerOf(profile.banner)?.id ?? null;
+  const [pick, setPick] = useState<string | null>(now);
+  const [tab, setTab] = useState<'plain' | 'special'>(bannerOf(now)?.earn ? 'special' : 'plain');
+  const [why, setWhy] = useState<Banner | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const name = shownName(profile);
+  const got = new Set(facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])) : []);
+  const open = (b: Banner) => isOpen(b, got, !!profile.lead);
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveBanner(pick);
+      await syncMine({...profile, banner: pick ?? undefined}).catch(() => {});
+      onClose();
+    } catch (e) {
+      setError(/permission/i.test((e as Error).message) ? 'Энэ баннер танд хараахан нээгдээгүй байна.' : authError(e));
+      setBusy(false);
+    }
+  };
+  const option = (b: Banner | null) => {
+    const id = b?.id ?? null;
+    const shut = !!b && !open(b);
+    const on = pick === id;
+    return (
+      <button
+        key={id ?? 'none'}
+        type="button"
+        onClick={() => (shut ? setWhy(b) : (setPick(id), setWhy(null)))}
+        aria-pressed={on}
+        aria-label={`${b?.name ?? 'Баннергүй'}${shut ? ' (түгжээтэй)' : ''}`}
+        className={`relative flex flex-col gap-1.5 rounded-2xl border p-1.5 pb-2 text-left ${on ? 'border-blue-400 bg-blue-500/10' : 'border-transparent hover:bg-neutral-800/60'}`}
+      >
+        <ProfileBanner id={id} className="h-16 rounded-xl" />
+        {on && (
+          <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-black">
+            <Check size={14} strokeWidth={3} />
+          </span>
+        )}
+        <span className="flex flex-wrap items-center gap-1.5 px-1 text-sm font-medium">
+          {b?.name ?? 'Баннергүй'}
+          {shut && <Lock size={13} className="text-neutral-400" />}
+          {id === now && <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[11px] font-semibold text-blue-200">Одоогийн</span>}
+        </span>
+      </button>
+    );
+  };
+  return (
+    <Sheet title="Баннер сонгох" sub="Профайлын тань дээд талд, зургийн ард." onClose={onClose}>
+      {/* The one picked, as the profile will look. */}
+      <div className="overflow-hidden rounded-2xl bg-neutral-800/50">
+        <ProfileBanner id={pick} className="h-20" />
+        <div className="flex items-end gap-3 px-4 pb-3">
+          <span className="-mt-8 shrink-0 rounded-full bg-neutral-900 p-1">
+            <Avatar name={name} photo={profile.photo} frame={profile.frame} size={60} />
+          </span>
+          <span className="min-w-0 pb-0.5">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{bannerOf(pick)?.name ?? 'Баннергүй'}</span>
+              <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-200">Сонгосон</span>
+            </span>
+            <span className="block text-sm text-neutral-400">Таны профайл дээр ингэж харагдана</span>
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 rounded-full bg-neutral-800/60 p-1 text-sm font-medium" role="tablist" aria-label="Баннерын төрөл">
+        {(
+          [
+            ['plain', 'Энгийн'],
+            ['special', 'Тусгай'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => (setTab(id), setWhy(null))}
+            className={`rounded-full py-2 ${tab === id ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:text-neutral-100'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {tab === 'plain' ? [option(null), ...BANNERS.filter((b) => !b.earn).map(option)] : BANNERS.filter((b) => b.earn).map(option)}
+      </div>
+      {why?.earn && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300">
+          <Lock size={15} className="mt-0.5 shrink-0 text-neutral-400" />
+          <span>
+            «{why.name}» баннер нээгдэх нь: {why.earn.hint}.
+          </span>
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
         <button type="button" onClick={onClose} className={secondary}>
@@ -409,7 +578,15 @@ function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () =>
     <Sheet title="Nickname" sub="Сайт дээр бусдад nickname тань харагдана. Багш жинхэнэ нэрийг тань бас харна." onClose={onClose}>
       <form onSubmit={submit}>
         <div className="relative">
-          <input autoFocus className={`${field} pr-14`} value={nickname} maxLength={30} onChange={(e) => setNickname(e.target.value)} placeholder={profile.name} aria-label="Nickname" />
+          <input
+            autoFocus
+            className={`${field} pr-14`}
+            value={nickname}
+            maxLength={30}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder={profile.name}
+            aria-label="Nickname"
+          />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs tabular-nums text-neutral-500">{nickname.length}/30</span>
         </div>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-800/50 px-3 py-2.5">
@@ -440,13 +617,32 @@ function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () =>
 }
 
 /** A password field with its own show/hide eye. */
-function Secret({label, value, onChange, autoComplete, autoFocus}: {label: string; value: string; onChange: (v: string) => void; autoComplete: string; autoFocus?: boolean}) {
+function Secret({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  autoFocus,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  autoFocus?: boolean;
+}) {
   const [show, setShow] = useState(false);
   return (
     <label className="block">
       <span className="text-sm text-neutral-300">{label}</span>
       <span className="relative mt-1 block">
-        <input autoFocus={autoFocus} className={`${field} pr-11`} type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} />
+        <input
+          autoFocus={autoFocus}
+          className={`${field} pr-11`}
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+        />
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
@@ -485,7 +681,9 @@ function PasswordSheet({onClose}: {onClose: () => void}) {
       setDone(true);
     } catch (err) {
       const code = (err as {code?: string}).code ?? '';
-      setError(['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code) ? 'Одоогийн нууц үг буруу байна.' : authError(err));
+      setError(
+        ['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code) ? 'Одоогийн нууц үг буруу байна.' : authError(err),
+      );
     } finally {
       setBusy(false);
     }

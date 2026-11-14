@@ -5,7 +5,7 @@ import {db} from '../lib/firebase';
 import {setMyWork, useMyWork, type Work} from '../lib/lead';
 import {pubOf} from '../lib/leaderboard';
 import {useLive} from '../lib/live';
-import {entryOf, syncMine, usePerson} from '../lib/people';
+import {entryOf, fieldsOf, syncMine, usePerson} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {isStudent, useSession, type Profile} from '../lib/session';
 import {useNow} from '../lib/time';
@@ -41,7 +41,7 @@ function Mine({uid, profile}: {uid: string; profile: Profile}) {
   const hidden = !!profile.prefs?.profileHidden;
   const want = hidden ? null : entryOf(profile);
   const entry = want && JSON.stringify(want);
-  const have = person === null ? null : person ? JSON.stringify({name: person.name, cls: person.cls ?? null, frame: person.frame ?? null, about: person.about ?? null}) : '';
+  const have = person === null ? null : person ? JSON.stringify(fieldsOf(person)) : '';
   useEffect(() => {
     if (have === null || (entry ?? '') === have) return;
     syncMine(profile).catch(() => {});
