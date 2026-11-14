@@ -1,5 +1,5 @@
-import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Lock, Medal as MedalIcon, Sparkles} from 'lucide-react';
-import {useState, type FormEvent, type ReactNode} from 'react';
+import {AtSign, Camera, Check, ChevronRight, Circle, Eye, EyeOff, KeyRound, Lock, Medal as MedalIcon, MessageSquareText, Sparkles, UserRound} from 'lucide-react';
+import {useEffect, useState, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {BadgeGrid, useBadgeFacts} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
@@ -11,6 +11,7 @@ import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
 import {refreshMine, useMedals} from '../lib/leaderboard';
+import {ABOUT_MAX, saveAbout, syncMine, usePerson} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
@@ -25,7 +26,7 @@ const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-blac
 const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
-type Open = 'nickname' | 'password' | 'frame' | null;
+type Open = 'nickname' | 'password' | 'frame' | 'about' | null;
 
 /**
  * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
@@ -47,13 +48,34 @@ export default function Profile() {
       <div className={`${card} divide-y divide-neutral-800 overflow-hidden`}>
         <Row icon={<AtSign size={18} />} label="Nickname" value={nickname || <span className="text-neutral-500">Тавиагүй</span>} onClick={() => setOpen('nickname')} />
         <Row icon={<Sparkles size={18} />} label="Хүрээ" value={frameOf(profile.frame)?.name ?? <span className="text-neutral-500">Хүрээгүй</span>} onClick={() => setOpen('frame')} />
+        {!session.admin && (
+          <Row
+            icon={<MessageSquareText size={18} />}
+            label="Миний тухай"
+            value={profile.about?.trim() || <span className="text-neutral-500">Бичээгүй — профайл дээр тань гарна</span>}
+            onClick={() => setOpen('about')}
+          />
+        )}
         <Row icon={<KeyRound size={18} />} label="Нууц үг" value={<span className="tracking-widest">••••••</span>} onClick={() => setOpen('password')} />
       </div>
+      {!session.admin && (
+        <Link href={`/u/${session.user.uid}`} className={`${card} flex items-center gap-3 px-4 py-3.5 hover:bg-neutral-800/60`}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-300">
+            <UserRound size={18} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Бусдад хэрхэн харагдах вэ?</span>
+            <span className="block text-sm text-neutral-400">{profile.prefs?.profileHidden ? 'Профайлаа нуусан байна (Тохиргоо)' : 'Ангийнхан тань «Сурагчид» хэсгээс таныг олж харна'}</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-neutral-500" />
+        </Link>
+      )}
       {!session.admin && <Medals uid={session.user.uid} />}
       {!session.admin && <Growth uid={session.user.uid} />}
       {open === 'nickname' && <NicknameSheet key={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'password' && <PasswordSheet onClose={() => setOpen(null)} />}
       {open === 'frame' && <FrameSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
+      {open === 'about' && <AboutSheet profile={profile} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -64,6 +86,15 @@ function Growth({uid}: {uid: string}) {
   const keys = useKeys(results ? results.map((r) => r.test) : []);
   const weeks = useWeeks(uid, results, keys);
   const facts = useBadgeFacts(uid, results, keys);
+  // The badges earned go on the public profile (lib/people).
+  const {profile} = useSession();
+  const person = usePerson(uid);
+  const earned = facts ? badges(facts).flatMap((b) => (b.earned ? [b.id] : [])).join(',') : null;
+  useEffect(() => {
+    if (earned === null || person === null || !profile || profile.prefs?.profileHidden || (person?.badges.join(',') ?? '') === earned) return;
+    syncMine(profile, earned ? earned.split(',') : []).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [earned, person?.badges.join(','), person === null]);
   return (
     <>
       {weeks && <ProgressChart points={weeks} />}
@@ -236,6 +267,65 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
           {busy ? 'Хадгалж байна…' : 'Хадгалах'}
         </button>
       </div>
+    </Sheet>
+  );
+}
+
+/** «Миний тухай»: a few words on the public profile. */
+function AboutSheet({profile, onClose}: {profile: ProfileData; onClose: () => void}) {
+  const [text, setText] = useState(profile.about ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const save = async (value: string) => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveAbout(profile, value);
+      onClose();
+    } catch (e) {
+      setError(authError(e));
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet title="Миний тухай" sub="Профайл дээр тань бусдад харагдана. Багш харж, хэрэгтэй бол арилгана." onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          save(text);
+        }}
+      >
+        <div className="relative">
+          <textarea
+            autoFocus
+            rows={3}
+            className={`${field} resize-none pb-6`}
+            value={text}
+            maxLength={ABOUT_MAX}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Жишээ нь: Геометр хамгийн их таалагддаг. Шатар тоглох дуртай."
+            aria-label="Миний тухай"
+          />
+          <span className="pointer-events-none absolute bottom-2.5 right-3 text-xs tabular-nums text-neutral-500">
+            {text.length}/{ABOUT_MAX}
+          </span>
+        </div>
+        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          {profile.about ? (
+            <button type="button" disabled={busy} onClick={() => save('')} className={secondary}>
+              Арилгах
+            </button>
+          ) : (
+            <button type="button" onClick={onClose} className={secondary}>
+              Болих
+            </button>
+          )}
+          <button disabled={busy || text.trim() === (profile.about ?? '').trim()} className={primary}>
+            {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+          </button>
+        </div>
+      </form>
     </Sheet>
   );
 }

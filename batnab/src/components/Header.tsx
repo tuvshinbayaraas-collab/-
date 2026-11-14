@@ -1,4 +1,4 @@
-import {BookOpen, CircleHelp, Download, Flame, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Zap} from 'lucide-react';
+import {BookOpen, CircleHelp, Download, Flame, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
 import {lazy, Suspense, useState, type ReactNode} from 'react';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
@@ -49,7 +49,7 @@ export default function Header() {
         ['/admin/report', 'Тайлан'],
       ]
     : active
-      ? [['/', 'Нүүр'], ['/topics', 'Сэдвүүд'], ['/daily', 'Өдрийн дасгал'], ['/results', 'Миний дүн'], ...(settings?.leaderboard ? ([['/leaderboard', 'Leaderboard']] as [string, string][]) : [])]
+      ? [['/', 'Нүүр'], ['/topics', 'Сэдвүүд'], ['/daily', 'Өдрийн дасгал'], ['/results', 'Миний дүн'], ...(settings?.leaderboard ? ([['/leaderboard', 'Leaderboard']] as [string, string][]) : []), ['/people', 'Сурагчид']]
       : [];
   const here = (href: string) =>
     href === '/' ? path === '/' : path === href || (href !== '/admin' && path.startsWith(href + '/')) || (href === '/admin' && path.startsWith('/admin') && !path.startsWith('/admin/report'));
@@ -110,6 +110,7 @@ export default function Header() {
                           {!admin && item('/mistakes', <NotebookPen size={20} />, 'Алдааны дэвтэр')}
                           {!admin && item('/questions', <MessageCircleQuestion size={20} />, 'Асуултууд')}
                           {settings?.leaderboard && item('/leaderboard', <Trophy size={20} />, 'Leaderboard')}
+                          {item('/people', <Users size={20} />, 'Сурагчид')}
                           {item('/profile', <UserRound size={20} />, 'Профайл')}
                           {item('/settings', <Settings size={20} />, 'Тохиргоо')}
                         </>

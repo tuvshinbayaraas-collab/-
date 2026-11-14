@@ -25,6 +25,8 @@ export interface Profile {
   photo?: string;
   /** The frame around the picture (lib/frames), picked by the student. */
   frame?: string;
+  /** «Миний тухай»: a few words of their own on their public profile (lib/people). */
+  about?: string;
   createdAt?: number;
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */

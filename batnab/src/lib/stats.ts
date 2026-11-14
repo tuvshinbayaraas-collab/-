@@ -63,19 +63,37 @@ export interface BadgeFacts {
   weeks: number;
 }
 
+/** Every badge there is (lib/people publishes the ids a student earned, for their public profile). */
+export const BADGES: Omit<Badge, 'earned'>[] = [
+  {id: 'first', icon: '🚀', name: 'Анхны алхам', hint: 'Анхны тестээ өгөх'},
+  {id: 'perfect', icon: '💯', name: 'Төгс оноо', hint: 'Тестэд бүх бодлогыг зөв бодох'},
+  {id: 'topic', icon: '📘', name: 'Сэдэв дуусгагч', hint: 'Нэг сэдвийн бүх бодлогыг бодох'},
+  {id: 'topics5', icon: '📚', name: '5 сэдэв', hint: '5 сэдвийг бүрэн бодох'},
+  {id: 'master', icon: '🎯', name: 'Сэдвийн мастер', hint: 'Сэдвийн бүх бодлогыг эхний оролдлогоор зөв бодох'},
+  {id: 'streak3', icon: '🔥', name: '3 өдөр', hint: '3 өдөр дараалан өдрийн дасгал хийх'},
+  {id: 'streak7', icon: '⚡', name: '7 өдөр', hint: '7 өдөр дараалан өдрийн дасгал хийх'},
+  {id: 'streak30', icon: '🌟', name: '30 өдөр', hint: '30 өдөр дараалан өдрийн дасгал хийх'},
+  {id: 'fixer', icon: '🛠️', name: 'Алдаагаа засагч', hint: 'Алдааны дэвтрээс 10 бодлого сурах'},
+  {id: 'medal', icon: '🏅', name: 'Медальт', hint: 'Leaderboard-оос медаль авах'},
+  {id: 'curious', icon: '💬', name: 'Сониуч', hint: 'Багшаас анхны асуултаа асуух'},
+  {id: 'regular', icon: '📅', name: 'Тогтмол', hint: '4 өөр долоо хоногт тест өгөх'},
+];
+
 export function badges(f: BadgeFacts): Badge[] {
-  return [
-    {id: 'first', icon: '🚀', name: 'Анхны алхам', hint: 'Анхны тестээ өгөх', earned: f.tests > 0},
-    {id: 'perfect', icon: '💯', name: 'Төгс оноо', hint: 'Тестэд бүх бодлогыг зөв бодох', earned: f.perfect},
-    {id: 'topic', icon: '📘', name: 'Сэдэв дуусгагч', hint: 'Нэг сэдвийн бүх бодлогыг бодох', earned: f.topicsDone >= 1},
-    {id: 'topics5', icon: '📚', name: '5 сэдэв', hint: '5 сэдвийг бүрэн бодох', earned: f.topicsDone >= 5},
-    {id: 'master', icon: '🎯', name: 'Сэдвийн мастер', hint: 'Сэдвийн бүх бодлогыг эхний оролдлогоор зөв бодох', earned: f.topicMaster},
-    {id: 'streak3', icon: '🔥', name: '3 өдөр', hint: '3 өдөр дараалан өдрийн дасгал хийх', earned: f.bestStreak >= 3},
-    {id: 'streak7', icon: '⚡', name: '7 өдөр', hint: '7 өдөр дараалан өдрийн дасгал хийх', earned: f.bestStreak >= 7},
-    {id: 'streak30', icon: '🌟', name: '30 өдөр', hint: '30 өдөр дараалан өдрийн дасгал хийх', earned: f.bestStreak >= 30},
-    {id: 'fixer', icon: '🛠️', name: 'Алдаагаа засагч', hint: 'Алдааны дэвтрээс 10 бодлого сурах', earned: f.learned >= 10},
-    {id: 'medal', icon: '🏅', name: 'Медальт', hint: 'Leaderboard-оос медаль авах', earned: f.medals > 0},
-    {id: 'curious', icon: '💬', name: 'Сониуч', hint: 'Багшаас анхны асуултаа асуух', earned: f.asked},
-    {id: 'regular', icon: '📅', name: 'Тогтмол', hint: '4 өөр долоо хоногт тест өгөх', earned: f.weeks >= 4},
-  ];
+  const earned: Record<string, boolean> = {
+    first: f.tests > 0,
+    perfect: f.perfect,
+    topic: f.topicsDone >= 1,
+    topics5: f.topicsDone >= 5,
+    master: f.topicMaster,
+    streak3: f.bestStreak >= 3,
+    streak7: f.bestStreak >= 7,
+    streak30: f.bestStreak >= 30,
+    fixer: f.learned >= 10,
+    medal: f.medals > 0,
+    curious: f.asked,
+    regular: f.weeks >= 4,
+  };
+  return BADGES.map((b) => ({...b, earned: !!earned[b.id]}));
 }
+

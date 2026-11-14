@@ -1,8 +1,13 @@
+import {ref, set} from 'firebase/database';
 import {useEffect} from 'react';
 import {useAssignments} from '../lib/classroom';
+import {db} from '../lib/firebase';
 import {setMyWork, useMyWork, type Work} from '../lib/lead';
+import {pubOf} from '../lib/leaderboard';
+import {useLive} from '../lib/live';
+import {entryOf, syncMine, usePerson} from '../lib/people';
 import {useMyResults} from '../lib/results';
-import {isStudent, useSession} from '../lib/session';
+import {isStudent, useSession, type Profile} from '../lib/session';
 import {useNow} from '../lib/time';
 import {useProgress, useTopics} from '../lib/topics';
 import {assignmentFor, assignmentState} from './Today';
@@ -10,15 +15,48 @@ import {assignmentFor, assignmentState} from './Today';
 const DAY = 86_400_000;
 
 /**
- * How far a student is with each of their class's assignments (lib/lead: started / done), kept for the class leaders
- * from whatever page they are on, so one who did it from a link straight to the topic or test isn't on the leader's
- * «not started» list. Once everything it depends on is here; nothing on screen.
+ * Kept from whatever page a student is on (nothing on screen): how far they are with each of their class's assignments
+ * (lib/lead: started / done), so one who did it from a link straight to the topic or test isn't on the leader's
+ * «not started» list; and their own directory entry and picture for others (lib/people).
  */
 export default function WorkSync() {
   const session = useSession();
   const uid = isStudent(session) ? session.user!.uid : undefined;
   const cls = uid ? session.profile?.class : undefined;
-  return uid && cls ? <Marks uid={uid} cls={cls} /> : null;
+  return uid ? (
+    <>
+      {cls && <Marks uid={uid} cls={cls} />}
+      <Mine uid={uid} profile={session.profile!} />
+    </>
+  ) : null;
+}
+
+/**
+ * The student's own directory entry and picture for others (lib/people), kept as their profile is (the teacher's page
+ * does it for everyone too, but only when it is opened).
+ */
+function Mine({uid, profile}: {uid: string; profile: Profile}) {
+  const person = usePerson(uid);
+  const pic = useLive(`pub/${uid}`, (v) => (v ?? {}) as {photo?: string; frame?: string});
+  const hidden = !!profile.prefs?.profileHidden;
+  const want = hidden ? null : entryOf(profile);
+  const entry = want && JSON.stringify(want);
+  const have = person === null ? null : person ? JSON.stringify({name: person.name, cls: person.cls ?? null, frame: person.frame ?? null, about: person.about ?? null}) : '';
+  useEffect(() => {
+    if (have === null || (entry ?? '') === have) return;
+    syncMine(profile).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry, have]);
+  // Their picture: while the profile is open (the podium's, for one hiding it, is the leaderboard's to keep).
+  const wantPic = hidden ? undefined : pubOf(profile.photo, profile.frame);
+  const picSig = JSON.stringify(wantPic ?? null);
+  const havePic = pic === null ? null : JSON.stringify(pic.photo || pic.frame ? {...(pic.photo ? {photo: pic.photo} : {}), ...(pic.frame ? {frame: pic.frame} : {})} : null);
+  useEffect(() => {
+    if (wantPic === undefined || havePic === null || havePic === picSig) return;
+    set(ref(db, `pub/${uid}`), wantPic).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picSig, havePic, uid]);
+  return null;
 }
 
 function Marks({uid, cls}: {uid: string; cls: string}) {

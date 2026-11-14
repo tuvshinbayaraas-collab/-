@@ -87,6 +87,10 @@
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
         },
+        "about": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150"
+        },
         "createdAt": {
           ".validate": "newData.isNumber()"
         },
@@ -123,6 +127,9 @@
             "$k": {
               ".validate": "$k.length <= 100 && newData.isNumber()"
             }
+          },
+          "profileHidden": {
+            ".validate": "newData.isBoolean()"
           },
           "$other": {
             ".validate": false
@@ -329,7 +336,7 @@
       }
     },
     "pub": {
-      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('settings/leaderboard').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true",
@@ -338,6 +345,32 @@
         },
         "frame": {
           ".validate": "newData.isString() && newData.val() === newData.parent().parent().parent().child('users').child($uid).child('frame').val()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "people": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && (!newData.exists() || root.child('users').child($uid).child('prefs/profileHidden').val() !== true)",
+        ".validate": "newData.hasChildren(['name'])",
+        "name": {
+          ".validate": "newData.isString() && (newData.val() === newData.parent().parent().parent().child('users').child($uid).child('nickname').val() || newData.val() === '@' + newData.parent().parent().parent().child('users').child($uid).child('username').val())"
+        },
+        "cls": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('class').val()"
+        },
+        "frame": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('frame').val()"
+        },
+        "about": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('about').val()"
+        },
+        "badges": {
+          ".validate": "newData.isString() && newData.val().length <= 300 && newData.val().matches(/^([a-z0-9]+(,[a-z0-9]+)*)?$/)"
         },
         "$other": {
           ".validate": false
@@ -905,7 +938,7 @@
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$cls": {
-        ".read": "auth != null && root.child('users').child(auth.uid).child('lead').val() === true && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls && root.child('settings/leadRemind').val() !== false",
+        ".read": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('class').val() === $cls",
         "$uid": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
         }

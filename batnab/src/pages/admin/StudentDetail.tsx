@@ -4,6 +4,7 @@ import Avatar from '../../components/Avatar';
 import {formatDuration} from '../../lib/attempt';
 import {deleteResult, deleteStudent, removePhoto, renameStudent, setBlocked} from '../../lib/accounts';
 import {moveToClass, useClasses} from '../../lib/classes';
+import {removeAbout} from '../../lib/people';
 import {percent} from '../../lib/keys';
 import {formatDate} from '../../lib/results';
 import {Link, navigate} from '../../lib/router';
@@ -98,6 +99,24 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
           )}
           <p className="text-neutral-400">
             Nickname: {p.nickname || <span className="text-neutral-500">тавиагүй</span>} • @{p.username}
+          </p>
+          {p.about && (
+            <p className="mt-1 flex items-start gap-2 text-sm text-neutral-300">
+              <span className="min-w-0 flex-1 break-words">«Миний тухай»: {p.about}</span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => confirm('«Миний тухай» бичвэрийг нь арилгах уу?') && act(() => removeAbout(uid))}
+                className="shrink-0 rounded-full px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-red-300"
+              >
+                Арилгах
+              </button>
+            </p>
+          )}
+          <p className="text-sm">
+            <Link href={`/u/${uid}`} className="text-blue-400 hover:underline">
+              Сурагчдад харагдах профайл
+            </Link>
           </p>
           {p.createdAt && <p className="text-sm text-neutral-500">Бүртгэсэн: {formatDate(p.createdAt)}</p>}
           {classes.length > 0 && (

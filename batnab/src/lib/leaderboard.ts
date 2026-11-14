@@ -206,27 +206,29 @@ export async function submitScore(test: string, g: Grade, seconds: number, rid: 
   });
 }
 
-/** Takes the student off this week's leaderboard (the "don't show my score" setting). */
+/** Takes the student off this week's leaderboard (the "don't show my score" setting); their picture stays on their profile. */
 export async function withdraw() {
   const uid = auth.currentUser?.uid;
   if (!uid) return;
   const week = weekKey();
-  await update(ref(db), Object.fromEntries([...TESTS.map((t) => [`leaderboard/${week}/${t.id}/${uid}`, null]), [`pub/${uid}`, null]]));
+  await update(ref(db), Object.fromEntries(TESTS.map((t) => [`leaderboard/${week}/${t.id}/${uid}`, null])));
 }
 
-/** After a nickname, photo or frame change: the student's entries this week show the new name and picture. */
+/**
+ * After a nickname, photo or frame change: the student's entries this week show the new name, and their picture for
+ * others (on their profile, unless they hide it, and on the podium) the new one.
+ */
 export async function refreshMine(profile: Profile) {
   const uid = auth.currentUser?.uid;
-  if (!uid || profile.prefs?.lbOff) return;
+  if (!uid) return;
   const week = weekKey();
-  const tree = (await get(ref(db, `leaderboard/${week}`)).catch(() => null))?.val() as Record<string, Record<string, unknown>> | null;
+  const tree = profile.prefs?.lbOff ? null : ((await get(ref(db, `leaderboard/${week}`)).catch(() => null))?.val() as Record<string, Record<string, unknown>> | null);
   const tests = Object.entries(tree ?? {})
     .filter(([, t]) => t?.[uid])
     .map(([test]) => test);
-  if (!tests.length) return;
   await update(ref(db), {
     ...Object.fromEntries(tests.map((t) => [`leaderboard/${week}/${t}/${uid}/name`, publicName(profile)])),
-    [`pub/${uid}`]: pubOf(profile.photo, profile.frame),
+    [`pub/${uid}`]: !profile.prefs?.profileHidden || tests.length ? pubOf(profile.photo, profile.frame) : null,
   });
 }
 

@@ -6,6 +6,7 @@ import {db} from '../../lib/firebase';
 import {useSignIns} from '../../lib/live';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
 import {compare, finishedWeeks, medalData, parseWeek, publicName, pubOf, weekKey, weekMedals, type Entry} from '../../lib/leaderboard';
+import {entryOf} from '../../lib/people';
 import {archiveOps, type History} from '../../lib/history';
 import {flatten, type Result} from '../../lib/results';
 import type {Profile} from '../../lib/session';
@@ -88,13 +89,14 @@ export function useAdminData() {
   // The leaderboard stays right: this week's entries are worked out again from the results and keys (what a student
   // sent is trusted only until then), and a finished week's top 3 become medals.
   useEffect(() => {
-    const {users, admins, results, keys, leaderboard, pub, error} = raw;
-    if (!users || !admins || !results || !keys || !leaderboard || !pub || error || !settings?.leaderboard) return;
-    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard, pub, settings.photos);
+    const {users, admins, results, keys, leaderboard, error} = raw;
+    if (!users || !admins || !results || !keys || !leaderboard || error || !settings?.leaderboard) return;
+    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
   }, [raw, settings?.leaderboard, settings?.photos]);
-  // Each class's students, for its class leaders (lib/lead): how many (classes/{id}/n) and who (classRoster/{id}: names,
-  // to see who hasn't started an assignment). Kept here, as the teacher's page has everyone.
+  // Each class's students: how many (classes/{id}/n) and who (classRoster/{id}: names, for its class leaders and its
+  // students, lib/lead and lib/people); everyone's picture and directory entry. Kept here, as the teacher's page has
+  // everyone.
   useEffect(() => {
     const {users, admins, error} = raw;
     if (!users || !admins || error) return;
@@ -105,9 +107,11 @@ export function useAdminData() {
         n[p.class] = (n[p.class] ?? 0) + 1;
         (roster[p.class] ??= {})[uid] = String(p.name ?? '').slice(0, 60) || p.username;
       }
-    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), ...LEGACY.map((path) => get(ref(db, path)))])
-      .then(([classes, have, ...legacy]) => {
-        const ops: Record<string, unknown> = {};
+    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), get(ref(db, 'people')), ...LEGACY.map((path) => get(ref(db, path)))])
+      .then(([classes, have, people, ...legacy]) => {
+        // Everyone's picture and directory entry (lib/people); those on this week's leaderboard keep a picture.
+        const onBoard = new Set(Object.values((raw.leaderboard ?? {})[weekKey()] ?? {}).flatMap((t) => Object.keys(t ?? {})));
+        const ops: Record<string, unknown> = profileFixes(users, admins, raw.pub ?? {}, (people.val() ?? {}) as Record<string, Record<string, unknown>>, onBoard, settings?.photos !== false);
         const known = (classes.val() ?? {}) as Record<string, {n?: number}>;
         for (const [id, c] of Object.entries(known)) if (c?.n !== (n[id] ?? 0)) ops[`classes/${id}/n`] = n[id] ?? 0;
         const was = (have.val() ?? {}) as Record<string, Record<string, unknown>>;
@@ -122,7 +126,8 @@ export function useAdminData() {
         if (Object.keys(ops).length) return update(ref(db), ops);
       })
       .catch(() => {});
-  }, [raw.users, raw.admins, raw.error]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw.users, raw.admins, raw.error, raw.pub, raw.leaderboard, settings?.photos]);
   const signIns = useSignIns();
   useEffect(() => {
     const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>
@@ -162,6 +167,37 @@ export function useAdminData() {
   return {data: {students, results, keys, exams, examAnswers} as AdminData, error: raw.error};
 }
 
+/**
+ * The pictures (pub/{uid}: photo and frame) and the directory (people/{uid}, lib/people) of every student: a picture for
+ * each one whose profile is open, or who is on this week's leaderboard (for the podium); an entry for each one whose
+ * profile is open. Their badges are their own page's to keep (left as they are). While photos are off, only
+ * ready-made pictures.
+ */
+export function profileFixes(
+  users: Record<string, Profile>,
+  admins: Record<string, boolean>,
+  pub: Record<string, {photo?: string; frame?: string}>,
+  people: Record<string, Record<string, unknown>>,
+  onBoard: Set<string>,
+  photos = true,
+) {
+  const ops: Record<string, unknown> = {};
+  const active = (uid: string) => !admins[uid] && typeof users[uid]?.username === 'string' && !users[uid].disabled;
+  const open = (uid: string) => active(uid) && !users[uid].prefs?.profileHidden;
+  for (const uid of new Set([...Object.keys(users), ...Object.keys(pub)])) {
+    const pic = open(uid) || (active(uid) && onBoard.has(uid)) ? pubOf(users[uid]?.photo, users[uid]?.frame, photos) : null;
+    if ((pub[uid]?.photo ?? null) !== (pic?.photo ?? null) || (pub[uid]?.frame ?? null) !== (pic?.frame ?? null)) ops[`pub/${uid}`] = pic;
+  }
+  for (const uid of new Set([...Object.keys(users), ...Object.keys(people)])) {
+    if (!open(uid)) {
+      if (people[uid]) ops[`people/${uid}`] = null;
+      continue;
+    }
+    for (const [k, v] of Object.entries(entryOf(users[uid]))) if ((people[uid]?.[k] ?? null) !== v) ops[`people/${uid}/${k}`] = v;
+  }
+  return ops;
+}
+
 /** The writes that bring the leaderboard in line with the results (see the effect in useAdminData). */
 export function leaderboardFixes(
   users: Record<string, Profile>,
@@ -169,8 +205,6 @@ export function leaderboardFixes(
   results: Record<string, Record<string, unknown>>,
   keys: Record<string, string>,
   leaderboard: Record<string, Record<string, Record<string, Partial<Entry>>>>,
-  pub: Record<string, {photo?: string; frame?: string}>,
-  photos = true,
 ) {
   const ops: Record<string, unknown> = {};
   const week = weekKey();
@@ -198,13 +232,7 @@ export function leaderboardFixes(
     }
     for (const uid of have.keys()) ops[`leaderboard/${week}/${test}/${uid}`] = null;
   }
-  // Pictures for the podium, with their frames: only of students on the leaderboard (and while photos are off, only
-  // ready-made pictures).
-  const shown = new Set(Object.values(want).flatMap((t) => Object.keys(t)));
-  for (const uid of new Set([...shown, ...Object.keys(pub)])) {
-    const pic = shown.has(uid) ? pubOf(users[uid]?.photo, users[uid]?.frame, photos) : null;
-    if ((pub[uid]?.photo ?? null) !== (pic?.photo ?? null) || (pub[uid]?.frame ?? null) !== (pic?.frame ?? null)) ops[`pub/${uid}`] = pic;
-  }
+  // (The pictures for the podium: profileFixes, from this week's entries.)
   // Finished weeks: medals for each test's top 3 (the week's animal's, lib/leaderboard) and «Шилдэг» orders for the top 3
   // of the sum, then the week's entries go.
   for (const w of finishedWeeks(leaderboard)) {

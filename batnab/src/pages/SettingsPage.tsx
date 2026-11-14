@@ -1,11 +1,12 @@
-import {ChevronRight, CircleHelp, Clock, Forward, LayoutList, Medal, Monitor, Moon, Settings2, Sun, Trophy, Type} from 'lucide-react';
+import {ChevronRight, CircleHelp, Clock, Forward, LayoutList, Medal, Monitor, Moon, Settings2, Sun, Trophy, Type, UserRound} from 'lucide-react';
 import {useState, type ReactNode} from 'react';
 import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import Switch, {SavedNote, useSavedNote} from '../components/Switch';
 import {showGuideAgain} from '../lib/guide';
 import {grade, useKeys} from '../lib/keys';
-import {compare, submitScore, withdraw, type Entry} from '../lib/leaderboard';
+import {compare, refreshMine, submitScore, withdraw, type Entry} from '../lib/leaderboard';
+import {syncMine} from '../lib/people';
 import {savePref, usePrefs, type PrefKey} from '../lib/prefs';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
@@ -38,6 +39,13 @@ export default function SettingsPage() {
     // The switch flips at once: the database applies the change on this device straight away and sends it as soon
     // as it can (also when offline). Only the leaderboard one waits, as it takes this week's scores off or back on.
     const save = savePref(key, on);
+    // Hidden or open again: out of the directory (and the picture, but for the podium), or back in.
+    if (key === 'profileHidden') {
+      const me = {...profile, prefs: {...profile.prefs, profileHidden: on}};
+      return void save
+        .then(() => Promise.all([syncMine(me), refreshMine(me)]))
+        .then(flash, (e) => setError((e as Error).message));
+    }
     if (key !== 'lbOff') return void save.then(flash, (e) => setError((e as Error).message));
     setBusy(key);
     try {
@@ -85,6 +93,19 @@ export default function SettingsPage() {
           <p className="text-sm text-neutral-400">Шууд хадгалагдана. Өөр утас, компьютер дээр ч адилхан.</p>
         </div>
       </header>
+
+      {!session.admin && (
+        <Group title="Профайл">
+          {toggle(
+            'profileHidden',
+            'blue',
+            <UserRound size={18} />,
+            'Профайлаа бусдад харуулах',
+            'Асаалттай үед бусад сурагчид таныг «Сурагчид» хэсгээс нэрээр хайж олоод профайлыг тань (зураг, хүрээ, «Миний тухай», амжилтууд) харна. Нэг ангийнхан тань жинхэнэ нэрийг тань, бусад нь nickname-ийг тань харна.',
+            true,
+          )}
+        </Group>
+      )}
 
       {settings?.leaderboard && (
         <Group title="Leaderboard">
