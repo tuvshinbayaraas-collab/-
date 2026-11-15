@@ -29,6 +29,10 @@ export interface Profile {
   about?: string;
   /** The banner across the top of their profile (lib/banners), picked by the student. */
   banner?: string;
+  /** The colour of their name, a sign beside it and a title under it (lib/looks), picked by the student. */
+  accent?: string;
+  mood?: string;
+  title?: string;
   createdAt?: number;
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */

@@ -1,6 +1,7 @@
 import {ArrowLeft, Award, Crown, Medal as MedalIcon, Pencil, Trophy} from 'lucide-react';
 import Avatar from '../components/Avatar';
 import ProfileBanner from '../components/ProfileBanner';
+import {LooksName, TitleChip} from '../components/Looks';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePics, useMedals, useWeekBoard} from '../lib/leaderboard';
 import MedalBadge from '../components/MedalBadge';
@@ -84,7 +85,10 @@ export default function PublicProfile({uid}: {uid: string}) {
           <span className={`relative z-10 -mt-16 rounded-full bg-neutral-900 p-1.5 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
             <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
           </span>
-          <h1 className="mt-4 max-w-full break-words text-2xl font-bold">{title}</h1>
+          <h1 className="mt-4 max-w-full break-words text-2xl font-bold">
+            <LooksName name={title} accent={person?.accent} mood={person?.mood} />
+          </h1>
+          <TitleChip id={person?.title} className="mt-1" />
           <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 text-sm text-neutral-400">
             {real && real !== publicName && <span>{publicName}</span>}
             {className && <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300">{className} анги</span>}

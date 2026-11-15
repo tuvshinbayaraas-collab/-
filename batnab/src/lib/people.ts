@@ -20,6 +20,9 @@ export interface Person {
   cls?: string;
   frame?: string;
   banner?: string;
+  accent?: string;
+  mood?: string;
+  title?: string;
   about?: string;
   badges: string[];
 }
@@ -29,7 +32,7 @@ const parse = (uid: string, v: unknown): Person | null => {
   const x = v as Record<string, unknown> | null;
   const name = str(x?.name);
   return x && name
-    ? {uid, name, cls: str(x.cls), frame: str(x.frame), banner: str(x.banner), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)}
+    ? {uid, name, cls: str(x.cls), frame: str(x.frame), banner: str(x.banner), accent: str(x.accent), mood: str(x.mood), title: str(x.title), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)}
     : null;
 };
 
@@ -41,10 +44,28 @@ export const usePeople = (on = true) =>
 export const usePerson = (uid: string | undefined) => useLive(uid ? `people/${uid}` : null, (v) => parse(uid!, v) ?? undefined);
 
 /** What the directory says of a student, from their profile (the badges are their own page's to add). */
-export const entryOf = (p: Profile) => ({name: publicName(p), cls: p.class ?? null, frame: p.frame ?? null, banner: p.banner ?? null, about: p.about?.trim() || null});
+export const entryOf = (p: Profile) => ({
+  name: publicName(p),
+  cls: p.class ?? null,
+  frame: p.frame ?? null,
+  banner: p.banner ?? null,
+  accent: p.accent ?? null,
+  mood: p.mood ?? null,
+  title: p.title ?? null,
+  about: p.about?.trim() || null,
+});
 
 /** The same fields read back from an entry, to compare with entryOf. */
-export const fieldsOf = (p: Person) => ({name: p.name, cls: p.cls ?? null, frame: p.frame ?? null, banner: p.banner ?? null, about: p.about ?? null});
+export const fieldsOf = (p: Person) => ({
+  name: p.name,
+  cls: p.cls ?? null,
+  frame: p.frame ?? null,
+  banner: p.banner ?? null,
+  accent: p.accent ?? null,
+  mood: p.mood ?? null,
+  title: p.title ?? null,
+  about: p.about ?? null,
+});
 
 /** The signed-in student's own entry, brought up to date (with their badges, when given); taken out while hidden. */
 export function syncMine(p: Profile, badges?: string[]) {

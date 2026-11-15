@@ -91,6 +91,18 @@
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && newData.val().matches(/^(dusk|sea|forest|sunset|night|notebook|flame|formulas|aurora|gold|stars|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
         },
+        "accent": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|orange|red|teal)$/)"
+        },
+        "mood": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z]{1,12}$/)"
+        },
+        "title": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/) && (newData.val() !== 'medal' || root.child('medals').child($uid).exists())"
+        },
         "about": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150"
@@ -377,6 +389,15 @@
         },
         "banner": {
           ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('banner').val()"
+        },
+        "accent": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('accent').val()"
+        },
+        "mood": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('mood').val()"
+        },
+        "title": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('title').val()"
         },
         "about": {
           ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('about').val()"

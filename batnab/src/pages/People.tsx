@@ -2,6 +2,7 @@ import {ChevronRight, Search, Users, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import Avatar from '../components/Avatar';
 import Loading from '../components/Loading';
+import {LooksName} from '../components/Looks';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import {useClasses} from '../lib/classes';
 import {useRoster} from '../lib/lead';
@@ -161,7 +162,9 @@ function PersonRow({p, real, me, className}: {p: Person; real?: string; me: bool
         <Avatar name={(real ?? p.name).replace(/^@/, '')} photo={pics[p.uid]?.photo} frame={pics[p.uid]?.frame ?? p.frame} size={44} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate font-semibold">{main}</span>
+            <span className="truncate font-semibold">
+              <LooksName name={main} accent={p.accent} mood={p.mood} />
+            </span>
             {me && <span className="shrink-0 rounded-full bg-blue-500/20 px-1.5 py-px text-[10px] font-semibold leading-4 text-blue-200">Та</span>}
           </span>
           <span className="block truncate text-sm text-neutral-400">

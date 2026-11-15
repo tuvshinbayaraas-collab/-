@@ -8,22 +8,26 @@ import {
   EyeOff,
   Image as ImageIcon,
   KeyRound,
+  Palette,
   Lock,
   Medal as MedalIcon,
   MessageSquareText,
   Sparkles,
   UserRound,
 } from 'lucide-react';
-import {useState, type FormEvent, type ReactNode} from 'react';
+import {useState, type CSSProperties, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {ORNAMENTED} from '../components/FrameOrnament';
+import {LooksName, TitleChip} from '../components/Looks';
 import ProfileBanner from '../components/ProfileBanner';
 import {BadgeGrid, useBadgeFacts, useEarned} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import {ProgressChart, useWeeks} from '../components/Progress';
 import Sheet from '../components/Sheet';
-import {saveBanner, saveFrame, saveNickname, savePhoto} from '../lib/accounts';
+import {saveBanner, saveFrame, saveLooks, saveNickname, savePhoto} from '../lib/accounts';
+import {ACCENTS, MOODS, titleOf} from '../lib/looks';
+import {BADGES} from '../lib/stats';
 import {BANNERS, bannerOf, type Banner} from '../lib/banners';
 import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
@@ -43,7 +47,7 @@ const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-blac
 const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
-type Open = 'nickname' | 'password' | 'frame' | 'banner' | 'about' | null;
+type Open = 'nickname' | 'password' | 'frame' | 'banner' | 'looks' | 'about' | null;
 
 /**
  * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
@@ -83,6 +87,18 @@ export default function Profile() {
         />
         {!session.admin && (
           <Row
+            icon={<Palette size={18} />}
+            label="Нэрийн өнгө, тэмдэг, цол"
+            value={
+              [ACCENTS.find((x) => x.id === profile.accent)?.name, MOODS.find((x) => x.id === profile.mood)?.emoji, titleOf(profile.title)?.name].filter(Boolean).join(' · ') || (
+                <span className="text-neutral-500">Сонгоогүй</span>
+              )
+            }
+            onClick={() => setOpen('looks')}
+          />
+        )}
+        {!session.admin && (
+          <Row
             icon={<MessageSquareText size={18} />}
             label="Миний тухай"
             value={profile.about?.trim() || <span className="text-neutral-500">Бичээгүй — профайл дээр тань гарна</span>}
@@ -112,6 +128,7 @@ export default function Profile() {
       {open === 'frame' && <FrameSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'banner' && <BannerSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'about' && <AboutSheet profile={profile} onClose={() => setOpen(null)} />}
+      {open === 'looks' && <LooksSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -211,7 +228,10 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
             </span>
           )}
         </button>
-        <p className="mt-4 max-w-full break-words text-2xl font-bold">{name}</p>
+        <p className="mt-4 max-w-full break-words text-2xl font-bold">
+          <LooksName name={name} accent={profile.accent} mood={profile.mood} />
+        </p>
+        <TitleChip id={profile.title} className="mt-1" />
         <p className="text-sm text-neutral-400">
           @{profile.username}
           {myClass && ` · ${myClass}`}
@@ -506,6 +526,103 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
           Болих
         </button>
         <button type="button" onClick={save} disabled={busy || pick === now} className={primary}>
+          {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** The colour of the name, a sign beside it and a title under it (a badge earned): each picked from what is there. */
+function LooksSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
+  const earned = useEarned(uid);
+  const [accent, setAccent] = useState<string | null>(profile.accent ?? null);
+  const [mood, setMood] = useState<string | null>(profile.mood ?? null);
+  const [title, setTitle] = useState<string | null>(profile.title ?? null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const name = shownName(profile);
+  const titles = BADGES.filter((b) => earned?.all.includes(b.id));
+  const same = accent === (profile.accent ?? null) && mood === (profile.mood ?? null) && title === (profile.title ?? null);
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveLooks({accent, mood, title});
+      await syncMine({...profile, accent: accent ?? undefined, mood: mood ?? undefined, title: title ?? undefined}).catch(() => {});
+      onClose();
+    } catch (e) {
+      setError(authError(e));
+      setBusy(false);
+    }
+  };
+  const chip = (on: boolean) => `rounded-full border px-3 py-1.5 text-sm ${on ? 'border-blue-400 bg-blue-500/15 text-neutral-50' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`;
+  const head = 'mt-4 text-xs font-semibold uppercase tracking-wider text-neutral-500';
+  return (
+    <Sheet title="Нэрийн өнгө, тэмдэг, цол" sub="Профайл дээр тань нэр ингэж харагдана." onClose={onClose}>
+      <div className="flex flex-col items-center rounded-2xl bg-neutral-800/50 px-4 py-4 text-center" data-looks-preview>
+        <Avatar name={name} photo={profile.photo} frame={profile.frame} size={64} />
+        <p className="mt-2 max-w-full break-words text-xl font-bold">
+          <LooksName name={name} accent={accent} mood={mood} />
+        </p>
+        <TitleChip id={title} className="mt-1" />
+      </div>
+      <p className={head}>Нэрийн өнгө</p>
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Нэрийн өнгө">
+        <button type="button" onClick={() => setAccent(null)} aria-pressed={!accent} className={chip(!accent)}>
+          Энгийн
+        </button>
+        {ACCENTS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => setAccent(a.id)}
+            aria-pressed={accent === a.id}
+            aria-label={a.name}
+            title={a.name}
+            className={`accent-swatch h-9 w-9 rounded-full ${accent === a.id ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-neutral-900' : ''}`}
+            style={{'--accent': a.color, '--accent-light': a.light} as CSSProperties}
+          />
+        ))}
+      </div>
+      <p className={head}>Тэмдэг</p>
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Тэмдэг">
+        <button type="button" onClick={() => setMood(null)} aria-pressed={!mood} className={chip(!mood)}>
+          Тэмдэггүй
+        </button>
+        {MOODS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setMood(m.id)}
+            aria-pressed={mood === m.id}
+            aria-label={`Тэмдэг ${m.emoji}`}
+            className={`h-9 w-9 rounded-full text-lg ${mood === m.id ? 'bg-blue-500/20 ring-2 ring-blue-400' : 'bg-neutral-800 hover:bg-neutral-700'}`}
+          >
+            {m.emoji}
+          </button>
+        ))}
+      </div>
+      <p className={head}>Цол</p>
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Цол">
+        <button type="button" onClick={() => setTitle(null)} aria-pressed={!title} className={chip(!title)}>
+          Цолгүй
+        </button>
+        {titles.map((b) => (
+          <button key={b.id} type="button" onClick={() => setTitle(b.id)} aria-pressed={title === b.id} className={chip(title === b.id)}>
+            {b.icon} {b.name}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-neutral-400">
+        {titles.length ? 'Цол нь таны авсан амжилтууд. Шинэ амжилт авах тусам нэмэгдэнэ.' : 'Цол нь амжилтаар нээгдэнэ: эхний тестээ өгөхөд «Анхны алхам» цол нээгдэнэ.'}
+      </p>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
+        <button type="button" onClick={onClose} className={secondary}>
+          Болих
+        </button>
+        <button type="button" onClick={save} disabled={busy || same} className={primary}>
           {busy ? 'Хадгалж байна…' : 'Хадгалах'}
         </button>
       </div>

@@ -120,6 +120,21 @@
   .banner-glow { animation: banner-glow 7s ease-in-out infinite; }
 }
 
+/* A name in its owner's colour (lib/looks); on the light look the same hue, deep enough to read on white. */
+.accent-name {
+  color: var(--accent);
+}
+:root[data-theme='light'] .accent-name {
+  color: var(--accent-light);
+}
+/* Its swatch in the picker, the same as the name will be. */
+.accent-swatch {
+  background: var(--accent);
+}
+:root[data-theme='light'] .accent-swatch {
+  background: var(--accent-light);
+}
+
 /* KaTeX's invisible spacing boxes reach well outside a formula. A tap there has to land on the answer button that is
    actually under the finger, not on the neighbouring answer the formula belongs to. */
 .katex,

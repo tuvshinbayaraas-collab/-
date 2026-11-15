@@ -107,6 +107,9 @@ export const saveNickname = (nickname: string) => set(ref(db, `users/${me()}/nic
 export const savePhoto = (photo: string | null) => set(ref(db, `users/${me()}/photo`), photo);
 /** The frame around the picture (lib/frames), or none. */
 export const saveFrame = (frame: string | null) => set(ref(db, `users/${me()}/frame`), frame);
+/** The colour of the name, the sign beside it and the title under it (lib/looks); null takes one off. */
+export const saveLooks = (l: {accent: string | null; mood: string | null; title: string | null}) =>
+  update(ref(db), {[`users/${me()}/accent`]: l.accent, [`users/${me()}/mood`]: l.mood, [`users/${me()}/title`]: l.title});
 /** The banner across the top of the profile (lib/banners), or none. */
 export const saveBanner = (banner: string | null) => set(ref(db, `users/${me()}/banner`), banner);
 
