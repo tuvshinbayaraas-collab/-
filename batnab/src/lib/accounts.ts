@@ -110,6 +110,8 @@ export const saveFrame = (frame: string | null) => set(ref(db, `users/${me()}/fr
 /** The colour of the name, the sign beside it and the title under it (lib/looks); null takes one off. */
 export const saveLooks = (l: {accent: string | null; mood: string | null; title: string | null}) =>
   update(ref(db), {[`users/${me()}/accent`]: l.accent, [`users/${me()}/mood`]: l.mood, [`users/${me()}/title`]: l.title});
+/** The profile's colours and the effect over it (lib/themes); null takes one off. */
+export const saveStyle = (st: {theme: string | null; effect: string | null}) => update(ref(db), {[`users/${me()}/theme`]: st.theme, [`users/${me()}/effect`]: st.effect});
 /** The banner across the top of the profile (lib/banners), or none. */
 export const saveBanner = (banner: string | null) => set(ref(db, `users/${me()}/banner`), banner);
 

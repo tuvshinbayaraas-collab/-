@@ -120,6 +120,120 @@
   .banner-glow { animation: banner-glow 7s ease-in-out infinite; }
 }
 
+/* A profile in its theme's colours (lib/themes, components/ProfileCard): one at the top (behind the picture) going into
+   the other at the bottom. The ring around the picture and the panels on the card take them too. */
+.profile-theme {
+  background: linear-gradient(180deg, var(--t1) 0%, var(--t1) 30%, var(--t2) 100%);
+}
+:root[data-theme='light'] .profile-theme {
+  background: linear-gradient(180deg, var(--t1l) 0%, var(--t1l) 30%, var(--t2l) 100%);
+}
+.profile-ring {
+  background: var(--color-neutral-900);
+}
+.profile-theme .profile-ring {
+  background: var(--t1);
+}
+:root[data-theme='light'] .profile-theme .profile-ring {
+  background: var(--t1l);
+}
+.on-card {
+  background: rgb(0 0 0 / 0.28);
+}
+:root[data-theme='light'] .on-card {
+  background: rgb(0 0 0 / 0.045);
+}
+:root[data-theme='light'] .profile-theme .on-card {
+  background: rgb(255 255 255 / 0.6);
+}
+
+/* A profile's effect (lib/themes): bits drifting over the card. Each bit is a column as tall as the card, so moving it
+   by its own height moves it top to bottom; still (spread over the card) where less motion is asked for. */
+.pe-p {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: var(--s);
+  transform: translateY(var(--y));
+}
+.pe-twinkle .pe-p,
+.pe-shoot .pe-p {
+  top: var(--y);
+  height: auto;
+  transform: none;
+}
+.pe-g {
+  display: block;
+  width: var(--s);
+  height: var(--s);
+  font-size: var(--s);
+  font-style: normal;
+  font-family: ui-serif, Georgia, serif;
+  line-height: 1;
+  text-align: center;
+  opacity: 0.75;
+}
+.pe-dot {
+  border-radius: 9999px;
+  background: currentColor;
+}
+.pe-ring {
+  border-radius: 9999px;
+  border: 1.5px solid currentColor;
+}
+.pe-rect {
+  height: calc(var(--s) * 0.45);
+  border-radius: 1px;
+  background: currentColor;
+}
+.pe-streak {
+  width: calc(var(--s) * 5);
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, currentColor);
+  transform: rotate(22deg);
+}
+.pe-glow {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+:root[data-theme='light'] .pe-g {
+  opacity: 0.9;
+  filter: brightness(0.72) saturate(1.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pe-fall .pe-p { animation: pe-fall var(--d) linear var(--dl) infinite; }
+  .pe-rise .pe-p { animation: pe-rise var(--d) linear var(--dl) infinite; }
+  .pe-twinkle .pe-g { animation: pe-twinkle var(--d) ease-in-out var(--dl) infinite; }
+  .pe-shoot .pe-p { animation: pe-shoot var(--d) ease-in var(--dl) infinite; }
+  .pe-sway .pe-g { animation: pe-sway 3.2s ease-in-out var(--dl) infinite; }
+  .pe-spin .pe-g { animation: pe-spin 2.4s linear var(--dl) infinite; }
+}
+@keyframes pe-fall {
+  from { transform: translateY(-6%); }
+  to { transform: translateY(100%); }
+}
+@keyframes pe-rise {
+  from { transform: translateY(100%); }
+  to { transform: translateY(-6%); }
+}
+@keyframes pe-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.6); }
+  50% { opacity: 0.95; transform: scale(1); }
+}
+@keyframes pe-shoot {
+  0% { transform: translate(-40px, -16px); opacity: 0; }
+  8% { opacity: 1; }
+  35% { transform: translate(220px, 80px); opacity: 0; }
+  100% { transform: translate(220px, 80px); opacity: 0; }
+}
+@keyframes pe-sway {
+  0%, 100% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+}
+@keyframes pe-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* A name in its owner's colour (lib/looks); on the light look the same hue, deep enough to read on white. */
 .accent-name {
   color: var(--accent);

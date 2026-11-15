@@ -174,7 +174,7 @@ function PersonRow({p, real, me, className}: {p: Person; real?: string; me: bool
         </span>
         {icons.length > 0 && (
           // Only where the row has room: on a narrow screen with big text the name keeps it (all are on the profile).
-          <span className="hidden shrink-0 items-center gap-0.5 text-[15px] leading-none @[20rem]:flex" aria-label={`${icons.length} амжилт`}>
+          <span className="hidden shrink-0 items-center gap-0.5 text-[15px] leading-none @[20rem]:flex" role="img" aria-label={`${icons.length} амжилт`}>
             {icons.slice(0, SHOWN).map((icon, i) => (
               <span key={i} aria-hidden>
                 {icon}

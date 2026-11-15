@@ -33,6 +33,9 @@ export interface Profile {
   accent?: string;
   mood?: string;
   title?: string;
+  /** The profile's colours and the effect over it (lib/themes), picked by the student. */
+  theme?: string;
+  effect?: string;
   createdAt?: number;
   disabled?: boolean;
   /** The class the teacher put the student in (classes/{id}). */

@@ -1,6 +1,7 @@
 import {ArrowLeft, Award, Crown, Medal as MedalIcon, Pencil, Trophy} from 'lucide-react';
 import Avatar from '../components/Avatar';
-import ProfileBanner from '../components/ProfileBanner';
+import ProfileBanner, {BANNER_SHAPE} from '../components/ProfileBanner';
+import {ProfileCard} from '../components/ProfileCard';
 import {LooksName, TitleChip} from '../components/Looks';
 import {CenterNote, LockedNote} from '../components/Notices';
 import {overall, PLACES, percentOf, ranking, usePics, useMedals, useWeekBoard} from '../lib/leaderboard';
@@ -19,9 +20,9 @@ import {TESTS, testInfo} from '../tests';
 import Loading from '../components/Loading';
 
 /**
- * /u/{uid}: a student's profile as others see it — picture and frame, name (the real one to classmates and the
- * teacher, else the nickname or login name), class, «Миний тухай», the badges they earned, medals and this week's
- * places on the leaderboard. Open to every signed-in student, unless they hide it (then only what the leaderboard
+ * /u/{uid}: a student's profile as others see it, one card as on Discord (their banner, colours and effect) — picture
+ * and frame, name (the real one to classmates and the teacher, else the nickname or login name), class, «Миний тухай»,
+ * the badges they earned, medals; then this week's places on the leaderboard. Open to every signed-in student, unless they hide it (then only what the leaderboard
  * shows).
  */
 export default function PublicProfile({uid}: {uid: string}) {
@@ -77,84 +78,108 @@ export default function PublicProfile({uid}: {uid: string}) {
       <button type="button" onClick={() => history.back()} className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
         <ArrowLeft size={16} /> Буцах
       </button>
-      <section className="overflow-hidden rounded-2xl bg-neutral-900 text-center">
-        <ProfileBanner id={person?.banner} seed={publicName} className="h-28 sm:h-32">
-          {leader && <Crown size={24} className="absolute left-3 top-3 text-amber-300 drop-shadow" aria-label="Энэ долоо хоногийн тэргүүлэгч" />}
-        </ProfileBanner>
-        <div className="flex flex-col items-center px-5 pb-6">
-          <span className={`relative z-10 -mt-16 rounded-full bg-neutral-900 p-1.5 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
-            <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
-          </span>
-          <h1 className="mt-4 max-w-full break-words text-2xl font-bold">
+      {/* One card, as on Discord: the banner whole, the picture over its edge, the name, «Миний тухай», the badges and
+          medals; in the student's colours, their effect over it. */}
+      <ProfileCard
+        theme={person?.theme}
+        effect={person?.effect}
+        className="rounded-2xl"
+        banner={
+          <ProfileBanner id={person?.banner} seed={publicName} className={BANNER_SHAPE}>
+            {leader && <Crown size={24} className="absolute left-3 top-3 text-amber-300 drop-shadow" aria-label="Энэ долоо хоногийн тэргүүлэгч" />}
+          </ProfileBanner>
+        }
+      >
+        <div className="relative px-4 pb-5 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <span className={`profile-ring relative -mt-14 shrink-0 rounded-full p-1.5 sm:-mt-16 ${leader ? 'ring-4 ring-amber-400' : ''}`}>
+              <Avatar name={publicName.replace(/^@/, '')} photo={pics[uid]?.photo} frame={pics[uid]?.frame ?? person?.frame} size={104} />
+            </span>
+            {/* The badges in a row at the side, as Discord shows them; all of them, named, further down. */}
+            {earned.length > 0 && (
+              <span className="on-card mt-3 flex items-center gap-1 rounded-lg px-2 py-1 text-lg leading-none" role="img" aria-label={`${earned.length} амжилт`}>
+                {earned.slice(0, 6).map((b) => (
+                  <span key={b.id} aria-hidden title={b.name}>
+                    {b.icon}
+                  </span>
+                ))}
+                {earned.length > 6 && <span className="ml-0.5 text-xs font-medium text-neutral-300">+{earned.length - 6}</span>}
+              </span>
+            )}
+          </div>
+          <h1 className="mt-3 max-w-full break-words text-2xl font-bold">
             <LooksName name={title} accent={person?.accent} mood={person?.mood} />
           </h1>
-          <TitleChip id={person?.title} className="mt-1" />
-          <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 text-sm text-neutral-400">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
             {real && real !== publicName && <span>{publicName}</span>}
-            {className && <span className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300">{className} анги</span>}
+            {className && <span className="on-card rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-300">{className} анги</span>}
           </p>
-          {person?.about && <p className="mt-3 max-w-sm whitespace-pre-wrap break-words text-[15px] text-neutral-200">“{person.about}”</p>}
+          <TitleChip id={person?.title} className="mt-2" />
           {top > 0 && top <= 3 && (
-            <p className={`mt-3 rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
+            <p className={`mt-3 w-fit rounded-full px-3 py-1 text-sm font-medium ${PLACES[top as 1 | 2 | 3].block} ${PLACES[top as 1 | 2 | 3].text}`}>
               {leader ? `Энэ долоо хоногийн тэргүүлэгч · ${sumRank[0].score} оноо` : `«Шилдэг оноогоор» ${top}-р байр · ${sumRank[top - 1].score} оноо`}
             </p>
           )}
+          {person?.about && (
+            <div className="on-card mt-3 rounded-xl px-3 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Миний тухай</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-[15px]">{person.about}</p>
+            </div>
+          )}
+
+          {person && (
+            <div className="mt-5">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <Award size={18} className="text-amber-300" /> Амжилтууд{' '}
+                <span className="text-sm font-normal text-neutral-400">
+                  {earned.length}/{BADGES.length}
+                </span>
+              </h2>
+              {earned.length ? (
+                <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {earned.map((b) => (
+                    <li key={b.id} className="on-card flex flex-col items-center rounded-xl px-2 py-3 text-center" title={b.hint}>
+                      <span className="text-2xl" aria-hidden>
+                        {b.icon}
+                      </span>
+                      <span className="mt-1 text-xs font-medium leading-tight">{b.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-neutral-400">{mine ? 'Профайл хуудсаа нээхэд амжилтууд тань энд гарна.' : 'Одоогоор амжилт алга.'}</p>
+              )}
+            </div>
+          )}
+
+          {lb && (
+            <div className="mt-5">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
+                {medals!.length > 0 && <span className="text-sm font-normal text-neutral-400">{medals!.length}</span>}
+              </h2>
+              {medals!.length ? (
+                <ul className="mt-3 grid grid-cols-3 gap-3">
+                  {medals!.map((m) => (
+                    <MedalBadge key={m.key} m={m} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-neutral-400">Одоогоор медаль аваагүй байна.</p>
+              )}
+            </div>
+          )}
+
           {mine && (
-            <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-neutral-400">
+            <p className="mt-5 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
               Бусдад таны профайл ингэж харагдана.
-              <Link
-                href="/profile"
-                className="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-3 py-1 font-medium text-neutral-200 hover:bg-neutral-700"
-              >
+              <Link href="/profile" className="on-card inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium text-neutral-200 hover:brightness-125">
                 <Pencil size={14} /> Засах
               </Link>
             </p>
           )}
         </div>
-      </section>
-
-      {person && (
-        <section className="rounded-2xl bg-neutral-900 p-5">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <Award size={18} className="text-amber-300" /> Амжилтууд{' '}
-            <span className="text-sm font-normal text-neutral-500">
-              {earned.length}/{BADGES.length}
-            </span>
-          </h2>
-          {earned.length ? (
-            <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {earned.map((b) => (
-                <li key={b.id} className="flex flex-col items-center rounded-xl bg-neutral-800/60 px-2 py-3 text-center" title={b.hint}>
-                  <span className="text-2xl" aria-hidden>
-                    {b.icon}
-                  </span>
-                  <span className="mt-1 text-xs font-medium leading-tight">{b.name}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-sm text-neutral-400">{mine ? 'Профайл хуудсаа нээхэд амжилтууд тань энд гарна.' : 'Одоогоор амжилт алга.'}</p>
-          )}
-        </section>
-      )}
-
-      {lb && (
-        <section className="rounded-2xl bg-neutral-900 p-5">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
-            {medals!.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals!.length}</span>}
-          </h2>
-          {medals!.length ? (
-            <ul className="mt-4 grid grid-cols-3 gap-3">
-              {medals!.map((m) => (
-                <MedalBadge key={m.key} m={m} />
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-sm text-neutral-400">Одоогоор медаль аваагүй байна.</p>
-          )}
-        </section>
-      )}
+      </ProfileCard>
 
       {places.length > 0 && (
         <section className="rounded-2xl bg-neutral-900 p-5">

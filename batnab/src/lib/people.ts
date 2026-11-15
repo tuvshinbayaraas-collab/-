@@ -1,5 +1,5 @@
 // The students' directory, for finding a classmate by name and opening their profile:
-//   people/{uid} = {name, cls?, frame?, banner?, about?, badges?}   every signed-in student reads it. name is the public one
+//   people/{uid} = {name, cls?, frame?, banner?, accent?, mood?, title?, theme?, effect?, about?, badges?}   every signed-in student reads it. name is the public one
 //                                              (nickname, or @login name); the teacher's page keeps name, class, frame,
 //                                              banner and «Миний тухай» for everyone, the student's own page too (and the
 //                                              badges they earned, from their profile page). Not there while they
@@ -23,6 +23,8 @@ export interface Person {
   accent?: string;
   mood?: string;
   title?: string;
+  theme?: string;
+  effect?: string;
   about?: string;
   badges: string[];
 }
@@ -32,7 +34,7 @@ const parse = (uid: string, v: unknown): Person | null => {
   const x = v as Record<string, unknown> | null;
   const name = str(x?.name);
   return x && name
-    ? {uid, name, cls: str(x.cls), frame: str(x.frame), banner: str(x.banner), accent: str(x.accent), mood: str(x.mood), title: str(x.title), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)}
+    ? {uid, name, cls: str(x.cls), frame: str(x.frame), banner: str(x.banner), accent: str(x.accent), mood: str(x.mood), title: str(x.title), theme: str(x.theme), effect: str(x.effect), about: str(x.about), badges: (str(x.badges) ?? '').split(',').filter(Boolean)}
     : null;
 };
 
@@ -52,6 +54,8 @@ export const entryOf = (p: Profile) => ({
   accent: p.accent ?? null,
   mood: p.mood ?? null,
   title: p.title ?? null,
+  theme: p.theme ?? null,
+  effect: p.effect ?? null,
   about: p.about?.trim() || null,
 });
 
@@ -64,6 +68,8 @@ export const fieldsOf = (p: Person) => ({
   accent: p.accent ?? null,
   mood: p.mood ?? null,
   title: p.title ?? null,
+  theme: p.theme ?? null,
+  effect: p.effect ?? null,
   about: p.about ?? null,
 });
 

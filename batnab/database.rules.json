@@ -103,6 +103,14 @@
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/) && (newData.val() !== 'medal' || root.child('medals').child($uid).exists())"
         },
+        "theme": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^(night|ocean|forest|sunset|fire|candy|mint|galaxy|berry|mono|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+        },
+        "effect": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
+          ".validate": "newData.isString() && newData.val().matches(/^(snow|stars|bubbles|hearts|math|embers|confetti|comets|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+        },
         "about": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150"
@@ -398,6 +406,12 @@
         },
         "title": {
           ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('title').val()"
+        },
+        "theme": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('theme').val()"
+        },
+        "effect": {
+          ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('effect').val()"
         },
         "about": {
           ".validate": "newData.val() === newData.parent().parent().parent().child('users').child($uid).child('about').val()"

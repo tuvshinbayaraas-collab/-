@@ -14,19 +14,22 @@ import {
   MessageSquareText,
   Sparkles,
   UserRound,
+  WandSparkles,
 } from 'lucide-react';
 import {useState, type CSSProperties, type FormEvent, type ReactNode} from 'react';
 import Avatar from '../components/Avatar';
 import {ORNAMENTED} from '../components/FrameOrnament';
 import {LooksName, TitleChip} from '../components/Looks';
-import ProfileBanner from '../components/ProfileBanner';
+import ProfileBanner, {BANNER_SHAPE} from '../components/ProfileBanner';
+import {ProfileCard, ProfileEffect, themeVars} from '../components/ProfileCard';
 import {BadgeGrid, useBadgeFacts, useEarned} from '../components/Badges';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import PhotoPicker from '../components/PhotoPicker';
 import {ProgressChart, useWeeks} from '../components/Progress';
 import Sheet from '../components/Sheet';
-import {saveBanner, saveFrame, saveLooks, saveNickname, savePhoto} from '../lib/accounts';
+import {saveBanner, saveFrame, saveLooks, saveNickname, savePhoto, saveStyle} from '../lib/accounts';
 import {ACCENTS, MOODS, titleOf} from '../lib/looks';
+import {EFFECTS, effectOf, isOpenTo, THEMES, themeOf, type Effect, type Theme} from '../lib/themes';
 import {BADGES} from '../lib/stats';
 import {BANNERS, bannerOf, type Banner} from '../lib/banners';
 import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
@@ -47,7 +50,7 @@ const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-blac
 const secondary = 'rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700';
 
 type Status = {ok: boolean; text: string} | null;
-type Open = 'nickname' | 'password' | 'frame' | 'banner' | 'looks' | 'about' | null;
+type Open = 'nickname' | 'password' | 'frame' | 'banner' | 'looks' | 'style' | 'about' | null;
 
 /**
  * The student's profile: photo and names up top, then one row per setting. A row opens its own sheet (from the bottom
@@ -99,6 +102,14 @@ export default function Profile() {
         )}
         {!session.admin && (
           <Row
+            icon={<WandSparkles size={18} />}
+            label="Профайлын өнгө, эффект"
+            value={[themeOf(profile.theme)?.name, effectOf(profile.effect)?.name].filter(Boolean).join(' · ') || <span className="text-neutral-500">Сонгоогүй</span>}
+            onClick={() => setOpen('style')}
+          />
+        )}
+        {!session.admin && (
+          <Row
             icon={<MessageSquareText size={18} />}
             label="Миний тухай"
             value={profile.about?.trim() || <span className="text-neutral-500">Бичээгүй — профайл дээр тань гарна</span>}
@@ -129,6 +140,7 @@ export default function Profile() {
       {open === 'banner' && <BannerSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
       {open === 'about' && <AboutSheet profile={profile} onClose={() => setOpen(null)} />}
       {open === 'looks' && <LooksSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
+      {open === 'style' && <StyleSheet uid={session.user.uid} profile={profile} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -189,7 +201,11 @@ function Row({icon, label, value, onClick}: {icon: ReactNode; label: string; val
   );
 }
 
-/** The banner, the photo over its lower edge, the name the site shows, the login name; tap the photo to change it. */
+/**
+ * The profile card as others see it, laid out like Discord's: the banner whole across the top, the picture over its lower
+ * edge on the left, the name under it, «Миний тухай» in a panel; in the student's colours, their effect over it. Tap the
+ * picture to change it.
+ */
 function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: Open) => void; meter: boolean}) {
   const [picking, setPicking] = useState(false);
   const myClass = useClasses()?.find((c) => c.id === profile.class)?.name;
@@ -206,40 +222,65 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
     setStatus(null);
     setPicking(true);
   };
+  const about = profile.about?.trim();
+  const pill = 'on-card flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium hover:brightness-125';
 
   return (
-    <section className={`${card} overflow-hidden text-center`}>
-      <ProfileBanner id={profile.banner} seed={publicName(profile)} className="h-28 sm:h-32">
-        <button
-          type="button"
-          onClick={() => onOpen('banner')}
-          className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/60"
-        >
-          <ImageIcon size={14} /> Баннер
-        </button>
-      </ProfileBanner>
-      <div className="flex flex-col items-center px-5 pb-5">
-        <button onClick={pick} aria-label="Зураг солих" className="relative z-10 -mt-16 rounded-full bg-neutral-900 p-1.5">
-          <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
-          {/* Not over a special frame's ornament («Зураг солих» is just below). */}
-          {!ORNAMENTED.has(profile.frame ?? '') && (
-            <span className="absolute -right-2 bottom-0 flex h-9 w-9 items-center justify-center rounded-full border-4 border-neutral-900 bg-blue-500 text-black">
-              <Camera size={16} />
-            </span>
-          )}
-        </button>
-        <p className="mt-4 max-w-full break-words text-2xl font-bold">
+    <ProfileCard
+      theme={profile.theme}
+      effect={profile.effect}
+      className="rounded-2xl"
+      banner={
+        <ProfileBanner id={profile.banner} seed={publicName(profile)} className={BANNER_SHAPE}>
+          <button
+            type="button"
+            onClick={() => onOpen('banner')}
+            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/60"
+          >
+            <ImageIcon size={14} /> Баннер
+          </button>
+        </ProfileBanner>
+      }
+    >
+      <div className="relative px-4 pb-4 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <button onClick={pick} aria-label="Зураг солих" className="profile-ring relative -mt-14 shrink-0 rounded-full p-1.5 sm:-mt-16">
+            <Avatar name={name} photo={profile.photo} frame={profile.frame} size={104} />
+            {/* Not over a special frame's ornament («Зураг солих» is beside it). */}
+            {!ORNAMENTED.has(profile.frame ?? '') && (
+              <span className="profile-ring absolute -right-1.5 bottom-0.5 rounded-full p-1">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-black">
+                  <Camera size={16} />
+                </span>
+              </span>
+            )}
+          </button>
+          <div className="flex flex-wrap justify-end gap-2 pt-3">
+            <button type="button" onClick={pick} className={pill}>
+              <Camera size={15} /> Зураг солих
+            </button>
+            {meter && (
+              <button type="button" onClick={() => onOpen('style')} className={pill}>
+                <WandSparkles size={15} /> Өнгө, эффект
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="mt-3 break-words text-2xl font-bold">
           <LooksName name={name} accent={profile.accent} mood={profile.mood} />
         </p>
-        <TitleChip id={profile.title} className="mt-1" />
         <p className="text-sm text-neutral-400">
           @{profile.username}
           {myClass && ` · ${myClass}`}
         </p>
+        <TitleChip id={profile.title} className="mt-2" />
         {profile.nickname?.trim() && <p className="mt-1 text-sm text-neutral-500">Жинхэнэ нэр: {profile.name}</p>}
-        <button onClick={pick} className="mt-4 flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700">
-          <Camera size={16} /> Зураг солих
-        </button>
+        {about && (
+          <div className="on-card mt-3 rounded-xl px-3 py-2.5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Миний тухай</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-[15px]">{about}</p>
+          </div>
+        )}
         {status && (
           <p className={`mt-3 flex items-center gap-1 text-sm ${status.ok ? 'text-green-400' : 'text-red-400'}`}>
             {status.ok && <Check size={16} />} {status.text}
@@ -248,7 +289,7 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
         {meter && <Completeness profile={profile} onPhoto={pick} onOpen={onOpen} />}
         {picking && <PhotoPicker name={name} photo={profile.photo} frame={profile.frame} onSave={save} onClose={() => setPicking(false)} />}
       </div>
-    </section>
+    </ProfileCard>
   );
 }
 
@@ -267,7 +308,7 @@ function Completeness({profile, onPhoto, onOpen}: {profile: ProfileData; onPhoto
   const done = parts.filter(([, ok]) => ok).length;
   if (done === parts.length) return null;
   return (
-    <div className="mt-4 w-full rounded-xl bg-neutral-800/50 p-3 text-left" data-profile-meter>
+    <div className="on-card mt-4 w-full rounded-xl p-3 text-left" data-profile-meter>
       <p className="flex items-center gap-2 text-sm font-medium">
         <span className="shrink-0">
           Профайл {done}/{parts.length}
@@ -456,7 +497,7 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
         aria-label={`${b?.name ?? 'Баннергүй'}${shut ? ' (түгжээтэй)' : ''}`}
         className={`relative flex flex-col gap-1.5 rounded-2xl border p-1.5 pb-2 text-left ${on ? 'border-blue-400 bg-blue-500/10' : 'border-transparent hover:bg-neutral-800/60'}`}
       >
-        <ProfileBanner id={id} className="h-16 rounded-xl" />
+        <ProfileBanner id={id} className={`${BANNER_SHAPE} rounded-xl`} />
         {on && (
           <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-black">
             <Check size={14} strokeWidth={3} />
@@ -473,10 +514,9 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
   return (
     <Sheet title="Баннер сонгох" sub="Профайлын тань дээд талд, зургийн ард." onClose={onClose}>
       {/* The one picked, as the profile will look. */}
-      <div className="overflow-hidden rounded-2xl bg-neutral-800/50">
-        <ProfileBanner id={pick} className="h-20" />
-        <div className="flex items-end gap-3 px-4 pb-3">
-          <span className="relative z-10 -mt-8 shrink-0 rounded-full bg-neutral-900 p-1">
+      <ProfileCard as="div" theme={profile.theme} className="rounded-2xl" banner={<ProfileBanner id={pick} seed={publicName(profile)} className={BANNER_SHAPE} />}>
+        <div className="relative flex items-end gap-3 px-4 pb-3">
+          <span className="profile-ring relative -mt-8 shrink-0 rounded-full p-1">
             <Avatar name={name} photo={profile.photo} frame={profile.frame} size={60} />
           </span>
           <span className="min-w-0 pb-0.5">
@@ -487,7 +527,7 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
             <span className="block text-sm text-neutral-400">Таны профайл дээр ингэж харагдана</span>
           </span>
         </div>
-      </div>
+      </ProfileCard>
 
       <div className="mt-4 grid grid-cols-2 rounded-full bg-neutral-800/60 p-1 text-sm font-medium" role="tablist" aria-label="Баннерын төрөл">
         {(
@@ -526,6 +566,146 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
           Болих
         </button>
         <button type="button" onClick={save} disabled={busy || pick === now} className={primary}>
+          {busy ? 'Хадгалж байна…' : 'Хадгалах'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * «Профайлын өнгө, эффект», as Discord's profile themes and effects: the card in two colours (top and bottom) and bits
+ * drifting over it, with the profile as it will look at the top. The special ones open with a badge (a lock beside
+ * their name; a tap says how).
+ */
+function StyleSheet({uid, profile, onClose}: {uid: string; profile: ProfileData; onClose: () => void}) {
+  const earned = useEarned(uid);
+  const [theme, setTheme] = useState<string | null>(themeOf(profile.theme)?.id ?? null);
+  const [effect, setEffect] = useState<string | null>(effectOf(profile.effect)?.id ?? null);
+  const [why, setWhy] = useState<Theme | Effect | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const name = shownName(profile);
+  const got = earned?.open ?? new Set<string>();
+  const same = theme === (themeOf(profile.theme)?.id ?? null) && effect === (effectOf(profile.effect)?.id ?? null);
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await saveStyle({theme, effect});
+      await syncMine({...profile, theme: theme ?? undefined, effect: effect ?? undefined}).catch(() => {});
+      onClose();
+    } catch (e) {
+      setError(/permission/i.test((e as Error).message) ? 'Энэ нь танд хараахан нээгдээгүй байна.' : authError(e));
+      setBusy(false);
+    }
+  };
+  const head = 'mt-4 text-xs font-semibold uppercase tracking-wider text-neutral-500';
+  const tick = (
+    <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-black">
+      <Check size={12} strokeWidth={3} />
+    </span>
+  );
+  const tile = (on: boolean) =>
+    `relative flex flex-col gap-1 rounded-xl border p-1 pb-1.5 text-left text-xs font-medium ${on ? 'border-blue-400 bg-blue-500/10' : 'border-transparent hover:bg-neutral-800/60'}`;
+  const label = (text: string, shut: boolean) => (
+    <span className="flex items-center gap-1 px-0.5">
+      <span className="truncate">{text}</span>
+      {shut && <Lock size={11} className="shrink-0 text-neutral-400" />}
+    </span>
+  );
+  // The tiles of the effects show them on the colours picked.
+  const ground = theme ? 'profile-theme' : 'bg-neutral-800';
+  return (
+    <Sheet title="Профайлын өнгө, эффект" sub="Discord шиг: картаа хоёр өнгөөр будаж, дээр нь эффект нэмээрэй." onClose={onClose}>
+      {/* The profile as it will look. */}
+      <div data-style-preview>
+        <ProfileCard as="div" theme={theme} effect={effect} className="rounded-2xl" banner={<ProfileBanner id={profile.banner} seed={publicName(profile)} className={BANNER_SHAPE} />}>
+          <div className="relative px-4 pb-4">
+            <span className="profile-ring relative -mt-9 inline-block rounded-full p-1">
+              <Avatar name={name} photo={profile.photo} frame={profile.frame} size={64} />
+            </span>
+            <p className="mt-1 break-words text-lg font-bold">
+              <LooksName name={name} accent={profile.accent} mood={profile.mood} />
+            </p>
+            <p className="text-sm text-neutral-400">@{profile.username}</p>
+            <div className="on-card mt-2 rounded-xl px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Миний тухай</p>
+              <p className="mt-0.5 truncate text-sm">{profile.about?.trim() || 'Энд таны тухай бичвэр гарна.'}</p>
+            </div>
+          </div>
+        </ProfileCard>
+      </div>
+
+      <p className={head}>Профайлын өнгө</p>
+      <div className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-6" role="group" aria-label="Профайлын өнгө">
+        <button type="button" onClick={() => (setTheme(null), setWhy(null))} aria-pressed={!theme} aria-label="Энгийн өнгө" className={tile(!theme)}>
+          <span className="block h-11 rounded-lg border border-neutral-700 bg-neutral-900" />
+          {label('Энгийн', false)}
+          {!theme && tick}
+        </button>
+        {THEMES.map((t) => {
+          const shut = !isOpenTo(t, got);
+          const on = theme === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => (shut ? setWhy(t) : (setTheme(t.id), setWhy(null)))}
+              aria-pressed={on}
+              aria-label={`${t.name}${shut ? ' (түгжээтэй)' : ''}`}
+              className={tile(on)}
+            >
+              <span className="profile-theme block h-11 rounded-lg" style={themeVars(t.id)} />
+              {label(t.name, shut)}
+              {on && tick}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className={head}>Эффект</p>
+      <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5" role="group" aria-label="Эффект">
+        <button type="button" onClick={() => (setEffect(null), setWhy(null))} aria-pressed={!effect} aria-label="Эффектгүй" className={tile(!effect)}>
+          <span className={`${ground} block h-14 rounded-lg`} style={themeVars(theme)} />
+          {label('Эффектгүй', false)}
+          {!effect && tick}
+        </button>
+        {EFFECTS.map((e) => {
+          const shut = !isOpenTo(e, got);
+          const on = effect === e.id;
+          return (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => (shut ? setWhy(e) : (setEffect(e.id), setWhy(null)))}
+              aria-pressed={on}
+              aria-label={`${e.name}${shut ? ' (түгжээтэй)' : ''}`}
+              className={tile(on)}
+            >
+              <span className={`${ground} relative block h-14 overflow-hidden rounded-lg`} style={themeVars(theme)}>
+                <ProfileEffect id={e.id} count={8} />
+              </span>
+              {label(e.name, shut)}
+              {on && tick}
+            </button>
+          );
+        })}
+      </div>
+      {why?.earn && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300">
+          <Lock size={15} className="mt-0.5 shrink-0 text-neutral-400" />
+          <span>
+            «{why.name}» нээгдэх нь: {why.earn.hint}.
+          </span>
+        </p>
+      )}
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
+        <button type="button" onClick={onClose} className={secondary}>
+          Болих
+        </button>
+        <button type="button" onClick={save} disabled={busy || same} className={primary}>
           {busy ? 'Хадгалж байна…' : 'Хадгалах'}
         </button>
       </div>
