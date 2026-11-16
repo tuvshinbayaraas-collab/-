@@ -1,6 +1,6 @@
 import {Camera, ImagePlus, Minus, Plus, UserRound} from 'lucide-react';
 import {useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent} from 'react';
-import {AVATARS, avatarId} from '../lib/avatars';
+import {AVATARS, avatarId, LETTERS, letterId} from '../lib/avatars';
 import {clampCrop, coverScale, imageFile, loadImage, renderCrop, type Crop} from '../lib/photo';
 import {authError} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -14,7 +14,8 @@ const saveError = (e: unknown) => (/permission/i.test((e as Error)?.message ?? '
 
 /**
  * Changing one's picture: a photo (camera or gallery on a phone; choose, drop or paste on a PC) placed in a round frame
- * before it is saved, or one of the ready-made pictures. While the teacher has photos off, only the ready-made ones.
+ * before it is saved, the first letter of one's name in a colour of one's own, or one of the ready-made pictures. While
+ * the teacher has photos off, only the letter and the ready-made ones.
  */
 export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name: string; photo?: string; frame?: string; onSave: (photo: string | null) => Promise<void>; onClose: () => void}) {
   const allowed = useSettings()?.photos !== false;
@@ -114,7 +115,7 @@ export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name
 
   const unchanged = choice === (photo ?? null);
   return (
-    <Sheet title="Зураг солих" sub={allowed ? 'Өөрийн зураг эсвэл бэлэн дүрс.' : undefined} onClose={onClose}>
+    <Sheet title="Зураг солих" sub={allowed ? 'Өөрийн зураг, нэрийнхээ үсэг эсвэл бэлэн дүрс.' : undefined} onClose={onClose}>
       <div className="flex justify-center">
         <Avatar name={name} photo={choice} frame={frame} size={96} />
       </div>
@@ -138,6 +139,13 @@ export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name
       ) : (
         <p className="mt-4 rounded-xl bg-neutral-800/60 px-3 py-2.5 text-sm text-neutral-300">Багш өөрийн зураг тавихыг хаасан байна. Доорх дүрснүүдээс сонгоорой.</p>
       )}
+      <p className="mt-5 text-sm font-medium text-neutral-300">Нэрийн үсэг</p>
+      <p className="text-xs text-neutral-400">Нэрийнхээ эхний үсгийг өнгөтэй болгоорой.</p>
+      <div className="mt-2 grid grid-cols-6 gap-2" role="group" aria-label="Нэрийн үсгийн өнгө">
+        {LETTERS.map((l) => (
+          <LetterButton key={l.id} name={name} label={l.name} bg={l.bg} on={choice === letterId(l.id)} onClick={() => setChoice(letterId(l.id))} />
+        ))}
+      </div>
       <p className="mt-5 text-sm font-medium text-neutral-300">Бэлэн дүрс</p>
       <div className="mt-2 grid grid-cols-6 gap-2">
         {Object.entries(AVATARS).map(([id, a]) => {
@@ -172,6 +180,29 @@ export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name
         </button>
       </div>
     </Sheet>
+  );
+}
+
+/** One colour for the first letter, with the letter on it. («Зураггүй болгох» goes back to the colour one started with.) */
+function LetterButton({name, label, bg, on, onClick}: {name: string; label: string; bg: string; on: boolean; onClick: () => void}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={on}
+      title={label}
+      className={`rounded-full transition-transform hover:scale-105 ${on ? 'ring-[3px] ring-blue-400 ring-offset-2 ring-offset-neutral-900' : ''}`}
+    >
+      {/* A faint edge, so the dark ones stand apart from the sheet. */}
+      <span
+        className="flex aspect-square items-center justify-center rounded-full text-lg font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] sm:text-xl"
+        style={{background: bg}}
+        aria-hidden
+      >
+        {(name.trim()[0] ?? '?').toUpperCase()}
+      </span>
+    </button>
   );
 }
 

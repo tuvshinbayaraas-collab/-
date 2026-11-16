@@ -10,6 +10,7 @@
 import {get, onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {TESTS} from '../tests';
+import {isDrawn} from './avatars';
 import {auth, db} from './firebase';
 import {useSignIns} from './live';
 import {percent, type Grade} from './keys';
@@ -184,7 +185,7 @@ export function usePics(uids: string[]) {
  * frame always. Null when there is nothing to show.
  */
 export function pubOf(photo: string | null | undefined, frame: string | null | undefined, photos = photosAllowed()) {
-  const p = photo && (photo.startsWith('avatar:') || photos) ? photo : null;
+  const p = photo && (isDrawn(photo) || photos) ? photo : null;
   return p || frame ? {...(p ? {photo: p} : {}), ...(frame ? {frame} : {})} : null;
 }
 

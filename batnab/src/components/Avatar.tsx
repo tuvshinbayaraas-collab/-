@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {avatarOf} from '../lib/avatars';
+import {avatarOf, letterOf} from '../lib/avatars';
 import {frameOf} from '../lib/frames';
 import FrameOrnament, {ORNAMENTED} from './FrameOrnament';
 import {useSettings} from '../lib/settings';
@@ -14,7 +14,8 @@ function avatarColor(name: string): string {
 }
 
 /**
- * A round picture: the student's photo, a ready-made picture, or the first letter of the name; in their frame, if they
+ * A round picture: the student's photo, a ready-made picture, or the first letter of the name (in the colour they
+ * picked, else one from the name); in their frame, if they
  * took one (lib/frames), the whole still `size` across. Photos are hidden while the teacher has them off.
  */
 export default function Avatar({name, photo, frame, size = 36}: {name: string; photo?: string | null; frame?: string | null; size?: number}) {
@@ -59,7 +60,7 @@ function Picture({name, photo, size}: {name: string; photo?: string | null; size
   return (
     <div
       className="shrink-0 rounded-full flex items-center justify-center font-semibold text-white select-none"
-      style={{width: size, height: size, background: avatarColor(name), fontSize: size * 0.42}}
+      style={{width: size, height: size, background: letterOf(photo)?.bg ?? avatarColor(name), fontSize: size * 0.42}}
       aria-hidden
     >
       {(name.trim()[0] ?? '?').toUpperCase()}

@@ -81,7 +81,7 @@
         },
         "photo": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && (newData.val().matches(/^avatar:[a-z]{2,20}$/) || (newData.val().beginsWith('data:image/') && newData.val().length <= 60000 && root.child('settings/photos').val() !== false))"
+          ".validate": "newData.isString() && (newData.val().matches(/^avatar:[a-z]{2,20}$/) || newData.val().matches(/^letter:(red|rose|orange|amber|brown|green|teal|cyan|sky|blue|indigo|violet|fuchsia|pink|slate|black|dawn|fire|forest|sea|space|candy)$/) || (newData.val().beginsWith('data:image/') && newData.val().length <= 60000 && root.child('settings/photos').val() !== false))"
         },
         "frame": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",

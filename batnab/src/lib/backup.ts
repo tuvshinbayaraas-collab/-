@@ -4,6 +4,7 @@
 // not in the database, so they are neither saved nor put back.
 import {get, ref, update} from 'firebase/database';
 import {db} from './firebase';
+import {isDrawn} from './avatars';
 
 /** Every part saved: [the database node, how deep its records are (topics/{tid}: 1, results/{uid}/{test}/{id}: 3)]. */
 const NODES: [string, number][] = [
@@ -135,7 +136,7 @@ function fitUser(v: unknown, classes: Set<string>, photos: boolean) {
   if (!v || typeof v !== 'object') return v;
   const u = {...(v as Record<string, unknown>)};
   if (typeof u.class === 'string' && !classes.has(u.class)) delete u.class;
-  if (typeof u.photo === 'string' && !u.photo.startsWith('avatar:') && !photos) delete u.photo;
+  if (typeof u.photo === 'string' && !isDrawn(u.photo) && !photos) delete u.photo;
   return u;
 }
 
