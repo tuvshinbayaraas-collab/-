@@ -97,6 +97,7 @@ export function WorkPhoto({uid, tid, pid, className = ''}: {uid: string; tid: st
 function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; pid: string; sent: boolean; open: boolean; onSent: () => void}) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const connected = useDbConnected();
   const [error, setError] = useState('');
   const send = async () => {
     if (!file) return;
@@ -130,6 +131,12 @@ function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; 
             </button>
           )}
         </div>
+      )}
+      {/* Sent without a connection: it waits on the phone (lib/outbox), even if the app is closed. */}
+      {busy && !connected && (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="status">
+          Интернэт холболт алга. Зураг тань утсанд хадгалагдсан — холболт сэргэхэд автоматаар илгээгдэнэ.
+        </p>
       )}
       {error && <p className="text-sm text-red-400">{error}</p>}
     </div>

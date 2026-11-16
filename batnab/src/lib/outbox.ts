@@ -4,11 +4,12 @@
 // from the moment it is sent until the database has it, and whatever is still there is sent again the next time the
 // site is open and connected (components/WorkSync).
 // Sending again is safe: an answer may be written once only (the rules refuse a second one to the same problem), so a
-// refusal means it is there already, or may no longer be sent (the topic closed), and it is dropped either way; a
-// day's practice is skipped when the database already has that day or a later one.
+// refusal with the answer there means it is saved, and it is dropped; a refusal without it (the topic closed, or a
+// sign-in not yet fresh after long without a connection) is tried again a few times. A day's practice is skipped
+// when the database already has that day or a later one.
 import {get, ref, update} from 'firebase/database';
 import {useSyncExternalStore} from 'react';
-import {db} from './firebase';
+import {auth, db} from './firebase';
 
 interface Item {
   id: string;
@@ -18,6 +19,8 @@ interface Item {
   at: number;
   /** This send's own mark: a newer send of the same thing in its place isn't taken off when the older one is saved. */
   n?: number;
+  /** Refused this many times while not in the database: dropped after TRIES. */
+  tries?: number;
   /** Not sent again when the string at `path` is already `atLeast` or later (a day's practice). */
   skipIf?: {path: string; atLeast: string};
 }
@@ -26,6 +29,7 @@ const KEY = 'batnab.outbox';
 /** Older than this, it isn't sent any more (the topic has long moved on). */
 const STALE = 30 * 86_400_000;
 const MAX = 100;
+const TRIES = 3;
 
 const listeners = new Set<() => void>();
 let version = 0;
@@ -77,24 +81,47 @@ export async function sendKept(uid: string, what: string, ops: Record<string, un
   }
 }
 
+/** Counts a refusal of something not in the database: kept to try again, or dropped after TRIES. */
+const refused = (it: Item) => {
+  const tries = (it.tries ?? 0) + 1;
+  save(tries >= TRIES ? load().filter((x) => !(x.id === it.id && x.n === it.n)) : load().map((x) => (x.id === it.id && x.n === it.n ? {...x, tries} : x)));
+};
+
 let flushing = false;
 /** Sends again what the signed-in student left unsent (on this phone), oldest first. */
 export async function flushKept(uid: string) {
-  if (flushing) return;
+  const items = load().filter((x) => x.uid === uid && !inFlight.has(x.id));
+  if (flushing || !items.length || auth.currentUser?.uid !== uid) return;
   flushing = true;
   try {
-    for (const it of load().filter((x) => x.uid === uid && !inFlight.has(x.id))) {
+    // A sign-in fresh enough to write with, after long without a connection; without one, another time.
+    await auth.currentUser.getIdToken();
+  } catch {
+    flushing = false;
+    return;
+  }
+  try {
+    for (const it of items) {
+      if (Date.now() - it.at > STALE) {
+        drop(it.id, it.n);
+        continue;
+      }
       try {
-        if (Date.now() - it.at > STALE) continue;
         if (it.skipIf) {
           const v = (await get(ref(db, it.skipIf.path))).val();
-          if (typeof v === 'string' && v >= it.skipIf.atLeast) continue;
+          if (typeof v === 'string' && v >= it.skipIf.atLeast) {
+            drop(it.id, it.n);
+            continue;
+          }
         }
         await update(ref(db), it.ops);
-      } catch {
-        // Refused: there already, or no longer allowed.
-      } finally {
         drop(it.id, it.n);
+      } catch {
+        // Refused: saved already if it is there (an answer is written once); if not, tried again another time.
+        const first = Object.keys(it.ops)[0];
+        const there = first ? await get(ref(db, first)).then((s) => s.exists(), () => false) : true;
+        if (there) drop(it.id, it.n);
+        else refused(it);
       }
     }
   } finally {

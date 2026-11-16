@@ -98,7 +98,8 @@ function oklchFallback(): Plugin {
             const hex = oklchToHex(value);
             if (hex) vars.set(name, hex);
           }
-        css = css.replace(/([{;])([a-z-]+):(oklch\([^)]*\))/g, (all, at: string, prop: string, value: string) => {
+        // (Not a custom property: a later one of those always wins, so one before it is no fallback.)
+        css = css.replace(/([{;])([a-z][a-z-]*):(oklch\([^)]*\))/g, (all, at: string, prop: string, value: string) => {
           const hex = oklchToHex(value);
           return hex ? `${at}${prop}:${hex};${prop}:${value}` : all;
         });
