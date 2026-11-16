@@ -2,6 +2,7 @@ import {Camera, Check, Hourglass, ImageOff, Lightbulb, MessageSquare, RotateCcw,
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import AskButton from './Ask';
 import ReportButton from './ReportMistake';
+import {useDbConnected} from '../lib/connection';
 import {auth} from '../lib/firebase';
 import {answer, answerRound, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
 import VideoEmbed from './VideoEmbed';
@@ -227,6 +228,7 @@ export function ProblemView(props: {
   const [rec, setRec] = useState<Outcome | null>(null);
   const [retried, setRetried] = useState(false);
   const [busy, setBusy] = useState(false);
+  const connected = useDbConnected();
   const [error, setError] = useState('');
   // No right answer given: the teacher checks the answer.
   const byTeacher = !p.k && !practice && !again2;
@@ -430,6 +432,12 @@ export function ProblemView(props: {
                 </span>
               )}
             </div>
+          )}
+          {/* Sent without a connection: it waits on the phone (lib/outbox), even if the app is closed. */}
+          {busy && !connected && !practice && !teacher && (
+            <p className="mt-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="status">
+              Интернэт холболт алга. Хариулт тань утсанд хадгалагдсан — холболт сэргэхэд автоматаар илгээгдэнэ.
+            </p>
           )}
         </form>
       )}

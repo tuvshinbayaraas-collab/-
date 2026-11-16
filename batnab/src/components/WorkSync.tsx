@@ -1,12 +1,14 @@
 import {ref, serverTimestamp, set, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {useAssignments} from '../lib/classroom';
+import {useDbConnected} from '../lib/connection';
 import {openKeys} from '../lib/cosmetics';
 import {db} from '../lib/firebase';
 import {setMyWork, useMyWork, type Work} from '../lib/lead';
 import {pubOf} from '../lib/leaderboard';
 import {useLive} from '../lib/live';
 import {entryOf, fieldsOf, syncMine, usePerson} from '../lib/people';
+import {flushKept} from '../lib/outbox';
 import {useMyResults} from '../lib/results';
 import {isStudent, useSession, type Profile} from '../lib/session';
 import {useLocation} from '../lib/router';
@@ -21,7 +23,8 @@ const DAY = 86_400_000;
  * Kept from whatever page a student is on (nothing on screen): how far they are with each of their class's assignments
  * (lib/lead: started / done), so one who did it from a link straight to the topic or test isn't on the leader's
  * «not started» list; their own directory entry and picture for others (lib/people); the badges they have earned, and
- * the frames and banners those open.
+ * the frames and banners those open. And what they sent without a connection and closed the app before it went
+ * (lib/outbox): sent once the database is reachable again.
  */
 export default function WorkSync() {
   const session = useSession();
@@ -38,11 +41,21 @@ export default function WorkSync() {
   const busy = /^\/(test|live|print)(\/|$)/.test(path);
   return uid ? (
     <>
+      <Unsent uid={uid} />
       {cls && <Marks uid={uid} cls={cls} />}
       <Mine uid={uid} profile={session.profile!} />
       {late && !busy && <Earned uid={uid} profile={session.profile!} />}
     </>
   ) : null;
+}
+
+/** What was left unsent on this phone (lib/outbox), sent each time the database is reachable. */
+function Unsent({uid}: {uid: string}) {
+  const up = useDbConnected();
+  useEffect(() => {
+    if (up) void flushKept(uid);
+  }, [up, uid]);
+  return null;
 }
 
 /**

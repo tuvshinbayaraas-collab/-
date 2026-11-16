@@ -10,7 +10,9 @@ import Home from './pages/Home';
 import {Link, useLocation} from './lib/router';
 import {useDbLost} from './lib/connection';
 import {safePage, useStale} from './lib/newVersion';
+import {useKept} from './lib/outbox';
 import {usePrefs} from './lib/prefs';
+import {useSession} from './lib/session';
 import {loadTest} from './tests';
 import Loading from './components/Loading';
 import WorkSync from './components/WorkSync';
@@ -151,6 +153,8 @@ export default function App() {
  */
 function OfflineBar() {
   const lost = useDbLost();
+  // Answers sent meanwhile wait on the phone (lib/outbox): said, so no one thinks they are gone.
+  const kept = useKept(useSession().user?.uid);
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true);
@@ -167,6 +171,7 @@ function OfflineBar() {
     <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-200">
       <WifiOff size={16} className="shrink-0" />
       {online ? 'Сервертэй холбогдож чадахгүй байна. Холбогдмогц автоматаар үргэлжилнэ.' : 'Интернэт холболт алга. Холбогдоход автоматаар үргэлжилнэ.'}
+      {kept > 0 && <span>Илгээгээгүй {kept} хариулт тань утсанд хадгалагдсан.</span>}
       {online && (
         <button onClick={() => location.reload()} className="font-semibold text-amber-100 underline underline-offset-2">
           Дахин ачаалах

@@ -3,6 +3,7 @@
 import {ref, update} from 'firebase/database';
 import {auth, db} from './firebase';
 import {useLive} from './live';
+import {sendKept} from './outbox';
 import {serverNow} from './time';
 
 export interface Stats {
@@ -27,14 +28,24 @@ export const useStats = (uid: string | undefined) =>
 export const liveStreak = (s: Stats | null) => (s && (s.last === dayKey() || s.last === dayKey(serverNow() - DAY)) ? s.streak : 0);
 export const doneToday = (s: Stats | null) => !!s && s.last === dayKey();
 
-/** Today's practice is finished: the streak grows by one (or starts again at 1). */
+/**
+ * Today's practice is finished: the streak grows by one (or starts again at 1). Kept on the phone until it is saved
+ * (lib/outbox), so a practice finished without a connection still counts for its day; not sent again once the
+ * database has that day (or a later one).
+ */
 export async function practised(s: Stats, count: number) {
   const uid = auth.currentUser?.uid;
   if (!uid) return;
   const today = dayKey();
   if (s.last === today) return;
   const streak = s.last === dayKey(serverNow() - DAY) ? s.streak + 1 : 1;
-  await update(ref(db, `stats/${uid}`), {streak, best: Math.max(s.best, streak), last: today, [`days/${today}`]: count});
+  const at = `stats/${uid}`;
+  await sendKept(
+    uid,
+    `d:${today}`,
+    {[`${at}/streak`]: streak, [`${at}/best`]: Math.max(s.best, streak), [`${at}/last`]: today, [`${at}/days/${today}`]: count},
+    {path: `${at}/last`, atLeast: today},
+  );
 }
 
 export async function learnedOne(s: Stats | null) {

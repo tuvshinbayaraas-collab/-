@@ -1,7 +1,13 @@
 // Lets the site be installed as an app and open without a connection. Built into /sw.js by vite.config.ts, which
 // fills in VERSION from the build's file names so each deploy gets a fresh cache.
 const VERSION = '__VERSION__';
+// The page, new with each version.
 const CACHE = `batnab-${VERSION}`;
+// The built files (code, styles, fonts): named by their content, so one that didn't change between two versions is the
+// same file. Kept across versions while the new one still uses it, so a deploy downloads only what changed (React,
+// Firebase and the fonts, a few hundred KB, stay); the rest is let go.
+const FILES = 'batnab-files';
+const CURRENT = new Set(JSON.parse('__FILES__'));
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.add('/')));
@@ -10,10 +16,22 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('batnab-') && k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const files = await caches.open(FILES);
+      for (const k of await caches.keys()) {
+        if (!k.startsWith('batnab-') || k === CACHE || k === FILES) continue;
+        // A cache of an older version (from before the files were kept apart): what this one still uses moves over.
+        const old = await caches.open(k);
+        for (const req of await old.keys())
+          if (CURRENT.has(new URL(req.url).pathname)) {
+            const hit = await old.match(req);
+            if (hit) await files.put(req, hit);
+          }
+        await caches.delete(k);
+      }
+      for (const req of await files.keys()) if (!CURRENT.has(new URL(req.url).pathname)) await files.delete(req);
+      await self.clients.claim();
+    })(),
   );
 });
 
@@ -43,14 +61,14 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/assets/')) {
     // Built files carry a content hash in their name, so a saved copy never goes stale.
     event.respondWith(
-      caches.match(request).then(
+      caches.match(request, {cacheName: FILES}).then(
         (hit) =>
           hit ||
           fetch(request).then((response) => {
             // A file from an older version is gone and the server answers with the page instead: never keep that.
             if (response.ok && !(response.headers.get('content-type') || '').includes('text/html')) {
               const copy = response.clone();
-              caches.open(CACHE).then((cache) => cache.put(request, copy));
+              caches.open(FILES).then((cache) => cache.put(request, copy));
             }
             return response;
           }),

@@ -19,6 +19,7 @@ import {get, onValue, push, ref, serverTimestamp, set, update} from 'firebase/da
 import {useEffect, useState} from 'react';
 import {auth, db} from './firebase';
 import {sharedLive, useLive, useSignIns} from './live';
+import {sendKept} from './outbox';
 import {loadImage} from './photo';
 
 /** A part of the lesson: text, a picture, or a video (a YouTube, Google Drive… link). */
@@ -127,12 +128,14 @@ export function useTopicImage(tid: string, iid: string | undefined) {
   return iid ? url : null;
 }
 
-/** A picture made small enough for the database (at most ~330 KB): the smaller of PNG (diagrams) and JPEG (photos). */
-export async function compress(file: File) {
+/**
+ * A picture made small enough for the database: the smaller of PNG (diagrams) and JPEG (photos), as sharp as fits in
+ * `budget` characters. The teacher's pictures go up to 2000 px, so a page of text can still be read when zoomed in.
+ */
+export async function compress(file: File, {max = 2000, quality = 0.82, budget = 450000} = {}) {
   const img = await loadImage(file);
   try {
-    // As sharp as fits (up to 2000 px), so a page of text can still be read when zoomed in.
-    let scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    let scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
     for (let i = 0; i < 7; i++) {
       const c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(img.naturalWidth * scale));
@@ -143,9 +146,9 @@ export async function compress(file: File) {
       g.imageSmoothingQuality = 'high';
       g.drawImage(img, 0, 0, c.width, c.height);
       const png = c.toDataURL('image/png');
-      const jpg = c.toDataURL('image/jpeg', 0.82);
+      const jpg = c.toDataURL('image/jpeg', quality);
       const best = png.length < jpg.length ? png : jpg;
-      if (best.length <= 450000) return best;
+      if (best.length <= budget) return best;
       scale *= 0.75;
     }
     throw new Error('Зураг хэт том байна. Жижиг зураг сонгоно уу.');
@@ -433,15 +436,21 @@ export function setMarks(uids: string[], tid: string, pid: string, ok: boolean |
  */
 export const verdict = (a: string | undefined, key: string | null | undefined, mark?: Mark | null) => (mark ? mark.ok : key ? a === key || (a !== undefined && normalize(a) === key) : null);
 
-/** Records the student's first answer, then reads the key (allowed only now). */
+/**
+ * A student's photo of their working: 1600 px across and a little more squeezed than the teacher's pictures, which a
+ * page of handwriting reads well at, for about a third of the data (a phone's photo of a page: ~130 KB, not ~370 KB).
+ */
+const WORK = {max: 1600, quality: 0.72, budget: 300000};
+
+/** Records the student's first answer (kept on the phone until it is saved, lib/outbox), then reads the key (allowed only now). */
 export async function answer(tid: string, pid: string, a: string, work?: File) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
-  if (!work) await set(ref(db, `topicProgress/${uid}/${tid}/${pid}`), {a, at: serverTimestamp()});
+  if (!work) await sendKept(uid, `p:${tid}/${pid}`, {[`topicProgress/${uid}/${tid}/${pid}`]: {a, at: serverTimestamp()}});
   else {
     // The photo and the answer in one write: neither without the other.
-    const img = await compress(work);
-    await update(ref(db), {
+    const img = await compress(work, WORK);
+    await sendKept(uid, `p:${tid}/${pid}`, {
       [`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()},
       [`topicProgress/${uid}/${tid}/${pid}`]: {a, at: serverTimestamp(), w: true},
     });
@@ -453,8 +462,8 @@ export async function answer(tid: string, pid: string, a: string, work?: File) {
 export async function sendWork(tid: string, pid: string, file: File) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
-  const img = await compress(file);
-  await update(ref(db), {[`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()}, [`topicProgress/${uid}/${tid}/${pid}/w`]: true});
+  const img = await compress(file, WORK);
+  await sendKept(uid, `w:${tid}/${pid}`, {[`topicWork/${uid}/${tid}/${pid}`]: {img, at: serverTimestamp()}, [`topicProgress/${uid}/${tid}/${pid}/w`]: true});
   return img;
 }
 
@@ -473,7 +482,7 @@ export const useAllRounds = (on = true) => useLive(on ? 'topicRounds' : null, (v
 export async function answerRound(tid: string, pid: string, n: number, a: string) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Нэвтэрнэ үү');
-  await set(ref(db, `topicRounds/${uid}/${tid}/${n}/${pid}`), {a, at: serverTimestamp()});
+  await sendKept(uid, `r:${tid}/${n}/${pid}`, {[`topicRounds/${uid}/${tid}/${n}/${pid}`]: {a, at: serverTimestamp()}});
   return readKey(tid, pid);
 }
 
