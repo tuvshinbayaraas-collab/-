@@ -33,6 +33,12 @@ export const runningAsApp = () =>
   (navigator as {standalone?: boolean}).standalone === true ||
   (window as {__BATNAB_DESKTOP__?: boolean}).__BATNAB_DESKTOP__ === true;
 
+/**
+ * The link that opens the site with the guide to installing it on a phone (GetApp): for the teacher to send to the
+ * class. On an iPhone, from Messenger, the guide first takes it to Safari.
+ */
+export const APP_LINK = 'https://batnab.web.app/?app';
+
 /** A Windows computer: it gets the real program (batnab/desktop, built by .github/workflows/batnab-desktop.yml). */
 export const isWindows = () => platform() === 'desktop' && /Windows/.test(navigator.userAgent);
 export const WINDOWS_APP = 'https://github.com/tuvshinbayaraas-collab/-/releases/download/batnab-desktop/Batnab-Setup.exe';

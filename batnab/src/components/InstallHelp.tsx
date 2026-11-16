@@ -1,4 +1,4 @@
-import {ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Ellipsis, EllipsisVertical, Glasses, Menu, MonitorDown, Share, SquarePlus, X} from 'lucide-react';
+import {ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Compass, Copy, Download, Ellipsis, EllipsisVertical, Glasses, KeyRound, Menu, MonitorDown, Share, SquarePlus, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import appIcon from '../lib/appIcon';
 import {useBackdrop} from '../lib/backdrop';
@@ -65,6 +65,11 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
           </button>
         </div>
 
+        {p !== 'desktop' && (
+          <p className="mt-4 rounded-xl bg-blue-500/10 px-3 py-2 text-sm text-blue-100">
+            Апп шиг: хаягийн мөргүй бүтэн дэлгэцээр, нүүр дэлгэцээсээ нэг товшилтоор нээгдэнэ; мэдэгдэл асааж болно.
+          </p>
+        )}
         <ol className="mt-5 space-y-5">{ios ? <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : win ? <WindowsSteps /> : <DesktopSteps />}</ol>
 
         <p className="mt-5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Туршилтын хувилбар: тест, шалгалт өгөхөд интернэт шаардлагатай хэвээр.</p>
@@ -217,6 +222,12 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
       <Step n={n}>
         <Check size={16} className="-mt-1 mr-1 inline text-green-400" />
         Нүүр дэлгэцэд гарсан <img src={appIcon} alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээнэ.
+        <span className="mt-2 flex items-start gap-2 rounded-lg bg-neutral-800/60 px-2.5 py-2 text-xs text-neutral-300">
+          <KeyRound size={14} className="mt-0.5 shrink-0 text-amber-300" />
+          <span>
+            Анх нээхэд нэвтрэх нэр, нууц үгээ <b>дахин</b> оруулна: iPhone дээр апп нь Safari-аас тусдаа. Хариулт, дүн тань хэвээр.
+          </span>
+        </span>
       </Step>
     ),
   ];
@@ -225,13 +236,23 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
     return (
       <>
         <Step n={1}>
-          Та Messenger, Facebook зэрэг апп доторх хөтчөөр нээсэн байна. Эндээс нүүр дэлгэцэд нэмэх боломжгүй тул эхлээд <b>Safari</b>-д нээнэ: баруун дээд эсвэл доод
-          буланд байгаа <Ellipsis size={16} className="-mt-1 inline" /> / <Share size={16} className="-mt-1 inline" /> товчийг дараад <Btn label={T.openSafari} mn="Safari-д нээх" />
-          -г сонгоно.
+          Та Messenger, Facebook зэрэг апп доторх хөтчөөр нээсэн байна. Эндээс нүүр дэлгэцэд нэмэх боломжгүй тул эхлээд <b>Safari</b>-д нээнэ.
+          {/* iOS 17 and later open this address in Safari, wherever it is tapped; elsewhere nothing happens and the steps below stay. */}
+          <a
+            href={`x-safari-${location.origin}/?app`}
+            className="mt-2 flex w-fit items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400"
+          >
+            <Compass size={16} /> Safari-д нээх
+          </a>
+          <span className="mt-2 block">
+            Нээгдэхгүй бол: баруун дээд эсвэл доод буланд байгаа <Ellipsis size={16} className="-mt-1 inline" /> / <Share size={16} className="-mt-1 inline" /> товчийг дараад{' '}
+            <Btn label={T.openSafari} mn="Safari-д нээх" />
+            -г сонгоно.
+          </span>
           <button
             onClick={() => {
               navigator.clipboard
-                ?.writeText(location.origin)
+                ?.writeText(`${location.origin}/?app`)
                 .then(() => setCopied(true))
                 .catch(() => {});
             }}
@@ -248,8 +269,17 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
 }
 
 function AndroidSteps() {
+  const {canPrompt} = useInstall();
   return (
     <>
+      {canPrompt && (
+        <li>
+          <button onClick={() => install()} className="flex w-full items-center justify-center gap-2 rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-black hover:bg-blue-400">
+            <Download size={16} /> Одоо суулгах
+          </button>
+          <p className="mt-2 text-center text-xs text-neutral-500">эсвэл гараар:</p>
+        </li>
+      )}
       <Step n={1}>
         Сайтыг <b>Chrome</b>-оор нээнэ.
       </Step>

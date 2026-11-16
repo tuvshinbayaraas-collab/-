@@ -1,5 +1,5 @@
-import {lazy, Suspense, useSyncExternalStore} from 'react';
-import {downloadWindowsApp, install, isWindows, useInstall} from '../lib/install';
+import {lazy, Suspense, useEffect, useSyncExternalStore} from 'react';
+import {downloadWindowsApp, install, isWindows, platform, runningAsApp, useInstall} from '../lib/install';
 
 const InstallHelp = lazy(() => import('./InstallHelp'));
 
@@ -37,6 +37,15 @@ export function useGetApp() {
 
 export function InstallHelpHost() {
   const open = useHelpOpen();
+  // Opened from the teacher's link (APP_LINK, «?app»): on a phone not yet with the app, the guide at once; the link
+  // tidied either way, so a reload doesn't open it again.
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('app')) return;
+    url.searchParams.delete('app');
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    if (platform() !== 'desktop' && !runningAsApp()) setHelp(true);
+  }, []);
   if (!open) return null;
   return (
     <Suspense fallback={null}>

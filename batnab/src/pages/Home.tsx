@@ -1,4 +1,5 @@
 import {BookOpen, Check, ChevronRight, FlaskConical, GraduationCap, Lock, LogIn, School, Timer, Trophy} from 'lucide-react';
+import AppNudge from '../components/AppNudge';
 import {LogoMark} from '../components/Logo';
 import {InactiveNote, loginHref} from '../components/Notices';
 import Today, {Shortcuts} from '../components/Today';
@@ -109,6 +110,8 @@ export default function Home() {
       ) : (
         <Hero trial={trial ? {id: trial.id} : undefined} guest={session.ready && !session.user} admin={session.admin} />
       )}
+      {/* A phone without the app yet (an iPhone above all, which never offers it itself): the app offered. */}
+      {student && !session.admin && <AppNudge />}
 
       <div className={student ? 'lg:mt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-8' : ''}>
         <div className="min-w-0">

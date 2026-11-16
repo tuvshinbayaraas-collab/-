@@ -1,8 +1,9 @@
-import {ChevronDown, ChevronRight, Copy, Download, MessageSquareText, RefreshCw, School, Search, UserPlus} from 'lucide-react';
+import {Check, ChevronDown, ChevronRight, Copy, Download, MessageSquareText, RefreshCw, School, Search, Smartphone, UserPlus} from 'lucide-react';
 import {useState, type FormEvent} from 'react';
 import {createStudent, randomPassword, suggestUsername} from '../../lib/accounts';
 import {useClasses} from '../../lib/classes';
 import {useFolded} from '../../lib/fold';
+import {APP_LINK} from '../../lib/install';
 import {removeAbout} from '../../lib/people';
 import {percent} from '../../lib/keys';
 import {Link} from '../../lib/router';
@@ -72,6 +73,7 @@ export default function Students({data, all, picked}: {data: AdminData; all: Adm
         </button>
       )}
       {created.length > 0 && <CreatedList list={created} />}
+      <AppLink />
 
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -344,6 +346,39 @@ function CreatedList({list}: {list: Created[]}) {
             ))}
           </tbody>
         </table>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The link to send to the class so they put the app on their phones (lib/install APP_LINK): opened, it shows each phone
+ * how; on an iPhone, from Messenger, it first takes it to Safari (where alone the app can be added).
+ */
+function AppLink() {
+  const [copied, setCopied] = useState(false);
+  const shown = APP_LINK.replace(/^https:\/\//, '');
+  const copy = () =>
+    navigator.clipboard
+      ?.writeText(APP_LINK)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      })
+      .catch(() => {});
+  return (
+    <section className="rounded-2xl bg-neutral-900 p-4 sm:p-5" data-app-link>
+      <h2 className="flex items-center gap-2 font-semibold">
+        <Smartphone size={18} className="text-blue-300" /> Сурагчдаа апп суулгуулах
+      </h2>
+      <p className="mt-1 text-sm text-neutral-400">
+        Энэ линкийг ангийн группт явуулаарай: нээхэд утсанд нь (iPhone, Android) суулгах заавар шууд гарна. iPhone дээр Messenger-ээс нээвэл эхлээд Safari-д нээх товч гарна.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <code className="rounded-lg bg-neutral-950 px-3 py-2 text-sm text-neutral-100">{shown}</code>
+        <button type="button" onClick={copy} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3.5 py-2 text-sm font-medium hover:bg-neutral-700">
+          {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} />} {copied ? 'Хуулагдлаа' : 'Линк хуулах'}
+        </button>
       </div>
     </section>
   );
