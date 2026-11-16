@@ -41,13 +41,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   // Firebase, fonts and anything else from other sites go straight to the network.
   if (url.origin !== self.location.origin) return;
+  // The iPhone profile (/batnab.mobileconfig) is a download for the phone to install, not a page: left to the browser.
+  if (url.pathname.endsWith('.mobileconfig')) return;
 
   if (request.mode === 'navigate') {
     // Pages: always the latest from the network; the saved copy only when offline.
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          // Only the page itself is kept for opening without a connection (a file opened by its link is not the page).
+          if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
             const copy = response.clone();
             caches.open(CACHE).then((cache) => cache.put('/', copy));
           }

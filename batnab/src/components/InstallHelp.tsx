@@ -8,8 +8,11 @@ import {install, isWindows, platform, useInstall, WINDOWS_APP} from '../lib/inst
 // and explains them in Mongolian.
 const ru = navigator.language.toLowerCase().startsWith('ru');
 const T = ru
-  ? {share: 'Поделиться', add: 'На экран «Домой»', confirm: 'Добавить', cancel: 'Отменить', openSafari: 'Открыть в Safari', copy: 'Скопировать', reading: 'Добавить в список для чтения'}
-  : {share: 'Share', add: 'Add to Home Screen', confirm: 'Add', cancel: 'Cancel', openSafari: 'Open in Safari', copy: 'Copy', reading: 'Add to Reading List'};
+  ? {share: 'Поделиться', add: 'На экран «Домой»', confirm: 'Добавить', cancel: 'Отменить', openSafari: 'Открыть в Safari', copy: 'Скопировать', reading: 'Добавить в список для чтения', allow: 'Разрешить', close: 'Закрыть', settings: 'Настройки', downloaded: 'Профиль загружен', install: 'Установить', done: 'Готово', passcode: 'код-пароль'}
+  : {share: 'Share', add: 'Add to Home Screen', confirm: 'Add', cancel: 'Cancel', openSafari: 'Open in Safari', copy: 'Copy', reading: 'Add to Reading List', allow: 'Allow', close: 'Close', settings: 'Settings', downloaded: 'Profile Downloaded', install: 'Install', done: 'Done', passcode: 'Passcode'};
+
+/** How an iPhone in Safari gets the app: downloaded (a Web Clip profile, /batnab.mobileconfig) or from Share. */
+type Way = 'download' | 'share';
 
 type Browser = 'safari' | 'chrome' | 'firefox' | 'inapp';
 function iosBrowser(): {browser: Browser; ipad: boolean; safari26: boolean} {
@@ -39,8 +42,10 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
   const p = platform();
   const ios = p === 'ios' ? iosBrowser() : null;
   const win = isWindows();
-  // On iPhone Safari the Share button is in the browser's own bar, below the page: point at it.
-  const arrow = ios?.browser === 'safari' ? (ios.ipad ? 'top-right' : ios.safari26 ? 'bottom-right' : 'bottom-center') : null;
+  // Safari alone can download the profile; there it comes first, as asked for: one button.
+  const [way, setWay] = useState<Way>('download');
+  // On iPhone Safari the Share button is in the browser's own bar, below the page: point at it (when that is the way).
+  const arrow = ios?.browser === 'safari' && way === 'share' ? (ios.ipad ? 'top-right' : ios.safari26 ? 'bottom-right' : 'bottom-center') : null;
 
   return (
     <div
@@ -70,7 +75,30 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
             Апп шиг: хаягийн мөргүй бүтэн дэлгэцээр, нүүр дэлгэцээсээ нэг товшилтоор нээгдэнэ; мэдэгдэл асааж болно.
           </p>
         )}
-        <ol className="mt-5 space-y-5">{ios ? <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : win ? <WindowsSteps /> : <DesktopSteps />}</ol>
+        {ios?.browser === 'safari' && (
+          <div className="mt-4 grid grid-cols-2 rounded-full bg-neutral-800/60 p-1 text-sm font-medium" role="tablist" aria-label="Хэрхэн суулгах">
+            {(
+              [
+                ['download', 'Татах'],
+                ['share', 'Safari-аас нэмэх'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={way === id}
+                onClick={() => setWay(id)}
+                className={`rounded-full py-2 ${way === id ? 'bg-blue-500 text-black' : 'text-neutral-300 hover:text-neutral-100'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <ol className="mt-5 space-y-5">
+          {ios ? ios.browser === 'safari' && way === 'download' ? <DownloadSteps /> : <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : win ? <WindowsSteps /> : <DesktopSteps />}
+        </ol>
 
         <p className="mt-5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Туршилтын хувилбар: тест, шалгалт өгөхөд интернэт шаардлагатай хэвээр.</p>
         <button onClick={onClose} className="mt-4 w-full rounded-full bg-neutral-800 py-2 text-sm font-medium hover:bg-neutral-700">
@@ -266,6 +294,40 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
       </>
     );
   return <>{steps.map((s, i) => s(i + 1))}</>;
+}
+
+/**
+ * An iPhone in Safari: the Web Clip profile downloaded with one tap, then installed from Settings (iOS asks there,
+ * with the phone's own passcode; nothing installs itself).
+ */
+function DownloadSteps() {
+  return (
+    <>
+      <Step n={1}>
+        <a href="/batnab.mobileconfig" className="flex w-fit items-center gap-2 rounded-full bg-blue-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-blue-400" data-webclip>
+          <Download size={16} /> Batnab татах
+        </a>
+        <span className="mt-2 block">
+          Асуухад <Btn label={T.allow} mn="зөвшөөрөх" />, дараа нь <Btn label={T.close} mn="хаах" /> дарна.
+        </span>
+      </Step>
+      <Step n={2}>
+        Утасныхаа <Btn label={T.settings} mn="тохиргоо" /> аппыг нээгээд хамгийн дээд хэсэгт гарсан <Btn label={T.downloaded} mn="профайл татагдсан" />-г дарна.
+      </Step>
+      <Step n={3}>
+        Баруун дээд буланд <Btn label={T.install} mn="суулгах" /> дараад утасныхаа {T.passcode}-оо (түгжээний код) оруулна. Дахин <Btn label={T.install} /> →{' '}
+        <Btn label={T.done} mn="болсон" />.
+        <span className="mt-2 flex items-start gap-2 rounded-lg bg-neutral-800/60 px-2.5 py-2 text-xs text-neutral-300">
+          <Check size={14} className="mt-0.5 shrink-0 text-green-400" />
+          <span>«Not Signed» гэж гарч болно: энэ профайл зөвхөн нүүр дэлгэцэд Batnab-ийн дүрс нэмнэ, өөр юу ч өөрчлөхгүй. Хүсвэл Settings → General → VPN & Device Management-ээс устгана.</span>
+        </span>
+      </Step>
+      <Step n={4}>
+        <Check size={16} className="-mt-1 mr-1 inline text-green-400" />
+        Нүүр дэлгэцэд гарсан <img src={appIcon} alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээгээд нэвтэрнэ (Safari-аас тусдаа тул дахин).
+      </Step>
+    </>
+  );
 }
 
 function AndroidSteps() {

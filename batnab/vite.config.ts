@@ -56,6 +56,54 @@ function ocrFiles(): Plugin {
   };
 }
 
+/**
+ * /batnab.mobileconfig: an iPhone's (and iPad's) one way to put a site on the home screen from a download, a Web Clip
+ * profile. Safari downloads it; the phone's Settings installs it: the Batnab icon on the home screen, opening the site
+ * full screen as Safari's «Add to Home Screen» does. Nothing else in it, and it can be removed (Settings → General →
+ * VPN & Device Management). Its ids stay the same, so installing it again puts the same icon in place.
+ */
+function webClip(): Plugin {
+  return {
+    name: 'batnab-web-clip',
+    apply: 'build',
+    generateBundle() {
+      const icon = readFileSync(new URL('./public/icons/apple-touch-icon.png', import.meta.url)).toString('base64');
+      const source = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>FullScreen</key><true/>
+      <key>Icon</key><data>${icon}</data>
+      <key>IsRemovable</key><true/>
+      <key>Label</key><string>Batnab</string>
+      <key>PayloadDisplayName</key><string>Batnab</string>
+      <key>PayloadIdentifier</key><string>app.web.batnab.webclip</string>
+      <key>PayloadType</key><string>com.apple.webClip.managed</string>
+      <key>PayloadUUID</key><string>69F9FE4B-9B2E-4163-A55D-EEC32AE5ECA9</string>
+      <key>PayloadVersion</key><integer>1</integer>
+      <key>Precomposed</key><true/>
+      <key>URL</key><string>https://batnab.web.app/</string>
+    </dict>
+  </array>
+  <key>PayloadDescription</key><string>Нүүр дэлгэцэд Batnab-ийн дүрс нэмнэ. Өөр юу ч өөрчлөхгүй.</string>
+  <key>PayloadDisplayName</key><string>Batnab</string>
+  <key>PayloadIdentifier</key><string>app.web.batnab</string>
+  <key>PayloadOrganization</key><string>Batnab</string>
+  <key>PayloadRemovalDisallowed</key><false/>
+  <key>PayloadType</key><string>Configuration</string>
+  <key>PayloadUUID</key><string>8434AC08-EB37-458E-A28B-F717F5EF573B</string>
+  <key>PayloadVersion</key><integer>1</integer>
+</dict>
+</plist>
+`;
+      this.emitFile({type: 'asset', fileName: 'batnab.mobileconfig', source});
+    },
+  };
+}
+
 /** An oklch() colour as #rrggbb(aa), clipped to what sRGB can show. */
 function oklchToHex(value: string) {
   // Each part a number, a percentage or `none` (as 0: a grey has no hue).
@@ -111,7 +159,7 @@ function oklchFallback(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), serviceWorker(), ocrFiles(), oklchFallback()],
+  plugins: [react(), tailwindcss(), serviceWorker(), ocrFiles(), oklchFallback(), webClip()],
   build: {
     rolldownOptions: {
       output: {

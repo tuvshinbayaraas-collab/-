@@ -24,8 +24,8 @@ const resting = () => {
 
 /**
  * On the home page of a student whose phone doesn't have the app yet: a small card offering it. An iPhone has no
- * install dialog of its own (only Safari's «Add to Home Screen», which few find), so the card opens the guide; on
- * Android, the browser's own dialog. Put away (or followed) it rests for a week.
+ * install dialog of its own (only Safari's «Add to Home Screen», which few find), so the card opens the guide, with its
+ * download (the Web Clip profile) first; on Android, the browser's own dialog. Put away (or followed) it rests a week.
  */
 export default function AppNudge() {
   const app = useGetApp();
@@ -51,7 +51,7 @@ export default function AppNudge() {
           }}
           className="mt-2.5 rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-blue-400"
         >
-          {p === 'ios' ? 'Хэрхэн нэмэх вэ?' : 'Суулгах'}
+          {p === 'ios' ? 'Татах' : 'Суулгах'}
         </button>
       </div>
       <button type="button" onClick={close} aria-label="Дараа" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
