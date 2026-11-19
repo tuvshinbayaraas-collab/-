@@ -114,7 +114,7 @@ function ScheduleForm({data, now}: {data: AdminData; now: number}) {
         <CalendarClock size={18} /> Шалгалт товлох
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Эхлэх цагаас өмнө сурагчид тестийг нээж чадахгүй, шалгалтын үеэр нэг л удаа өгнө. Дуусах цагт хариулт нь автоматаар илгээгдэнэ. Дүн, алдсан бодлого нь шалгалт дууссаны дараа
+        Эхлэх цагаас өмнө сурагчид тестийг нээж чадахгүй. Шалгалтын үеэр нэг л удаа өгнө. Дуусах цагт хариулт нь өөрөө илгээгдэнэ. Дүн, алдсан бодлого нь шалгалт дууссаны дараа
         харагдана.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
@@ -306,7 +306,7 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
                   </div>
                   {open === uid && (
                     <div className="px-4 pb-3 pl-14">
-                      {w.times.length ? <AwayList times={w.times} now={now} until={w.until} /> : <p className="text-xs text-neutral-500">Хэзээ гарсан нь бүртгэгдээгүй (хуучин хувилбараар өгсөн).</p>}
+                      {w.times.length ? <AwayList times={w.times} now={now} until={w.until} /> : <p className="text-xs text-neutral-500">Хуучин хувилбараар өгсөн тул хэзээ гарсан нь бүртгэгдээгүй.</p>}
                       <p className="mt-1 text-xs text-neutral-500">Нийт {formatDuration(w.ms / 1000)} гадуур.</p>
                     </div>
                   )}
@@ -315,8 +315,8 @@ function ExamDetail({data, test, exam, now}: {data: AdminData; test: string; exa
             })}
         </ul>
         <p className="mt-2 text-xs text-neutral-500">
-          «Хуудаснаас гарсан»: шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжсэн, хуудсаа хаасан эсвэл дахин ачаалсан тоо. Дээр нь дарж хэзээ, юу
-          хийж, хэр удаан гадуур байсныг харна. Одоо гадуур байгаа сурагч улаанаар хамгийн дээр гарна.
+          «Хуудаснаас гарсан» нь шалгалтын үеэр өөр апп, таб руу шилжсэн, хуудсаа хаасан эсвэл дахин ачаалсан тоо. Дээр нь дарж хэзээ, хэр удаан
+          гадуур байсныг харна. Одоо гадуур байгаа сурагч улаанаар хамгийн дээр гарна.
         </p>
       </section>
 

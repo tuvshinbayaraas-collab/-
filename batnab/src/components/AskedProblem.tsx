@@ -55,7 +55,7 @@ function TopicProblem({ctx}: {ctx: About}) {
   const t = topics.find((x) => x.id === ctx.t);
   const i = t?.problems.findIndex((x) => x.id === ctx.q) ?? -1;
   const p = t && i >= 0 ? t.problems[i] : undefined;
-  if (!t || !p) return <p className={quiet}>Энэ бодлого олдсонгүй (устгагдсан байж магадгүй).</p>;
+  if (!t || !p) return <p className={quiet}>Энэ бодлого олдсонгүй. Устгагдсан байх.</p>;
   return (
     <div className="space-y-2">
       <div className="flex gap-2 leading-relaxed">

@@ -185,18 +185,18 @@ export function MistakeItem({
   const banner = last && (
     <p className="flex items-start gap-2 rounded-xl bg-violet-500/10 px-3 py-2 text-sm text-violet-100">
       <Shuffle size={16} className="mt-0.5 shrink-0 text-violet-300" />
-      <span>{other ? `Сүүлийн шат: «${label}»-тэй ${it.twin ? 'яг ижил аргаар' : 'ижил сэдвээр'} бодогдох өөр бодлого. Зөв бодвол сурсанд тооцно.` : 'Сүүлийн шат: зөв бодвол сурсанд тооцно.'}</span>
+      <span>{other ? `Сүүлийн шат. Энэ бол «${label}»-тэй ${it.twin ? 'ижил аргаар бодогддог' : 'ижил сэдвийн'} өөр бодлого. Зөв бодвол сурсанд тооцно.` : 'Сүүлийн шат. Зөв бодвол сурсанд тооцно.'}</span>
     </p>
   );
   // Shown again after it was counted: how it went, and that this try is practice.
   const was =
     before &&
     (before.right === false
-      ? 'Энэ удаагийн хариулт тоологдсон: буруу — маргааш дахин гарна.'
+      ? 'Энэ удаагийнх буруу гэж тоологдсон. Маргааш дахин гарна.'
       : before.learned || (before.right === undefined && m.done)
         ? 'Энэ бодлогыг сурсанд тооцсон.'
         : before.right
-          ? 'Энэ удаагийн хариулт тоологдсон: зөв — дараа дахин давтана.'
+          ? 'Энэ удаагийнх зөв гэж тоологдсон. Дараа дахин давтана.'
           : `Энэ бодлогыг давтсан. Дараагийн давталт: ${dayLabel(m.next)}.`);
   const heading = other ? `Төстэй бодлого · ${mistakeLabel(it, topics)}` : label;
   return (
@@ -336,7 +336,7 @@ function TestQuestion({
                         : 'Буруу.'
                       : ok
                         ? counted && help
-                          ? 'Зөв! Сануулгатай бодсон ч гэсэн дараа дахин давтана.'
+                          ? 'Зөв! Сануулга харсан тул дараа дахин давтана.'
                           : 'Дараа дахин давтана.'
                         : 'Маргааш дахин гарна. Доорх тусламжийг үзээрэй.'}
                   </p>

@@ -27,7 +27,7 @@ import {dayLabel, useNow} from '../lib/time';
 /** Shown at first; the rest behind «Бүгдийг харах». */
 const FIRST = 3;
 
-const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Илгээж чадсангүй: асуулга хаагдсан эсвэл устсан байж магадгүй.' : (e as Error).message);
+const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Илгээж чадсангүй. Асуулга хаагдсан эсвэл устсан байна.' : (e as Error).message);
 
 /**
  * «Ангийн санал асуулга» on a student's home page: their class's polls, asked by classmates (who asked is not shown;
@@ -78,7 +78,7 @@ export default function ClassPolls({uid, classId}: {uid: string; classId?: strin
       {!folded && (
         <>
       {making && <NewPoll cls={classId!} slot={freeSlot(mine)} onClose={() => setMaking(false)} />}
-      {lead && !shown.length && !making && <p className="mt-1.5 text-sm text-neutral-400">Ангийнхнаасаа асуух зүйл байна уу? Асуулга гаргавал ангийнхан чинь сонголтоо хийнэ.</p>}
+      {lead && !shown.length && !making && <p className="mt-1.5 text-sm text-neutral-400">Ангийнхнаасаа асуух зүйл байна уу? Асуулга гаргаад санал аваарай.</p>}
       {list.length > 0 && (
         <ul className="mt-3 space-y-3">
           {list.map((p) => (
@@ -168,7 +168,7 @@ function NewPoll({cls, slot, onClose}: {cls: string; slot: string | null; onClos
           Болих
         </button>
       </div>
-      <p className="text-xs text-neutral-500">Ангийнхан тань хэн гаргасныг харахгүй, багш харна. Зэрэг 3 хүртэл асуулга гаргаж болно.</p>
+      <p className="text-xs text-neutral-500">Хэн гаргасныг ангийнхан харахгүй, зөвхөн багш харна. Нэг дор 3 хүртэл асуулга гаргаж болно.</p>
     </form>
   );
 }
@@ -292,7 +292,7 @@ function Card({poll, uid, votes, onDeclined}: {poll: ClassPoll; uid: string; vot
             </button>
           )}
           {own && !poll.closed && (
-            <button type="button" disabled={busy} onClick={() => confirm('Асуулгыг хаах уу? Хаасны дараа хэн ч сонголт хийж, өөрчлөхгүй.') && act(() => closeClassPoll(poll))} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+            <button type="button" disabled={busy} onClick={() => confirm('Асуулгыг хаах уу? Хаасны дараа санал өгөх, өөрчлөх боломжгүй.') && act(() => closeClassPoll(poll))} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
               <Lock size={13} /> Хаах
             </button>
           )}

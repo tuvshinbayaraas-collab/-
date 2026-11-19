@@ -120,7 +120,7 @@ export function ClassHeader({info, members}: {info: ClassInfo; members: string[]
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(info.name);
   const remove = () => {
-    if (!confirm(`«${info.name}» ангийг устгах уу? ${members.length} сурагч ангигүй болно; бүртгэл, дүн нь хэвээр үлдэнэ.`)) return;
+    if (!confirm(`«${info.name}» ангийг устгах уу? ${members.length} сурагч ангигүй болно. Бүртгэл, дүн нь хэвээр үлдэнэ.`)) return;
     deleteClass(info.id, members)
       .then(() => pickClass(''))
       .catch((e) => alert(`Алдаа: ${(e as Error).message}`));

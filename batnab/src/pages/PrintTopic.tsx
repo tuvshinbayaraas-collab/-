@@ -138,7 +138,7 @@ export default function PrintTopic({id}: {id: string}) {
                 );
               })}
             </ol>
-            {t.problems.some((p) => !keys?.[p.id]) && <p className="mt-3 text-xs">«—»: зөв хариулт оруулаагүй (багш шалгана).</p>}
+            {t.problems.some((p) => !keys?.[p.id]) && <p className="mt-3 text-xs">— гэсэн бодлогын хариултыг багш өөрөө шалгана.</p>}
           </section>
         )}
       </article>

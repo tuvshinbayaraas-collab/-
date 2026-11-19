@@ -33,7 +33,7 @@ export default function MyResults() {
     <div className="mx-auto max-w-3xl py-6">
       <h1 className="text-2xl font-bold">Миний дүнгүүд</h1>
       <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-400">
-        <RefreshCw size={14} /> Энэ долоо хоногийн дүн. Баасан гараг бүрийн 24:00-д шинээр эхэлнэ ({untilReset()} үлдлээ).
+        <RefreshCw size={14} /> Энэ долоо хоногийн дүн. Шинэчлэгдэхэд {untilReset()} үлдлээ.
       </p>
       {results === null ? (
         <Loading what="Дүнг ачаалж байна…" small />
@@ -64,7 +64,7 @@ export default function MyResults() {
           {latest.length > 0 && (
             <div className="mt-4 rounded-2xl bg-neutral-900 p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Юуг давтах вэ</h2>
-              <p className="mt-1 text-xs text-neutral-500">Тест бүрийн сүүлийн оролдлогоор, сэдэв бүрт хэдийг зөв бодсон.</p>
+              <p className="mt-1 text-xs text-neutral-500">Тест бүрийн сүүлийн оролдлогоор сэдэв тус бүрт хэдийг зөв бодсоныг харуулна.</p>
               <SkillBreakdown stats={skillStats(latest)} percent={Math.round((latestScore.score / Math.max(1, latestScore.total)) * 100)} notebook />
             </div>
           )}

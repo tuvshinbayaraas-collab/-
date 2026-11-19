@@ -42,7 +42,7 @@ const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 p
 const primary = 'flex items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-teal-400 disabled:opacity-50';
 const quiet = 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-800';
 const sorry = (e: unknown) =>
-  /permission/i.test((e as Error).message) ? 'Болсонгүй: багш энэ эрхийг унтраасан эсвэл таныг ангийн даргаас хассан байж магадгүй.' : (e as Error).message;
+  /permission/i.test((e as Error).message) ? 'Болсонгүй. Багш энэ эрхийг хаасан эсвэл таныг ангийн даргаас хассан байна.' : (e as Error).message;
 /** By the server's clock, as the rules count the 3 hours (a phone's own may be a little off). */
 const waitFor = (last: number | undefined, now: number) => (last ? last + REMIND_GAP - Math.max(now, serverNow()) : 0);
 
@@ -84,7 +84,7 @@ export default function LeadPage() {
   }, [asked, cls]);
   if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote text="Нэвтэрнэ үү." />;
-  if (!p || !cls) return <p className="py-24 text-center text-neutral-400">Энэ хэсэг зөвхөн багшийн сонгосон ангийн даргад.</p>;
+  if (!p || !cls) return <p className="py-24 text-center text-neutral-400">Энэ хэсэг зөвхөн ангийн даргад зориулагдсан.</p>;
   if (!settings) return <Loading />;
   const uid = session.user.uid;
   const name = p.name;
@@ -251,24 +251,24 @@ function Overview({cls, uid, size, on, toHelp}: {cls: string; uid: string; size?
             <Power
               icon={<Bell size={16} />}
               title="Даалгаврын сануулга"
-              text="Хэд нь эхэлж, дуусгасныг, хэн эхлээгүйг нэрээр нь харна. Ангидаа эсвэл эхлээгүй хүн бүрт тусад нь сануулга илгээнэ (3 цагт нэг удаа)."
+              text="Хэд нь эхэлж, дуусгасныг, хэн эхлээгүйг харна. Бүх ангидаа эсвэл хүн бүрт тусад нь сануулга явуулна. 3 цагт нэг удаа явуулж болно."
             />
           )}
           {on.notes && (
-            <Power icon={<Megaphone size={16} />} title="Ангийн зарлал" text="Ангийнхны нүүр хуудсанд 7 хоног харагдах зарлал тавина (нэг дор 3 хүртэл)." />
+            <Power icon={<Megaphone size={16} />} title="Ангийн зарлал" text="Ангийнхны нүүр хуудсанд 7 хоног зарлал тавина. Нэг дор 3 хүртэл." />
           )}
           {on.help && (
             <Power
               icon={<HandHelping size={16} />}
               title="Ангийнхандаа туслах"
-              text="Ангийнхны асуултыг нэр, бодлоготой нь харж тайлбар бичнэ; тайлбар шууд асуусан хүнд очно."
+              text="Ангийнхны асуултыг хараад тайлбар бичнэ. Тайлбар шууд асуусан хүнд очно."
             />
           )}
           {on.reports && (
             <Power
               icon={<Bug size={16} />}
               title="Бодлогын алдаа мэдээлэх"
-              text="Бодлого бүрийн доорх «Алдаа мэдээлэх» товчоор эсвэл «Алдаа» хэсгээс хэдхэн товшилтоор багшид мэдээлнэ."
+              text="Бодлогын алдааг «Алдаа мэдээлэх» товчоор эсвэл «Алдаа» хэсгээс багшид мэдээлнэ."
             />
           )}
         </ul>
@@ -433,7 +433,7 @@ function Tasks({cls, uid, name, size}: {cls: string; uid: string; name: string; 
     <Section
       icon={<Bell size={20} />}
       title="Даалгавар"
-      sub="Даалгавар бүрийг хэд нь эхэлж, дуусгасныг, хэн эхлээгүйг харна. Эхлээгүй хүн бүрт тусад нь, эсвэл дуусгаагүй бүх ангийнхандаа сануулга илгээнэ (3 цагт нэг удаа)."
+      sub="Даалгавар бүрийг хэд нь эхэлж, дуусгасныг, хэн эхлээгүйг харна. Сануулгыг хүн бүрт тусад нь эсвэл дуусгаагүй бүх хүнд нэг дор явуулна. 3 цагт нэг удаа явуулж болно."
     >
       {!tasks.list.length ? (
         <Empty>Одоогоор ангид өгсөн даалгавар алга.</Empty>
@@ -537,7 +537,7 @@ function TaskRow(props: {
           ) : (
             <button
               type="button"
-              onClick={() => run('all', () => remind(cls, a.id), 'Илгээлээ: дуусгаагүй ангийнхны хонхонд гарна.')}
+              onClick={() => run('all', () => remind(cls, a.id), 'Илгээлээ. Дуусгаагүй хүмүүсийн хонхонд гарна.')}
               disabled={!!busy}
               className={primary}
             >
@@ -576,7 +576,7 @@ function Notes({cls, uid, name}: {cls: string; uid: string; name: string}) {
     <Section
       icon={<Megaphone size={20} />}
       title="Ангийн зарлал"
-      sub="Ангийн бүх сурагчийн нүүр хуудсанд таны нэртэй 7 хоног гарна (хонхонд ч). Багш харж, устгаж болно."
+      sub="Зарлал таны нэртэйгээр ангийн бүх сурагчийн нүүр хуудас, хонхонд 7 хоног гарна. Багш харж, устгаж болно."
     >
       {mine.length < NOTES_EACH ? (
         <form onSubmit={post} className="space-y-2 rounded-2xl bg-neutral-900 p-4">
@@ -644,7 +644,7 @@ function Help({cls, uid, name}: {cls: string; uid: string; name: string}) {
     <Section
       icon={<HandHelping size={20} />}
       title="Ангийнхандаа туслах"
-      sub="Ангийнхан тань багшаас асуусан, ангийн дарга ч тайлбарлаж болно гэсэн асуулт. Таны тайлбар шууд асуусан хүнд очно."
+      sub="Ангийнхан багшаас асуухдаа ангийн дарга ч тайлбарлаж болно гэж сонгосон асуултууд. Тайлбар шууд асуусан хүнд очно."
     >
       {!open.length ? <Empty>Одоогоор тайлбар хүлээж буй асуулт алга.</Empty> : <ul className="space-y-2">{open.map(row)}</ul>}
       {done.length > 0 && (
@@ -732,7 +732,7 @@ function HelpRow({cls, uid, name, item, href}: {cls: string; uid: string; name: 
             maxLength={1000}
             rows={3}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Тайлбараа бичнэ үү (хариуг шууд хэлэлгүй, бодох аргыг нь тайлбарлавал сайн)"
+            placeholder="Хариуг нь шууд хэлэхгүйгээр бодох аргыг нь тайлбарлаарай"
             aria-label="Тайлбар"
             className={`${field} resize-y`}
           />
@@ -796,7 +796,7 @@ function Reports({uid, cls}: {uid: string; cls: string}) {
     <Section
       icon={<Bug size={20} />}
       title="Бодлогын алдаа мэдээлэх"
-      sub="Бодлого бүрийн доорх «Алдаа мэдээлэх» товчоор шууд мэдээлж болно. Эсвэл энд: тест, сэдвээ сонгоод, бодлогын дугаар дээр дарж, юу нь буруугаа сонгоно."
+      sub="Бодлого бүрийн доорх «Алдаа мэдээлэх» товчоор шууд мэдээлж болно. Эсвэл энд тест, сэдвээ сонгоод бодлогын дугаар дээр дарна."
     >
       <form onSubmit={submit} className="space-y-3 rounded-2xl bg-neutral-900 p-4">
         <p className="text-sm font-semibold">1. Аль тест, сэдэв вэ?</p>

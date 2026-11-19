@@ -160,7 +160,7 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
           </button>
         </div>
       </section>
-      {p.disabled && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-sm text-red-300">Энэ бүртгэл түр хаагдсан: сурагч нэвтэрсэн ч тест өгч чадахгүй.</p>}
+      {p.disabled && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-sm text-red-300">Энэ бүртгэл түр хаагдсан. Сурагч нэвтэрсэн ч тест өгч чадахгүй.</p>}
 
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Өгсөн тест" value={`${new Set(results.map((r) => r.test)).size}/${TESTS.length}`} />
@@ -172,8 +172,8 @@ export default function StudentDetail({uid, data}: {uid: string; data: AdminData
         <h3 className="mb-2 font-semibold">Энэ долоо хоногийн оролдлогууд</h3>
         {retakesOff && results.length > 0 && (
           <p className="mb-2 text-sm text-neutral-400">
-            Дахин өгөх хаалттай байгаа. Сурагч тестээ санамсаргүй илгээсэн бол «Дахин өгүүлэх» дарна: тэр оролдлого устаж, сурагч тестийг дахин нэг удаа
-            өгөх боломжтой болно.
+            Дахин өгөх хаалттай байгаа. Сурагч тестээ санамсаргүй илгээсэн бол «Дахин өгүүлэх» дарна. Тэр оролдлого устаж, сурагч тестийг дахин нэг удаа
+            өгч болно.
           </p>
         )}
         {!results.length ? (

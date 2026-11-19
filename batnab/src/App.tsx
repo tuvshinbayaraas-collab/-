@@ -174,8 +174,8 @@ function OfflineBar() {
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-200">
       <WifiOff size={16} className="shrink-0" />
-      {online ? 'Сервертэй холбогдож чадахгүй байна. Холбогдмогц автоматаар үргэлжилнэ.' : 'Интернэт холболт алга. Холбогдоход автоматаар үргэлжилнэ.'}
-      {kept > 0 && <span>Илгээгээгүй {kept} хариулт тань утсанд хадгалагдсан.</span>}
+      {online ? 'Сервертэй холбогдож чадахгүй байна. Холбогдмогц үргэлжилнэ.' : 'Интернэт алга байна. Холбогдмогц үргэлжилнэ.'}
+      {kept > 0 && <span>Илгээгээгүй {kept} хариулт хадгалагдаж байна.</span>}
       {online && (
         <button onClick={() => location.reload()} className="font-semibold text-amber-100 underline underline-offset-2">
           Дахин ачаалах
@@ -192,7 +192,7 @@ function UpdateBar({path}: {path: string}) {
   const busy = !safePage(path);
   return (
     <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-blue-500/15 px-4 py-2 text-center text-sm text-blue-100">
-      <span>{busy ? 'Сайтын шинэ хувилбар гарлаа — хийж буй ажлаа дуусгаад шинэчилнэ үү.' : 'Сайтын шинэ хувилбар гарлаа.'}</span>
+      <span>{busy ? 'Сайт шинэчлэгдлээ. Хийж буй ажлаа дуусгаад шинэчилнэ үү.' : 'Сайт шинэчлэгдлээ.'}</span>
       <button type="button" onClick={() => location.reload()} className="rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold text-black hover:bg-blue-400">
         Шинэчлэх
       </button>

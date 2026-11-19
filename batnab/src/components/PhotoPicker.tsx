@@ -10,7 +10,7 @@ import Sheet from './Sheet';
 const primary = 'rounded-full bg-blue-500 py-2.5 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50';
 const secondary = 'flex items-center justify-center gap-2 rounded-full bg-neutral-800 px-4 py-2.5 text-sm font-semibold hover:bg-neutral-700 disabled:opacity-50';
 
-const saveError = (e: unknown) => (/permission/i.test((e as Error)?.message ?? '') ? 'Хадгалж чадсангүй: эрх хүрэхгүй байна.' : authError(e));
+const saveError = (e: unknown) => (/permission/i.test((e as Error)?.message ?? '') ? 'Хадгалж чадсангүй. Эрх хүрэхгүй байна.' : authError(e));
 
 /**
  * Changing one's picture: a photo (camera or gallery on a phone; choose, drop or paste on a PC) placed in a round frame
@@ -115,7 +115,7 @@ export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name
 
   const unchanged = choice === (photo ?? null);
   return (
-    <Sheet title="Зураг солих" sub={allowed ? 'Өөрийн зураг, нэрийнхээ үсэг эсвэл бэлэн дүрс.' : undefined} onClose={onClose}>
+    <Sheet title="Зураг солих" sub={allowed ? 'Өөрийн зураг, нэрийн үсэг эсвэл бэлэн дүрсээс сонгоно.' : undefined} onClose={onClose}>
       <div className="flex justify-center">
         <Avatar name={name} photo={choice} frame={frame} size={96} />
       </div>
@@ -140,7 +140,7 @@ export default function PhotoPicker({name, photo, frame, onSave, onClose}: {name
         <p className="mt-4 rounded-xl bg-neutral-800/60 px-3 py-2.5 text-sm text-neutral-300">Багш өөрийн зураг тавихыг хаасан байна. Доорх дүрснүүдээс сонгоорой.</p>
       )}
       <p className="mt-5 text-sm font-medium text-neutral-300">Нэрийн үсэг</p>
-      <p className="text-xs text-neutral-400">Нэрийнхээ эхний үсгийг өнгөтэй болгоорой.</p>
+      <p className="text-xs text-neutral-400">Нэрийнхээ эхний үсгийг дуртай өнгөөрөө.</p>
       <div className="mt-2 grid grid-cols-6 gap-2" role="group" aria-label="Нэрийн үсгийн өнгө">
         {LETTERS.map((l) => (
           <LetterButton key={l.id} name={name} label={l.name} bg={l.bg} on={choice === letterId(l.id)} onClick={() => setChoice(letterId(l.id))} />

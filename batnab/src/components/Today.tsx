@@ -203,7 +203,7 @@ function useShortcuts(uid: string) {
       href: '/daily',
       icon: Flame,
       title: 'Өдрийн дасгал',
-      text: today ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · цуваагаа таслахгүй!` : 'Цуваа эхлүүлэх',
+      text: today ? `Өнөөдөр хийсэн · 🔥 ${streak}` : streak ? `🔥 ${streak} өдөр · өнөөдөр ч хийгээрэй` : 'Цуваа эхлүүлэх',
       hot: !today,
       lit: streak > 0,
       badge: streak,

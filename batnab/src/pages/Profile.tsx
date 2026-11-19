@@ -112,7 +112,7 @@ export default function Profile() {
           <Row
             icon={<MessageSquareText size={18} />}
             label="Миний тухай"
-            value={profile.about?.trim() || <span className="text-neutral-500">Бичээгүй — профайл дээр тань гарна</span>}
+            value={profile.about?.trim() || <span className="text-neutral-500">Бичээгүй байна</span>}
             onClick={() => setOpen('about')}
           />
         )}
@@ -126,7 +126,7 @@ export default function Profile() {
           <span className="min-w-0 flex-1">
             <span className="block font-medium">Бусдад хэрхэн харагдах вэ?</span>
             <span className="block text-sm text-neutral-400">
-              {profile.prefs?.profileHidden ? 'Профайлаа нуусан байна (Тохиргоо)' : 'Ангийнхан тань «Сурагчид» хэсгээс таныг олж харна'}
+              {profile.prefs?.profileHidden ? 'Профайлаа нуусан байна' : 'Ангийнхан Сурагчид хэсгээс таныг олж харна'}
             </span>
           </span>
           <ChevronRight size={18} className="shrink-0 text-neutral-500" />
@@ -181,7 +181,7 @@ function Medals({uid}: {uid: string}) {
           <Link href="/leaderboard" className="text-blue-400 hover:underline">
             leaderboard
           </Link>
-          -д долоо хоногийн эцэст тестийн эхний 3-т орвол тэр долоо хоногийн амьтны медаль, «Шилдэг оноогоор»-ын эхний 3-т орвол Шилдэгийн одон энд нэмэгдэнэ.
+          -д долоо хоногийн эхний 3-т орж авсан медаль, одон энд гарна.
         </p>
       )}
     </section>
@@ -215,7 +215,7 @@ function Identity({profile, onOpen, meter}: {profile: ProfileData; onOpen: (o: O
   const save = async (photo: string | null) => {
     const write = savePhoto(photo).then(() => refreshMine({...profile, photo: photo ?? undefined}).catch(() => {}));
     const sent = await Promise.race([write.then(() => true), new Promise<false>((r) => setTimeout(() => r(false), 6000))]);
-    setStatus({ok: true, text: sent ? (photo ? 'Зураг солигдлоо.' : 'Зураг арилгалаа.') : 'Интернэт холболт сэргэхэд хадгалагдана.'});
+    setStatus({ok: true, text: sent ? (photo ? 'Зураг солигдлоо.' : 'Зураг арилгалаа.') : 'Интернэт орж ирэхэд хадгалагдана.'});
     write.catch((e) => setStatus({ok: false, text: authError(e)}));
   };
   const pick = () => {
@@ -317,7 +317,7 @@ function Completeness({profile, onPhoto, onOpen}: {profile: ProfileData; onPhoto
           <span className="block h-full rounded-full bg-blue-500" style={{width: `${(done / parts.length) * 100}%`}} />
         </span>
       </p>
-      <p className="mt-0.5 text-xs text-neutral-400">Дутууг нь нэмбэл ангийнхан тань профайлыг тань бүрэн харна:</p>
+      <p className="mt-0.5 text-xs text-neutral-400">Дутуу байгаа хэсгүүд:</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {parts
           .filter(([, ok]) => !ok)
@@ -388,7 +388,7 @@ function FrameSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
     );
   };
   return (
-    <Sheet title="Хүрээ сонгох" sub="Таны зурагт тохирох жижиг чимэглэл." onClose={onClose}>
+    <Sheet title="Хүрээ сонгох" sub="Зургийн эргэн тойронд гарах чимэглэл." onClose={onClose}>
       {/* The one picked, as it will look. */}
       <div className="flex items-center gap-4 rounded-2xl bg-neutral-800/50 p-4">
         <span className="shrink-0 p-2">
@@ -512,7 +512,7 @@ function BannerSheet({uid, profile, onClose}: {uid: string; profile: ProfileData
     );
   };
   return (
-    <Sheet title="Баннер сонгох" sub="Профайлын тань дээд талд, зургийн ард." onClose={onClose}>
+    <Sheet title="Баннер сонгох" sub="Профайлын дээд талд, зургийн ард гарна." onClose={onClose}>
       {/* The one picked, as the profile will look. */}
       <ProfileCard as="div" theme={profile.theme} className="rounded-2xl" banner={<ProfileBanner id={pick} seed={publicName(profile)} className={BANNER_SHAPE} />}>
         <div className="relative flex items-end gap-3 px-4 pb-3">
@@ -617,7 +617,7 @@ function StyleSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
   // The tiles of the effects show them on the colours picked.
   const ground = theme ? 'profile-theme' : 'bg-neutral-800';
   return (
-    <Sheet title="Профайлын өнгө, эффект" sub="Discord шиг: картаа хоёр өнгөөр будаж, дээр нь эффект нэмээрэй." onClose={onClose}>
+    <Sheet title="Профайлын өнгө, эффект" sub="Профайлын картаа хоёр өнгөөр будаж, эффект нэмж болно." onClose={onClose}>
       {/* The profile as it will look. */}
       <div data-style-preview>
         <ProfileCard as="div" theme={theme} effect={effect} className="rounded-2xl" banner={<ProfileBanner id={profile.banner} seed={publicName(profile)} className={BANNER_SHAPE} />}>
@@ -739,7 +739,7 @@ function LooksSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
   const chip = (on: boolean) => `rounded-full border px-3 py-1.5 text-sm ${on ? 'border-blue-400 bg-blue-500/15 text-neutral-50' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`;
   const head = 'mt-4 text-xs font-semibold uppercase tracking-wider text-neutral-500';
   return (
-    <Sheet title="Нэрийн өнгө, тэмдэг, цол" sub="Профайл дээр тань нэр ингэж харагдана." onClose={onClose}>
+    <Sheet title="Нэрийн өнгө, тэмдэг, цол" sub="Профайл дээр нэр ингэж харагдана." onClose={onClose}>
       <div className="flex flex-col items-center rounded-2xl bg-neutral-800/50 px-4 py-4 text-center" data-looks-preview>
         <Avatar name={name} photo={profile.photo} frame={profile.frame} size={64} />
         <p className="mt-2 max-w-full break-words text-xl font-bold">
@@ -795,7 +795,7 @@ function LooksSheet({uid, profile, onClose}: {uid: string; profile: ProfileData;
         ))}
       </div>
       <p className="mt-2 text-xs text-neutral-400">
-        {titles.length ? 'Цол нь таны авсан амжилтууд. Шинэ амжилт авах тусам нэмэгдэнэ.' : 'Цол нь амжилтаар нээгдэнэ: эхний тестээ өгөхөд «Анхны алхам» цол нээгдэнэ.'}
+        {titles.length ? 'Амжилт авах бүрд шинэ цол нээгдэнэ.' : 'Цол амжилтаар нээгдэнэ. Эхний тестээ өгөхөд «Анхны алхам» цол нээгдэнэ.'}
       </p>
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-800 pt-4">
@@ -827,7 +827,7 @@ function AboutSheet({profile, onClose}: {profile: ProfileData; onClose: () => vo
     }
   };
   return (
-    <Sheet title="Миний тухай" sub="Профайл дээр тань бусдад харагдана. Багш харж, хэрэгтэй бол арилгана." onClose={onClose}>
+    <Sheet title="Миний тухай" sub="Бусад сурагчид профайл дээрээс уншина. Зохисгүй зүйлийг багш арилгана." onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -893,7 +893,7 @@ function NicknameSheet({profile, onClose}: {profile: ProfileData; onClose: () =>
   const unchanged = nickname.trim() === (profile.nickname ?? '').trim();
 
   return (
-    <Sheet title="Nickname" sub="Сайт дээр бусдад nickname тань харагдана. Багш жинхэнэ нэрийг тань бас харна." onClose={onClose}>
+    <Sheet title="Nickname" sub="Бусад сурагчид энэ нэрийг харна. Багш жинхэнэ нэрийг тань бас харна." onClose={onClose}>
       <form onSubmit={submit}>
         <div className="relative">
           <input

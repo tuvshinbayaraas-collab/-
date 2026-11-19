@@ -8,7 +8,7 @@ import {dayLabel} from '../lib/time';
 /** An ideas poll's lines shown at first; the rest behind «Бүгдийг харах». */
 const FIRST = 8;
 
-const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Илгээж чадсангүй: асуулга хаагдсан байж магадгүй.' : (e as Error).message);
+const sorry = (e: unknown) => (/permission/i.test((e as Error).message) ? 'Илгээж чадсангүй. Асуулга хаагдсан байна.' : (e as Error).message);
 
 /** The teacher's open polls for the student's class, on their home page: answered, one line (and «Өөрчлөх»). */
 export default function Polls({uid, classId}: {uid: string; classId?: string}) {
@@ -134,7 +134,7 @@ function PollCard({poll, uid}: {poll: Poll; uid: string}) {
               value={written}
               onChange={(e) => setText(clip(e.target.value, 500))}
               rows={2}
-              placeholder={poll.options.length ? 'Санаагаа бичиж болно (заавал биш)' : 'Хариултаа бичнэ үү'}
+              placeholder={poll.options.length ? 'Санаагаа бичиж болно' : 'Хариултаа бичнэ үү'}
               aria-label="Таны санаа"
               className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400"
             />
@@ -270,7 +270,7 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
                 }
               />
               {own && (
-                <button type="button" disabled={busy} onClick={() => confirm('Энэ санаагаа устгах уу? Түүнд өгсөн саналууд тоологдохоо болино.') && run(() => deleteIdea(poll.id, e.idea!.iid))} aria-label="Санаагаа устгах" className="shrink-0 rounded-lg p-1 text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
+                <button type="button" disabled={busy} onClick={() => confirm('Энэ санаагаа устгах уу? Түүнд өгсөн саналууд устна.') && run(() => deleteIdea(poll.id, e.idea!.iid))} aria-label="Санаагаа устгах" className="shrink-0 rounded-lg p-1 text-neutral-500 hover:bg-neutral-800 hover:text-red-400">
                   <X size={15} />
                 </button>
               )}
@@ -295,7 +295,7 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
       )}
       {poll.comment && (
         <div className="mt-2 space-y-1.5">
-          <textarea value={written} onChange={(e) => setNote(clip(e.target.value, 500))} rows={2} placeholder="Багшид бичих (зөвхөн багш харна)" aria-label="Багшид бичих" className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+          <textarea value={written} onChange={(e) => setNote(clip(e.target.value, 500))} rows={2} placeholder="Багшид бичих, зөвхөн багш харна" aria-label="Багшид бичих" className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-violet-400" />
           {note !== null && note.trim() !== (mine ? mine.t : '') && note.trim() && (
             <button type="button" disabled={busy} onClick={() => void run(() => vote(poll.id, [], note)).then((ok) => ok && setNote(null))} className="rounded-full bg-violet-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-violet-400 disabled:opacity-50">
               {mine && mine.t ? 'Шинэчлэх' : 'Багшид илгээх'}
@@ -305,7 +305,7 @@ function IdeasCard({poll, uid}: {poll: Poll; uid: string}) {
       )}
       {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
       <p className="mt-2 text-xs text-neutral-500">
-        {voters ? `${voters} хүн санал өгсөн. ` : ''}Саналын тоог бүгд харна; хэн санаа нэмж, хэн юу сонгосныг зөвхөн багш харна.
+        {voters ? `${voters} хүн санал өгсөн. ` : ''}Саналын тоог бүгд харна. Хэн юу нэмж, юу сонгосныг зөвхөн багш харна.
       </p>
       {!answered && (
         <div className="mt-1 flex justify-end">

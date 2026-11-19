@@ -75,7 +75,7 @@ export default function Make24({play}: {play: Play}) {
   return (
     <div className="space-y-4">
       <p className="text-center text-sm text-neutral-400">
-        {state === 'won' ? '24! Гайхалтай.' : state === 'wrong' ? '24 болсонгүй — дахиад оролдоорой.' : sel === null ? 'Тоо сонгоно уу' : op === null ? 'Үйлдэл сонгоно уу' : 'Дараагийн тоог сонгоно уу'}
+        {state === 'won' ? '24 боллоо!' : state === 'wrong' ? '24 болсонгүй. Дахиад оролдоорой.' : sel === null ? 'Тоогоо сонго' : op === null ? 'Үйлдлээ сонго' : 'Нөгөө тоогоо сонго'}
         <span className="ml-2 text-neutral-500">· бодсон: {solved}</span>
       </p>
       <div className={`grid grid-cols-2 gap-3 ${state === 'wrong' ? 'animate-[shake_.4s_ease-in-out]' : ''}`} role="group" aria-label="Тоонууд">

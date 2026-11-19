@@ -256,7 +256,7 @@ function Runner(props: {
   if (failed)
     return (
       <CenterNote title="Тестийг ачаалж чадсангүй">
-        <p className="text-neutral-400">Интернэт холболтоо шалгаад дахин оролдоно уу. Өмнө нь бөглөсөн хариулт тань энэ төхөөрөмжид хадгалагдсан.</p>
+        <p className="text-neutral-400">Интернэтээ шалгаад дахин оролдоно уу. Бөглөсөн хариултууд хадгалагдсан байгаа.</p>
         <button onClick={() => location.reload()} className="mt-4 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
           Дахин оролдох
         </button>
@@ -302,7 +302,7 @@ function Runner(props: {
       {mode !== 'student' && (
         <p className="mb-2 flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
           {mode === 'trial' ? <FlaskConical size={16} /> : <Eye size={16} />}
-          {mode === 'trial' ? 'Туршилтын горим: дүн хадгалагдахгүй.' : 'Багшийн харах горим: дүн хадгалагдахгүй.'}
+          {mode === 'trial' ? 'Туршилтаар өгч байна. Дүн хадгалагдахгүй.' : 'Багшаар нэвтэрсэн тул дүн хадгалагдахгүй.'}
         </p>
       )}
       <div className="sticky top-14 z-20 -mx-4 border-b border-neutral-800 bg-page/95 px-4 pb-3 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
@@ -364,7 +364,7 @@ function Runner(props: {
             ) : (
               <div>
                 <p className="text-neutral-400">Хариултыг хадгалж байна…</p>
-                {!connected && <p className="mt-1 text-sm text-amber-300">Сервертэй холболт тасарсан байна. Хариулт тань энэ төхөөрөмжид хадгалагдсан, холбогдмогц автоматаар илгээгдэнэ.</p>}
+                {!connected && <p className="mt-1 text-sm text-amber-300">Сервертэй холболт тасарлаа. Хариулт хадгалагдсан, холбогдмогц илгээгдэнэ.</p>}
               </div>
             )
           ) : key === undefined ? (
@@ -373,9 +373,9 @@ function Runner(props: {
             <p className="text-neutral-400">Багш энэ тестийн зөв хариултыг оруулаагүй байна.</p>
           ) : !g ? (
             <div>
-              <p className="font-semibold">Хариултууд тань хадгалагдлаа.</p>
+              <p className="font-semibold">Хариултууд хадгалагдлаа.</p>
               <p className="mt-1 text-sm text-neutral-400">
-                Багш энэ тестийн зөв хариултыг оруулаагүй байна. Оруулсны дараа дүн тань{' '}
+                Багш энэ тестийн зөв хариултыг оруулаагүй байна. Оруулсны дараа дүн{' '}
                 <Link href="/results" className="text-blue-400 hover:underline">
                   Миний дүнгүүд
                 </Link>{' '}
@@ -397,7 +397,7 @@ function Runner(props: {
                   <span className="ml-3 text-xl text-neutral-300">{percent(g)}%</span>
                 </p>
               )}
-              {perfect && <p className="mt-1 text-sm text-neutral-300">Бүх бодлогыг зөв бодлоо. Гайхалтай!</p>}
+              {perfect && <p className="mt-1 text-sm text-neutral-300">Бүх бодлогыг зөв бодлоо!</p>}
               <p className="mt-1 text-sm text-neutral-400">Зарцуулсан хугацаа: {formatDuration(elapsed)}</p>
               {g.total < g.count && <p className="mt-1 text-sm text-amber-300">{g.count - g.total} бодлогын зөв хариултыг багш оруулаагүй тул тооцоогүй.</p>}
               {missed.length > 0 && (
@@ -440,7 +440,7 @@ function Runner(props: {
           )}
           {mode === 'trial' && (
             <div className="mt-4 border-t border-neutral-800 pt-4">
-              <p className="text-sm text-neutral-400">Бусад тестийг өгч, дүнгээ хадгалахын тулд багшаасаа нэвтрэх нэр, нууц үг аваарай.</p>
+              <p className="text-sm text-neutral-400">Бусад тестийг өгч, дүнгээ хадгалах бол багшаасаа нэвтрэх нэр, нууц үг аваарай.</p>
               <div className="mt-3">
                 <LoginButton next="/" />
               </div>

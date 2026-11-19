@@ -126,11 +126,11 @@ export default function GameShell({game, children}: {game: GameInfo; children: (
               <p className="text-sm text-neutral-400">{game.unit}</p>
               {result?.record && (
                 <p className="mx-auto mt-3 flex w-fit items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-200">
-                  <Crown size={15} /> Энэ долоо хоногийн шинэ рекорд!
+                  <Crown size={15} /> Долоо хоногийн шинэ рекорд!
                 </p>
               )}
               {result?.error && <p className="mt-3 text-sm text-red-400">Оноог хадгалж чадсангүй: {result.error}</p>}
-              {session.admin && <p className="mt-3 text-sm text-neutral-400">Багшийн оноо самбарт орохгүй.</p>}
+              {session.admin && <p className="mt-3 text-sm text-neutral-400">Багшийн оноо жагсаалтад орохгүй.</p>}
             </>
           ) : (
             <>
@@ -148,8 +148,8 @@ export default function GameShell({game, children}: {game: GameInfo; children: (
             </>
           )}
           <p className="mt-4 text-sm text-neutral-400">
-            Энэ долоо хоногийн шилдэг тань: <b className="text-neutral-100">{Math.max(mine, phase === 'done' && result?.saved ? score : 0)}</b>
-            {bestHere(game.id) > 0 && ` · Энэ утсан дээрх рекорд: ${bestHere(game.id)}`}
+            Энэ долоо хоногт: <b className="text-neutral-100">{Math.max(mine, phase === 'done' && result?.saved ? score : 0)}</b>
+            {bestHere(game.id) > 0 && ` · Хамгийн өндөр: ${bestHere(game.id)}`}
           </p>
           <button
             type="button"
@@ -191,7 +191,7 @@ function Board({board, me, myClass}: {board: Score[] | null; me?: string; myClas
         <Trophy size={17} className="text-amber-300" /> Энэ долоо хоногийн шилдэг
       </h2>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-1">
-        <p className="text-xs text-neutral-500">Дахин эхлэх хүртэл {untilReset()}</p>
+        <p className="text-xs text-neutral-500">Шинэчлэгдэх хүртэл {untilReset()}</p>
         {myClass && (
           <div className="grid grid-cols-2 rounded-full bg-neutral-800/70 p-0.5 text-xs font-medium" role="tablist" aria-label="Хэнийг харах">
             {(
@@ -222,7 +222,7 @@ function Board({board, me, myClass}: {board: Score[] | null; me?: string; myClas
           {mine >= 10 && row(list[mine], mine)}
         </ol>
       ) : (
-        <p className="px-4 py-4 text-sm text-neutral-400">Энэ долоо хоногт хараахан хэн ч тоглоогүй байна. Эхнийх нь болоорой!</p>
+        <p className="px-4 py-4 text-sm text-neutral-400">Энэ долоо хоногт одоогоор хэн ч тоглоогүй байна.</p>
       )}
     </section>
   );

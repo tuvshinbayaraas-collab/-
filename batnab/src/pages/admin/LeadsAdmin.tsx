@@ -69,10 +69,10 @@ function Powers() {
   );
   return (
     <>
-      {row('leadRemind', <Bell size={14} className="text-teal-300" />, 'Даалгаврын сануулга', 'Даалгавар бүрийг хэд нь эхэлж, дуусгасныг, хэн эхлээгүйг нэрээр нь харж, ангидаа эсвэл эхлээгүй хүн бүрт тусад нь сануулга илгээнэ (3 цагт нэг удаа).')}
-      {row('leadNotes', <Megaphone size={14} className="text-teal-300" />, 'Ангийн зарлал', 'Ангийнхаа нүүр хуудсанд нэрээрээ богино зарлал тавина (зэрэг 3 хүртэл, 7 хоног).')}
+      {row('leadRemind', <Bell size={14} className="text-teal-300" />, 'Даалгаврын сануулга', 'Даалгаврыг хэн эхэлж, хэн дуусгасныг харна. Ангидаа эсвэл эхлээгүй хүн бүрт сануулга явуулна, 3 цагт нэг удаа.')}
+      {row('leadNotes', <Megaphone size={14} className="text-teal-300" />, 'Ангийн зарлал', 'Ангийнхаа нүүр хуудсанд нэрээрээ богино зарлал тавина. Нэг дор 3 хүртэл, 7 хоног харагдана.')}
       {row('leadReports', <Bug size={14} className="text-teal-300" />, 'Бодлогын алдаа мэдээлэх', 'Тест, сэдвийн бодлогын алдааг танд мэдээлнэ.')}
-      {row('leadHelp', <HandHelping size={14} className="text-teal-300" />, 'Ангийнхандаа туслах', 'Ангийнхных нь «Багшаас асуух» асуултыг (асуусан хүн зөвшөөрсөн бол) нэртэй нь харж тайлбар бичнэ; тайлбар шууд асуусан хүнд очно.')}
+      {row('leadHelp', <HandHelping size={14} className="text-teal-300" />, 'Ангийнхандаа туслах', 'Ангийнхан нь багшаас асуухдаа зөвшөөрсөн бол тэр асуултад тайлбар бичнэ. Тайлбар шууд асуусан хүнд очно.')}
     </>
   );
 }
@@ -215,7 +215,7 @@ function Leads({data, picked}: {data: AdminData; picked: string}) {
   return (
     <div className="space-y-2 border-t border-neutral-800 p-4">
       <p className="text-sm font-semibold">Ангийн дарга ({leads.length})</p>
-      <p className="text-xs text-neutral-400">Зөвхөн тэдэнд «Ангийн даргын хэсэг» гарна, ангидаа санал асуулга гаргана. Бусад сурагчид эдгээр нь харагдахгүй.</p>
+      <p className="text-xs text-neutral-400">Зөвхөн тэдэнд Ангийн даргын хэсэг гарч, ангидаа санал асуулга гаргаж чадна. Бусад сурагчид энэ хэсгийг харахгүй.</p>
       <div className="flex flex-wrap gap-1.5">
         {leads.map((s) => (
           <span key={s.uid} className="flex items-center gap-1 rounded-full bg-sky-500/15 py-1 pl-3 pr-1 text-sm text-sky-100">

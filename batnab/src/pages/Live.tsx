@@ -135,7 +135,7 @@ function Setup() {
       </header>
       {!usable.length ? (
         <p className="rounded-2xl bg-neutral-900 p-5 text-sm text-neutral-400">
-          Зөв хариулттай бодлоготой сэдэв алга. Тэмцээн зөвхөн зөв хариулт нь тавигдсан бодлогоор явна.{' '}
+          Зөв хариулт нь оруулсан бодлоготой сэдэв алга. Тэмцээнд зөвхөн ийм бодлого орно.{' '}
           <Link href="/admin?tab=topics" className="text-blue-400 hover:underline">
             Сэдвүүд
           </Link>
@@ -252,13 +252,13 @@ function Setup() {
                 </select>
               )}
             </div>
-            {teamMode !== 'none' && <p className="mt-1 text-xs text-neutral-500">{teamMode === 'class' ? 'Анги бүр нэг баг.' : 'Нэгдэх дарааллаар тэнцүү хуваана.'} Багийн оноо нь гишүүдийн дундаж оноо (цөөн хүнтэй баг хохирохгүй).</p>}
+            {teamMode !== 'none' && <p className="mt-1 text-xs text-neutral-500">{teamMode === 'class' ? 'Анги бүр нэг баг.' : 'Нэгдэх дарааллаар тэнцүү хуваана.'} Багийн оноо гишүүдийнхээ дундаж оноо байна. Тиймээс цөөн хүнтэй баг хохирохгүй.</p>}
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button onClick={start} disabled={!t || !pids.length || busy} className="flex items-center gap-2 rounded-full bg-pink-500 px-6 py-2.5 font-semibold text-black hover:bg-pink-400 disabled:opacity-50">
             <Zap size={18} /> Тэмцээн нээх
           </button>
-          <p className="text-xs text-neutral-500">Нээхэд сурагчдын нүүр хуудсанд «Шууд тэмцээн» гарч, тэд нэгдэнэ. Хүн бүр нэгдсэний дараа «Эхлэх» дарна.</p>
+          <p className="text-xs text-neutral-500">Нээхэд сурагчдын нүүр хуудсанд тэмцээн гарч, тэд нэгдэнэ. Бүгд нэгдсэний дараа «Эхлэх» дарна.</p>
         </section>
       )}
     </div>
@@ -305,7 +305,7 @@ function Board({quiz}: {quiz: LiveQuiz}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.state, quiz.cur, over, answered, players.length]);
 
-  const next = () => (t ? run(() => openQuestion(t, quiz, quiz.state === 'lobby' ? 0 : quiz.cur + 1)) : setError('Сэдэв олдсонгүй (устгагдсан байж магадгүй).'));
+  const next = () => (t ? run(() => openQuestion(t, quiz, quiz.state === 'lobby' ? 0 : quiz.cur + 1)) : setError('Сэдэв олдсонгүй. Устгагдсан байх.'));
   const last = quiz.cur + 1 >= quiz.pids.length;
   const ranked = ranking(players, scores);
   const teamRanks = teamRanking(players, scores, quiz.teams);
@@ -345,7 +345,7 @@ function Board({quiz}: {quiz: LiveQuiz}) {
 
       {quiz.state === 'lobby' && (
         <section className="rounded-3xl bg-neutral-900 p-6 text-center sm:p-10">
-          <p className="text-lg text-neutral-300">Сурагчид: сайтад нэвтэрч, нүүр хуудасны</p>
+          <p className="text-lg text-neutral-300">Сурагчид сайтад нэвтрээд нүүр хуудасны</p>
           <p className="mt-1 text-3xl font-extrabold text-pink-300 sm:text-4xl">«Шууд тэмцээн»</p>
           <p className="mt-1 text-lg text-neutral-300">дээр дарж нэгдээрэй.</p>
           <p className="mt-6 text-5xl font-extrabold tabular-nums">{players.length}</p>
@@ -619,7 +619,7 @@ function Player({uid, name, classId}: {uid: string; name: string; classId?: stri
     try {
       await joinLive(name);
     } catch (e) {
-      setError(/permission/i.test((e as Error).message) ? 'Нэгдэж чадсангүй: тэмцээн дууссан байж магадгүй.' : (e as Error).message);
+      setError(/permission/i.test((e as Error).message) ? 'Нэгдэж чадсангүй. Тэмцээн дууссан байх.' : (e as Error).message);
     } finally {
       setJoining(false);
     }

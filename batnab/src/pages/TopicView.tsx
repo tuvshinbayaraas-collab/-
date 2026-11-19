@@ -195,8 +195,8 @@ export default function TopicView({id}: {id: string}) {
                 <p className="text-lg font-semibold">{current === 1 ? 'Бүх бодлогыг бодлоо!' : `${current} дахь удаагаа бүгдийг бодлоо!`}</p>
                 <p className="text-sm text-neutral-400">
                   {current === 1
-                    ? `Эхний оролдлогоор ${now.right}/${total} зөв. Алдсан бодлогоо «Дахин бодох»-оор дахин бодож болно.`
-                    : `Энэ удаа ${now.right}/${total} зөв (эхний удаа ${firstTime.right}/${total}). Тоологдох нь эхний удаагийнх.`}
+                    ? `Эхний удаад ${now.right}/${total} зөв. Алдсан бодлогоо «Дахин бодох» товчоор дахин бодож болно.`
+                    : `Энэ удаа ${now.right}/${total} зөв. Дүнд эхний удаагийнх буюу ${firstTime.right}/${total} орно.`}
                 </p>
                 {current === Math.max(last, next ?? 1) && (
                   <button type="button" onClick={restart} className="mt-3 flex items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400">
@@ -333,7 +333,7 @@ function TopicMap(props: {
                   </button>
                 ))}
               </div>
-              <p className="mt-1.5 text-[11px] text-neutral-500">Багшид эхний удаагийн дүн тоологдоно.</p>
+              <p className="mt-1.5 text-[11px] text-neutral-500">Багшид эхний удаагийн дүн харагдана.</p>
             </div>
           )}
           {onRestart && (

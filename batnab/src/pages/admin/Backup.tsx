@@ -52,12 +52,12 @@ export default function BackupSection() {
         <DatabaseBackup size={18} className="text-sky-300" /> Нөөц
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Сэдэв, бодлого, зураг, сурагчдын бүртгэл, дүн, хариулт, тохиргоо — бүгдийг нэг файлаар компьютертээ хадгална. Санамсаргүй
-        устгасан зүйлээ хэрэгтэй үед тэр файлаас буцааж сэргээнэ.
+        Сайтын бүх мэдээллийг нэг файлаар компьютертээ хадгална. Ямар нэг зүйл санамсаргүй уствал
+        тэр файлаас буцааж сэргээнэ.
       </p>
       <p className={`mt-2 text-sm ${old ? 'text-amber-300' : 'text-neutral-400'}`}>
-        {last ? `Энэ төхөөрөмжөөс сүүлд татсан: ${timeAgo(last)} (${when(last)}).` : 'Энэ төхөөрөмжөөс нөөц татаж байгаагүй.'}
-        {old && ' Долоо хоногт нэг удаа татаж байхыг зөвлөж байна.'}
+        {last ? `Энэ төхөөрөмжөөс сүүлд ${timeAgo(last)} татсан, ${when(last)}.` : 'Энэ төхөөрөмжөөс нөөц татаж байгаагүй.'}
+        {old && ' Долоо хоногт нэг удаа татаж байгаарай.'}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={save} disabled={!!busy} className="flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
@@ -119,14 +119,14 @@ function Restore({file, onClose, onDone}: {file: Backup; onClose: () => void; on
       if (failed.length) setError(`${written} зүйл сэргээгдсэн. Сэргээж чадаагүй: ${failed.map(([part, why]) => `${part} (${why})`).join('; ')}`);
       else onDone(written);
     } catch (e) {
-      setError(`Сэргээж чадсангүй: ${(e as Error).message}. Хэсэг нь сэргээгдсэн байж магадгүй: дахин оролдож болно.`);
+      setError(`Сэргээж чадсангүй: ${(e as Error).message}. Зарим нь сэргээгдсэн байж болох тул дахин оролдоорой.`);
     } finally {
       setBusy('');
     }
   };
   return (
     <Sheet title="Нөөцөөс сэргээх" sub={`Нөөц: ${when(file.at)}`} onClose={() => !busy && onClose()}>
-      <p className="text-sm text-neutral-400">Сэргээх хэсгээ сонгоно. Сонгосон хэсгийн нөөцөд байгаа зүйлс тэр үеийн байдал руугаа буцна; нөөцөөс хойш нэмсэн зүйлс хэвээр үлдэнэ.</p>
+      <p className="text-sm text-neutral-400">Сэргээх хэсгээ сонгоно. Сонгосон хэсэг нөөц татсан үеийнхээ байдалд буцна. Нөөцөөс хойш нэмсэн зүйлс хэвээр үлдэнэ.</p>
       <ul className="mt-3 divide-y divide-neutral-800 rounded-xl bg-neutral-800/40">
         {PARTS.map((p) => (
           <li key={p.id}>
@@ -141,7 +141,7 @@ function Restore({file, onClose, onDone}: {file: Backup; onClose: () => void; on
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-neutral-500">Сурагчдын алдааны дэвтэр, дасгалын цуваа зөвхөн нөөцөд хадгалагдана (тэдгээрийг сурагч өөрөө бичдэг).</p>
+      <p className="mt-2 text-xs text-neutral-500">Сурагчдын алдааны дэвтэр, дасгалын цуваа нөөцөд хадгалагдах ч эндээс сэргээгдэхгүй. Тэдгээрийг сурагч өөрөө бичдэг.</p>
       {busy && (
         <p className="mt-3 flex items-center gap-2 text-sm text-neutral-300" role="status">
           <Loader2 size={15} className="animate-spin" /> {busy}

@@ -55,7 +55,7 @@ export function PerfectTitle({kind}: {kind: PerfectKind}) {
   return (
     <p className="flex animate-[pop-in_.5s_ease-out] items-center gap-2 text-lg font-bold motion-reduce:animate-none">
       {kind === 'exam' ? <Crown size={22} className="text-amber-300" /> : <Sparkles size={22} className="text-fuchsia-300" />}
-      <span className={perfectText(kind)}>{kind === 'exam' ? 'Шалгалтанд төгс оноо!' : 'Төгс оноо!'}</span>
+      <span className={perfectText(kind)}>{kind === 'exam' ? 'Шалгалтад төгс оноо!' : 'Төгс оноо!'}</span>
       <span aria-hidden>{kind === 'exam' ? '🏆' : '🎉'}</span>
     </p>
   );

@@ -101,7 +101,7 @@ export function mathErrors(s: string) {
 export function problemWarnings(p: TextProblem) {
   const w: string[] = [];
   if (!p.text.trim()) w.push('өгүүлбэр алга');
-  if (p.extra) w.push('5-аас олон сонголт (илүү нь сүүлийнхэд нь нийлсэн)');
+  if (p.extra) w.push('5-аас олон сонголт байна, илүүг нь сүүлийнхтэй нийлүүлсэн');
   for (const s of [p.text, ...Object.values(p.choices ?? {})]) w.push(...mathErrors(s ?? ''));
   return w;
 }

@@ -151,7 +151,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
   // Going to another page of the site, closing or reloading this one: asked first (and counted if so).
   useEffect(() => {
     if (!counting) return;
-    setNavGuard(() => ask('Шалгалт дуусаагүй байна. Шалгалтын хуудаснаас гарвал «хуудаснаас гарсан» гэж бүртгэгдэж багшид харагдана. Гарах уу?'));
+    setNavGuard(() => ask('Шалгалт дуусаагүй байна. Одоо гарвал багшид «хуудаснаас гарсан» гэж харагдана. Гарах уу?'));
     const unload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
@@ -181,7 +181,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
     return (
       <div className="py-24 text-center">
         <p className="font-semibold">Шалгалтыг ачаалж чадсангүй</p>
-        <p className="mt-1 text-sm text-neutral-400">Интернэт холболтоо шалгаад дахин оролдоно уу. Хугацаа тань үргэлжилж байгаа тул яаравчлаарай.</p>
+        <p className="mt-1 text-sm text-neutral-400">Интернэтээ шалгаад дахин оролдоно уу. Шалгалтын цаг явсаар байна.</p>
         <button onClick={() => location.reload()} className="mt-4 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
           Дахин оролдох
         </button>
@@ -235,7 +235,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
             <span className="text-xs text-neutral-500" aria-live="polite">
               {status === 'error' ? (
                 <span className="flex items-center gap-1 text-red-400">
-                  <CloudOff size={13} /> Хадгалагдаагүй — интернэтээ шалгана уу
+                  <CloudOff size={13} /> Хадгалагдаагүй. Интернэтээ шалгана уу
                 </span>
               ) : status === 'saved' ? (
                 <span className="flex items-center gap-1">
@@ -270,8 +270,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
       {!finished && (
         <div className="mt-4 rounded-xl bg-neutral-900 px-4 py-3 text-sm text-neutral-300">
           <p>
-            Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт тань автоматаар хадгалагдана, хугацаа дуусахад өөрөө илгээгдэнэ. Өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа
-            хаавал тоологдож, хэзээ, хэр удаан гарсан нь багшид шууд харагдана.
+            Шалгалт {clock(exam.start)}–{clock(exam.end)}. Хариулт өөрөө хадгалагдаж, хугацаа дуусахад илгээгдэнэ. Өөр апп руу шилжих, хуудсаа хаах бүр багшид харагдана.
           </p>
         </div>
       )}
@@ -297,7 +296,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
                 <Check size={20} className="text-green-400" /> Шалгалтаа өгсөн
               </p>
               <p className="mt-1 text-sm text-neutral-400">
-                {answered}/{total} бодлогод хариулсан. Дүн шалгалт дуусахад ({clock(exam.end)}) гарна.
+                {answered}/{total} бодлогод хариулсан. Шалгалт {clock(exam.end)}-д дуусахад дүн гарна.
               </p>
             </>
           ) : !saved ? (
@@ -324,7 +323,7 @@ export default function ExamRunner({id, exam, uid, saved}: {id: string; exam: Ex
               {perfect && <p className="mt-1 text-sm text-neutral-300">Шалгалтын бүх бодлогыг зөв бодлоо. Баяр хүргэе!</p>}
               <p className="mt-1 text-sm text-neutral-400">
                 Зарцуулсан хугацаа: {formatDuration(saved.seconds)}
-                {!saved.done && ' • хугацаа дуусахад автоматаар илгээгдсэн'}
+                {!saved.done && ' • хугацаа дуусахад өөрөө илгээгдсэн'}
               </p>
               {missed.length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -404,7 +403,7 @@ export function ExamWait({id, exam, now}: {id: string; exam: Exam; now: number})
       </p>
       <p className="mt-2 text-4xl font-bold tabular-nums">{formatTime((exam.start - now) / 1000)}</p>
       <p className="mt-4 text-sm text-neutral-500">
-        Цаг болоход бодлогууд энд автоматаар гарч ирнэ. Шалгалтын үеэр өөр таб, апп, цонх эсвэл сайтын өөр хуудас руу шилжвэл, хуудсаа хаавал тоологдож багшид шууд харагдана.
+        Цаг болоход бодлогууд энд гарч ирнэ. Шалгалтын үеэр өөр апп руу шилжих, хуудсаа хаах бүр багшид харагдана.
       </p>
     </div>
   );

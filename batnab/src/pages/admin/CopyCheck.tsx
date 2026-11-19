@@ -20,8 +20,8 @@ export default function CopyCheck({sheets, keyed, count, students, review}: {she
   return (
     <section className="space-y-3">
       <p className="text-sm text-neutral-400">
-        Ангийн бусад нь бараг сонгоогүй ижил буруу хариултыг олон бодлогод сонгосон хосууд (нийтлэг андуурлыг тооцохгүй). Энэ нь зөвхөн сэрэмжлүүлэг: хамт давтсан найзууд ч адилхан
-        байж болно.
+        Олон бодлогод ижил буруу хариулт сонгосон хосууд. Ангиараа андуурдаг хариултыг тооцохгүй. Энэ нь зөвхөн анхааруулга, хамт давтсан найзууд ч адилхан
+        алдаж болно.
       </p>
       {!pairs.length ? (
         <p className="rounded-2xl bg-neutral-900 p-5 text-sm text-neutral-300">Сэжигтэй ижил хариулт олдсонгүй ({sheets.length} сурагчийн хариулт).</p>

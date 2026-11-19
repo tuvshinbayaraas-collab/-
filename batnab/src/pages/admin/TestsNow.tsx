@@ -74,7 +74,7 @@ export default function TestsNow({data}: {data: AdminData}) {
                     <StudentName student={byUid.get(x.uid)!} sub={`${testInfo(x.test)!.title} • ${x.n}/${x.total} хариулсан • ${formatDuration(took(x))}`} />
                   </Link>
                   {x.out > 0 && (
-                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-300" title="Тестийн хуудаснаас гарсан (өөр таб, апп эсвэл хуудсаа хаасан)">
+                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-300" title="Тестийн хуудаснаас гарсан. Өөр апп руу шилжсэн эсвэл хуудсаа хаасан.">
                       Одоо гадуур · {formatDuration(Math.max(0, now - x.out) / 1000)}
                     </span>
                   )}
@@ -92,7 +92,7 @@ export default function TestsNow({data}: {data: AdminData}) {
           {stopped.length > 0 && (
             <div className="mt-2 rounded-2xl border border-dashed border-neutral-700 px-4 py-2.5">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
-                <CircleSlash size={13} /> Бодохоо больсон — 30 минутаас удаан гарсан (хагас цагийн дараа энд харагдахаа болино)
+                <CircleSlash size={13} /> Бодохоо больсон, 30 минутаас удаан гарсан. Хагас цагийн дараа эндээс алга болно
               </p>
               <ul className="mt-1.5 space-y-1 text-sm">
                 {stopped.map((x) => (

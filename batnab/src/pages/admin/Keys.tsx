@@ -126,7 +126,7 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
           </span>
         </div>
         <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-sm text-neutral-400">
-          <li>Номын дугаараар бодлого бүрийн зөв үсгийг дарна (дахин дарвал арилна).</li>
+          <li>Бодлого бүрийн зөв үсгийг дарна. Дахин дарвал арилна.</li>
           <li>
             Бодлого нь ямар байсныг <Eye size={14} className="inline" /> дээр дарж харж болно.
           </li>

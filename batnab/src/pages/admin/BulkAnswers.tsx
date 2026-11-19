@@ -83,7 +83,7 @@ export default function BulkAnswers({problems, answers, onApply, onClose}: {prob
     return a ? (p.kind === 'choice' ? LETTER_LABELS[a as Letter] ?? a : a) : '—';
   };
   return (
-    <Sheet title="Хариултуудыг нэг дор" sub="Номын хариултын түлхүүрийг хуулж эсвэл бичээд бүх бодлогод нэг дор оноох." onClose={onClose} wide>
+    <Sheet title="Хариултуудыг нэг дор" sub="Номын хариултыг хуулж эсвэл бичээд бүх бодлогод нэг дор оруулна." onClose={onClose} wide>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-3">
           <textarea
@@ -96,7 +96,7 @@ export default function BulkAnswers({problems, answers, onApply, onClose}: {prob
             className={`${field} resize-y font-mono text-sm`}
           />
           <p className="text-xs text-neutral-500">
-            Дугаар нь бодлогын дугаар: номын хуудаснаас тасдсан бол номын дугаар («18В» нь 18-р бодлого). «-» эсвэл «?» нэг бодлогыг алгасна. А–Д бодлогод үсэг, бичих бодлогод хариултыг бичнэ.
+            Дугаар нь бодлогын дугаар. Номын хуудаснаас тасдсан бол номын дугаараар бичнэ, жишээ нь «18В» бол 18-р бодлого. «-» эсвэл «?» тухайн бодлогыг алгасна. Сонголттой бодлогод үсэг, бусдад хариултыг бичнэ.
           </p>
           {wrong.length > 0 && (
             <ul className="space-y-0.5 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-200">

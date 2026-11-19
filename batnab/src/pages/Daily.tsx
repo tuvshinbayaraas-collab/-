@@ -121,7 +121,7 @@ export default function Daily() {
 
       {!saved.items.length ? (
         <div className="mt-6 rounded-2xl bg-neutral-900 p-8 text-center text-neutral-400">
-          Одоогоор дасгал алга: багш сэдэв нээгээгүй, алдааны дэвтэр ч хоосон байна.{' '}
+          Одоогоор дасгал алга. Багш сэдэв нээгээгүй, алдааны дэвтэр ч хоосон байна.{' '}
           <Link href="/" className="text-blue-400 hover:underline">
             Тест өгөх
           </Link>

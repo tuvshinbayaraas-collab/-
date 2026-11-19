@@ -156,7 +156,7 @@ function Group({qs, names, data}: {qs: Question[]; names: Map<string, string>; d
   const answer = async () => {
     if (await run(() => replyQuestions(chosen, text))) setText('');
   };
-  const drop = () => confirm(`Сонгосон ${chosen.length} сурагчийн асуулт (таны хариутай нь) устгах уу? Тэдэнд ч харагдахгүй болно.`) && void run(() => deleteQuestions(chosen));
+  const drop = () => confirm(`Сонгосон ${chosen.length} сурагчийн асуултыг хариутай нь устгах уу? Тэдэнд ч харагдахгүй болно.`) && void run(() => deleteQuestions(chosen));
   return (
     <li className={`rounded-2xl bg-neutral-900 p-4 ${open.length ? 'ring-1 ring-sky-400/40' : ''}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -382,7 +382,7 @@ function TopicProblem({q, mine: withMine}: {q: Question; mine: boolean}) {
   }, [q.ctx.t, q.ctx.q]);
   if (!topics) return <p className="p-2 text-sm text-neutral-500">Ачаалж байна…</p>;
   const p = topics.find((t) => t.id === q.ctx.t)?.problems.find((x) => x.id === q.ctx.q);
-  if (!p) return <p className="p-2 text-sm text-neutral-500">Энэ бодлого олдсонгүй (устгагдсан байж магадгүй).</p>;
+  if (!p) return <p className="p-2 text-sm text-neutral-500">Энэ бодлого олдсонгүй. Устгагдсан байх.</p>;
   const shown = (a: string | null | undefined) => (a ? (p.kind === 'choice' ? (LETTER_LABELS[a as Letter] ?? a) : a) : '—');
   return (
     <div className="space-y-2 p-2">

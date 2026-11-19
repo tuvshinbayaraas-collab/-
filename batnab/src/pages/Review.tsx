@@ -76,7 +76,7 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
     );
   if (!session.ready || result === undefined || !test) return <Loading what="Хариултыг ачаалж байна…" />;
   if (!result) return <CenterNote title="Энэ дүн олдсонгүй" />;
-  if (isExam && !session.admin && exam && now <= exam.end) return <CenterNote title="Шалгалтын дүн шалгалт дууссаны дараа гарна" />;
+  if (isExam && !session.admin && exam && now <= exam.end) return <CenterNote title="Дүн шалгалт дууссаны дараа гарна" />;
 
   const key = keys[testId];
   const g = grade(result.answers, key, test.questions.length);

@@ -76,7 +76,7 @@ export default function AskButton({ctx}: {ctx: Question['ctx']}) {
                 <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm text-neutral-300">
                   <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
                   <span>
-                    Ангийн дарга ч тайлбарлаж болно <span className="text-neutral-500">(таны нэр, асуулт ангийн даргад харагдана; тайлбар нь шууд танд ирнэ)</span>
+                    Ангийн дарга ч тайлбарлаж болно <span className="text-neutral-500">Таны нэр, асуулт ангийн даргад харагдана. Тайлбар нь шууд танд ирнэ.</span>
                   </span>
                 </label>
               )}

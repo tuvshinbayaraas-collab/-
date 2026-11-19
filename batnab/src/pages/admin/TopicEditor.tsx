@@ -244,9 +244,9 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
 
       {conflict && (
         <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm" role="alert">
-          <p className="font-semibold text-amber-200">Энэ сэдвийг өөр газраас (өөр таб, утас эсвэл компьютер) зэрэг засаж хадгалжээ.</p>
+          <p className="font-semibold text-amber-200">Энэ сэдвийг өөр таб, утас эсвэл компьютерээс зэрэг засаж хадгалжээ.</p>
           <p className="mt-1 text-neutral-300">
-            Таны энд хийсэн өөрчлөлт хараахан хадгалагдаагүй. Нэг нь нөгөөгийнхөө ажлыг устгахгүйн тулд одоогоор юу ч хадгалсангүй: аль нь үлдэхийг сонгоно уу.
+            Энд хийсэн өөрчлөлт тань хадгалагдаагүй байна. Нэг нь нөгөөгөө дарж устгахгүйн тулд юу ч хадгалаагүй. Алийг нь үлдээхээ сонгоно уу.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={adopt} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium hover:bg-neutral-700">
@@ -323,7 +323,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               maxLength={300}
               rows={2}
               onChange={(e) => change((t) => ({...t, intro: e.target.value}))}
-              placeholder="Товч тайлбар (заавал биш): юу сурах вэ"
+              placeholder="Товч тайлбар, жишээ нь юу сурах вэ"
               aria-label="Товч тайлбар"
               className={`${field} mt-3 resize-y text-sm`}
             />
@@ -332,7 +332,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               <Switch on={draft.published} onChange={(on) => change((t) => ({...t, published: on}))} className="px-5 py-3">
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">Сурагчдад нээх</span>
-                  <span className="block text-sm text-neutral-400">{draft.published ? 'Сурагчид «Сэдвүүд»-ээс харж, бодлогоо бодно.' : 'Ноорог: зөвхөн та харна. Бэлэн болмогц асаана.'}</span>
+                  <span className="block text-sm text-neutral-400">{draft.published ? 'Сурагчид Сэдвүүд хэсгээс харж, бодлогоо бодно.' : 'Ноорог. Одоохондоо зөвхөн та харна. Бэлэн болмогц асаана.'}</span>
                 </span>
               </Switch>
             </div>
@@ -357,7 +357,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 )}
               </span>
             </h2>
-            {draft.problems.length > 0 && <p className="-mt-1 text-xs text-neutral-500">Зөв хариултын үсэг дээр дарна (дахин дарвал арилна). Хариултгүй бодлогын сурагчдын хариулт «Шалгах»-д ирж, та зөв, бурууг нь тэмдэглэнэ.</p>}
+            {draft.problems.length > 0 && <p className="-mt-1 text-xs text-neutral-500">Зөв хариултын үсэг дээр дарна, дахин дарвал арилна. Хариултгүй бодлогын хариулт «Шалгах» хэсэгт ирж, та зөв, бурууг нь тэмдэглэнэ.</p>}
             {draft.problems.map((p, i) => (
               <ProblemEditor
                 key={p.id}
@@ -399,8 +399,8 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               </button>
             </div>
             <p className="text-xs text-neutral-500">
-              «Зургаас бодлогууд»: номын хуудасны зургийг (хэд хэдийг ч болно) оруулбал дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ; хариултыг нь тэнд нь сонгож болно.
-              «Текстээр оруулах»: бодлогуудыг бичвэрээр (томьёо $…$ дотор) нэг дор оруулна — утсан дээр ч тод уншигдана; ижил дугаартай бодлогын оронд орвол хариулт нь хэвээр.
+              «Зургаас бодлогууд» нь номын хуудасны зургаас дугаартай бодлого бүрийг тасдаж нэмнэ. Хэд хэдэн зураг зэрэг оруулж болно.
+              «Текстээр оруулах» нь бодлогуудыг бичвэрээр нэг дор оруулна. Ийм бодлого утсан дээр тод уншигддаг.
             </p>
             <input
               ref={pagesRef}
@@ -678,7 +678,7 @@ function VideoLink({value, onChange}: {value: string; onChange: (v: string) => v
         className={`${field} py-2 text-sm`}
       />
       {value.trim() && !src && <p className="text-xs text-amber-300">Холбоос «https://…» гэж эхэлнэ.</p>}
-      {src?.kind === 'link' && <p className="text-xs text-neutral-400">Энэ холбоосыг сайт дотор тоглуулж чадахгүй: сурагчид товч дарж шинэ цонхонд нээнэ.</p>}
+      {src?.kind === 'link' && <p className="text-xs text-neutral-400">Энэ холбоосыг сайт дотор тоглуулж чадахгүй. Сурагчид товч дарж шинэ цонхонд нээнэ.</p>}
       {src?.kind === 'drive' && <p className="text-xs text-neutral-400">Google Drive дээр файлыг «Холбоостой хэн ч үзэж болно» болгож хуваалцсан байх хэрэгтэй.</p>}
       {src && <VideoEmbed link={value} />}
     </div>
@@ -947,7 +947,7 @@ function ProblemEditor(props: {
             <p className="text-sm text-neutral-300">Зөв хариулт</p>
             <AnswerPicker p={p} answer={answer} onAnswer={onAnswer} onKind={kind} />
             <p className="text-xs text-neutral-500">
-              {p.kind === 'choice' ? 'Зөв үсэг дээр дарна (дахин дарвал арилна).' : 'Хоосон зай, том жижиг үсэг, таслал ба цэгийг ялгахгүй харьцуулна.'} Хоосон орхивол сурагчдын хариулт «Шалгах»-д ирж, та шалгана.
+              {p.kind === 'choice' ? 'Зөв үсэг дээр дарна, дахин дарвал арилна.' : 'Хоосон зай, том жижиг үсэг, таслал, цэгийг ялгахгүйгээр харьцуулна.'} Хоосон орхивол сурагчдын хариулт «Шалгах» хэсэгт ирж, та шалгана.
             </p>
             {p.kind === 'choice' &&
               (choiceTexts ? (
@@ -994,7 +994,7 @@ function ProblemEditor(props: {
           </label>
 
           <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg || p.vid)}>
-            <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт, видео тайлбар (заавал биш) — сурагч хариулсны дараа харагдана</summary>
+            <summary className="cursor-pointer text-sm font-medium text-neutral-300">Бодолт, видео тайлбар. Сурагч хариулсны дараа харагдана</summary>
             <div className="mt-3 space-y-3">
               <VideoLink value={p.vid ?? ''} onChange={(vid) => onChange((x) => ({...x, vid}))} />
               <MathArea value={p.sol ?? ''} onChange={(sol) => onChange((x) => ({...x, sol}))} max={3000} placeholder="Хэрхэн бодох вэ…" />
@@ -1125,7 +1125,7 @@ function Trash({tid, problems, onBack}: {tid: string; problems: Problem[]; onBac
   return (
     <Card>
       <h2 className="font-semibold">Хассан зураг ({shown.length})</h2>
-      <p className="mt-1 text-sm text-neutral-400">Сэдвээс хассан зураг {TRASH_DAYS} хоног энд хадгалагдана: буцааж тавьж болно (байсан газраа, эзэнгүй бол хичээлд).</p>
+      <p className="mt-1 text-sm text-neutral-400">Сэдвээс хассан зураг {TRASH_DAYS} хоног энд хадгалагдана. Буцааж тавибал байсан газраа, тэр нь устсан бол хичээлд орно.</p>
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {shown.map((x) => (
           <li key={x.iid} className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">

@@ -27,10 +27,10 @@ export default function Loading({what = 'Ачаалж байна…', small, ret
     };
   }, []);
   const why = !online
-    ? 'Интернэт холболт алга байна. Холбогдмогц өөрөө үргэлжилнэ.'
+    ? 'Интернэт алга байна. Холбогдмогц үргэлжилнэ.'
     : !db
-      ? 'Сервертэй холбогдож чадахгүй байна (сүлжээ сул эсвэл хаагдсан байж магадгүй).'
-      : 'Интернэт сул эсвэл сервер ачаалалтай байж магадгүй.';
+      ? 'Сервертэй холбогдож чадахгүй байна.'
+      : 'Интернэтээ шалгаарай.';
   return (
     <div role="status" aria-live="polite" className={`mx-auto flex max-w-sm flex-col items-center text-center ${small ? 'py-10' : 'py-24'}`}>
       <p className="flex items-center gap-2 text-neutral-400">
@@ -40,7 +40,7 @@ export default function Loading({what = 'Ачаалж байна…', small, ret
         <div className="mt-4 animate-[saved-in_.3s_ease-out] space-y-3">
           <p className="flex items-start justify-center gap-2 text-sm text-neutral-300">
             {!online && <WifiOff size={16} className="mt-0.5 shrink-0 text-amber-300" />}
-            <span>Удаж байна. {why} Хариулт, дүн тань алга болохгүй.</span>
+            <span>Удаж байна. {why} Хариулт, дүн устахгүй.</span>
           </p>
           <button
             type="button"

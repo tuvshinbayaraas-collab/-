@@ -21,7 +21,7 @@ export default function RankLine({test, uid, rid}: {test: string; uid: string; r
       </span>
       <span className="min-w-0 flex-1 text-sm">
         {medal ? (
-          <span className={`font-semibold ${medal.text}`}>Leaderboard: та энэ тестээр {place}-р байрт байна!</span>
+          <span className={`font-semibold ${medal.text}`}>Энэ тестээр leaderboard-д {place}-р байрт явна!</span>
         ) : (
           <>
             <span className="font-semibold">
@@ -30,7 +30,7 @@ export default function RankLine({test, uid, rid}: {test: string; uid: string; r
             <span className="block text-neutral-400">{gap > 0 ? `Эхний 3-т орохын тулд ${gap} оноо дутуу.` : 'Оноо тэнцүү, гэхдээ тэр оноог өмнө нь авсан сурагч дээр байна.'}</span>
           </>
         )}
-        {me.rid !== rid && <span className="block text-xs text-neutral-500">Энэ долоо хоногийн шилдэг оноо тань ({me.score}/{me.total}) тооцогдоно.</span>}
+        {me.rid !== rid && <span className="block text-xs text-neutral-500">Таны энэ долоо хоногийн хамгийн сайн оноо {me.score}/{me.total} тооцогдоно.</span>}
       </span>
       <ChevronRight size={18} className="shrink-0 text-neutral-500" />
     </Link>

@@ -26,7 +26,7 @@ export default function Topics() {
         </span>
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Сэдвүүд</h1>
-          <p className="text-sm text-neutral-400">{session.admin ? 'Сурагчид ингэж харна. Засах бол багшийн самбарын «Сэдэв».' : `Хичээлээ уншаад бодлогоо бодоорой${myClass ? ` · ${myClass}` : ''}.`}</p>
+          <p className="text-sm text-neutral-400">{session.admin ? 'Сурагчид ингэж харна. Засах бол багшийн самбарын Сэдэв хэсэгт орно.' : `Хичээлээ уншаад бодлогоо бодоорой${myClass ? ` · ${myClass}` : ''}.`}</p>
         </div>
       </header>
 

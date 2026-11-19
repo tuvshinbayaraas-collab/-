@@ -60,7 +60,7 @@ export default function TextProblems({problems, onApply, onClose}: {problems: Pr
             />
           </div>
           <p className="text-xs text-neutral-500">
-            Бодлого бүр «1.» гэх мэт дугаараар эхэлнэ. Сонголтууд «a)» … «e)» (эсвэл «а)» … «д)»), мөр бүрт нэг эсвэл нэг мөрөнд хэд хэд. «#»-ээр эхэлсэн мөр тэмдэглэл (орохгүй).
+            Бодлого бүр «1.» гэх мэт дугаараар эхэлнэ. Сонголтыг «a)» … «e)» эсвэл «а)» … «д)» гэж бичнэ, нэг мөрөнд нэг эсвэл хэд хэдийг. «#»-ээр эхэлсэн мөр тэмдэглэл бөгөөд орохгүй.
           </p>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} className="mt-1" />

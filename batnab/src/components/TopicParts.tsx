@@ -108,7 +108,7 @@ function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; 
       setFile(null);
       onSent();
     } catch (e) {
-      setError(/permission/i.test((e as Error).message) ? 'Зургийг илгээж чадсангүй: багш шалгасан, эсвэл сэдэв хаагдсан байж магадгүй. Хуудсаа дахин ачаална уу.' : (e as Error).message);
+      setError(/permission/i.test((e as Error).message) ? 'Зургийг илгээж чадсангүй. Багш аль хэдийн шалгасан эсвэл сэдэв хаагдсан байх. Хуудсаа дахин ачаална уу.' : (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -135,7 +135,7 @@ function MyWork({uid, tid, pid, sent, open, onSent}: {uid: string; tid: string; 
       {/* Sent without a connection: it waits on the phone (lib/outbox), even if the app is closed. */}
       {busy && !connected && (
         <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="status">
-          Интернэт холболт алга. Зураг тань утсанд хадгалагдсан — холболт сэргэхэд автоматаар илгээгдэнэ.
+          Интернэт алга байна. Зураг хадгалагдсан, интернэт орж ирэхэд илгээгдэнэ.
         </p>
       )}
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -354,7 +354,7 @@ export function ProblemView(props: {
       {p.img && <TopicPicture tid={tid} iid={p.img} className="-mx-2 mt-3 w-[calc(100%+1rem)] sm:mx-0 sm:w-full" trim />}
 
       {teacher && !p.k && !practice ? (
-        <p className="mt-4 rounded-xl bg-neutral-800/50 p-3 text-sm text-neutral-300">Сурагчид энэ бодлогын хариултаа танд илгээнэ: сэдвийн «Шалгах» хэсэгт зөв, бурууг нь тэмдэглэнэ.</p>
+        <p className="mt-4 rounded-xl bg-neutral-800/50 p-3 text-sm text-neutral-300">Сурагчид энэ бодлогын хариултаа танд илгээнэ. Сэдвийн «Шалгах» хэсэгт зөв, бурууг нь тэмдэглэнэ.</p>
       ) : (
         <form onSubmit={check} className="mt-4">
           {p.kind === 'choice' ? (
@@ -406,7 +406,7 @@ export function ProblemView(props: {
               onChange={(e) => setPick(e.target.value)}
               maxLength={300}
               rows={2}
-              placeholder="Хариултаа бичнэ үү (бодолтоо товч бичиж болно)"
+              placeholder="Хариулт, товч бодолтоо бичнэ үү"
               aria-label="Хариулт"
               className={`w-full resize-y rounded-xl border bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500 ${done ? (ok ? 'border-green-500' : v === false ? 'border-red-500' : 'border-violet-400') : 'border-neutral-700'}`}
             />
@@ -435,7 +435,7 @@ export function ProblemView(props: {
               </button>
               {!practice && !first && !teacher && (
                 <span className="text-xs text-neutral-500">
-                  {byTeacher ? 'Хариулт тань (бодолтын зураг ч) багшид очно: багш шалгаад зөв, бурууг тань хэлнэ.' : again2 ? `${round} дахь удаагийн хариулт тань хадгалагдана.` : 'Эхний хариулт тань багшид харагдана.'}
+                  {byTeacher ? 'Хариулт, бодолтын зураг багшид очно. Багш шалгаад зөв, бурууг хэлнэ.' : again2 ? `${round} дахь удаагийн хариулт хадгалагдана.` : 'Эхний хариулт багшид харагдана.'}
                 </span>
               )}
             </div>
@@ -443,7 +443,7 @@ export function ProblemView(props: {
           {/* Sent without a connection: it waits on the phone (lib/outbox), even if the app is closed. */}
           {busy && !connected && !practice && !teacher && (
             <p className="mt-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="status">
-              Интернэт холболт алга. Хариулт тань утсанд хадгалагдсан — холболт сэргэхэд автоматаар илгээгдэнэ.
+              Интернэт алга байна. Хариулт хадгалагдсан, интернэт орж ирэхэд илгээгдэнэ.
             </p>
           )}
         </form>
@@ -460,12 +460,12 @@ export function ProblemView(props: {
                 {ok ? 'Дасгал: энэ удаа зөв.' : `Дасгал: буруу.${shownKey ? ` Зөв хариулт: ${shownKey}` : ''}`}
               </p>
               <p className="mt-1 text-sm text-neutral-400">
-                {recV === false ? 'Тоологдох нь эхний хариулт — буруу. Дахин бодсон нь зөвхөн дасгал.' : 'Тоологдох нь эхний хариулт. Дахин бодсон нь зөвхөн дасгал.'}
+                {recV === false ? 'Дүнд эхний хариулт орно, тэр нь буруу байсан. Одоо бодох нь дасгал.' : 'Дүнд эхний хариулт орно. Одоо бодох нь дасгал.'}
               </p>
             </div>
           ) : waiting ? (
             <p className="flex flex-wrap items-center gap-2 font-semibold text-violet-200">
-              <Hourglass size={18} /> Багшид илгээсэн. Шалгаад зөв, бурууг тань энд хэлнэ.
+              <Hourglass size={18} /> Багшид илгээсэн. Багш шалгаад энд хариу өгнө.
             </p>
           ) : v === null ? (
             <p className="font-semibold text-neutral-300">Энэ бодлогод одоо шалгах хариулт алга.</p>

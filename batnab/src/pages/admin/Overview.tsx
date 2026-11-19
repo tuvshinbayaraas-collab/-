@@ -209,7 +209,7 @@ function Recent({data}: {data: AdminData}) {
                       <StudentName student={byUid.get(r.uid)!} sub={`${testInfo(r.test)!.title} • ${timeAgo(r.at)}`} />
                     </span>
                     {!!r.leaves && (
-                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300" title="Тест өгөх үеэр хуудаснаас гарсан (сурагчид харагдахгүй)">
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300" title="Тест өгөх үеэр хуудаснаас гарсан. Сурагчид харагдахгүй.">
                         <AlertTriangle size={12} /> {r.leaves}
                       </span>
                     )}
@@ -382,7 +382,7 @@ function TestDetail({report}: {report: TestReport}) {
         <Link href={`/admin?tab=keys&test=${info.id}`} className="flex items-center gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 hover:bg-amber-500/15">
           <KeyRound size={18} className="shrink-0" />
           <span className="flex-1">
-            Түлхүүр оруулаагүй тул оноо тооцох боломжгүй. Сурагчдын хариулт хадгалагдсан байгаа: түлхүүр оруулмагц бүх дүн, анализ шууд гарна.
+            Түлхүүр оруулаагүй тул оноо гарахгүй байна. Сурагчдын хариулт хадгалагдсан, түлхүүр оруулмагц дүн, анализ шууд гарна.
           </span>
           <ChevronRight size={16} />
         </Link>

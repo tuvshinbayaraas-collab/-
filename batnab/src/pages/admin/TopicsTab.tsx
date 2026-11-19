@@ -38,7 +38,7 @@ export default function TopicsTab({data}: {data: AdminData}) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">Сэдвүүд ({topics.length})</h2>
-          <p className="text-sm text-neutral-400">Сэдэв бүрт хичээл (бичвэр, томьёо, зураг) болон бодлого оруулна. Сурагчид цэсний «Сэдвүүд»-ээс үзнэ.</p>
+          <p className="text-sm text-neutral-400">Сэдэв бүрт хичээл, бодлогоо оруулна. Сурагчид цэсний Сэдвүүд хэсгээс үзнэ.</p>
         </div>
         <Link href="/live" className="flex items-center gap-2 rounded-full bg-pink-500/15 px-4 py-2 text-sm font-semibold text-pink-200 hover:bg-pink-500/25">
           <Zap size={16} /> Шууд тэмцээн
@@ -50,7 +50,7 @@ export default function TopicsTab({data}: {data: AdminData}) {
 
       {allWaiting > 0 && (
         <p className="flex items-center gap-2 rounded-xl bg-violet-500/10 px-4 py-3 text-sm text-violet-100">
-          <ClipboardCheck size={16} className="shrink-0" /> Сурагчдын {allWaiting} хариулт таныг шалгахыг хүлээж байна: сэдвийн хажуудах «шалгах» дээр дарна.
+          <ClipboardCheck size={16} className="shrink-0" /> Сурагчдын {allWaiting} хариулт таныг шалгахыг хүлээж байна. Сэдвийн хажуудах «шалгах» дээр дарна уу.
         </p>
       )}
 
@@ -58,7 +58,7 @@ export default function TopicsTab({data}: {data: AdminData}) {
         <div className="rounded-2xl border border-dashed border-neutral-700 p-8 text-center">
           <BookOpen size={28} className="mx-auto text-violet-300" />
           <p className="mt-3 font-medium">Одоогоор сэдэв алга</p>
-          <p className="mt-1 text-sm text-neutral-400">«Шинэ сэдэв» дарж эхний сэдвээ (жишээ нь «Логарифм») үүсгээд хичээл, бодлогоо нэмээрэй.</p>
+          <p className="mt-1 text-sm text-neutral-400">«Шинэ сэдэв» дарж эхний сэдвээ үүсгээд хичээл, бодлогоо нэмээрэй.</p>
         </div>
       ) : (
         <ul className="divide-y divide-neutral-800 overflow-hidden rounded-2xl bg-neutral-900">

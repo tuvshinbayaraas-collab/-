@@ -148,7 +148,7 @@ function Abouts({data}: {data: AdminData}) {
       </h2>
       {open && (
         <>
-          <p className="mt-1 text-sm text-neutral-400">Сурагчид профайл дээрээ өөрийнхөө тухай бичсэн нь бусад сурагчдад харагдана. Тохиромжгүйг нь эндээс арилгана.</p>
+          <p className="mt-1 text-sm text-neutral-400">Сурагчдын профайл дээр бичсэн «Миний тухай» бусдад харагддаг. Тохиромжгүйг нь эндээс арилгана.</p>
           <ul className="mt-2 divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
             {list.map((s) => (
               <li key={s.uid} className="flex items-start gap-3 px-4 py-2.5 text-sm">
@@ -316,7 +316,7 @@ function CreatedList({list}: {list: Created[]}) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold">Шинээр үүсгэсэн бүртгэл ({list.length})</h2>
-          <p className="text-sm text-amber-300">Нууц үгийг дахин харах боломжгүй тул одоо хуулж эсвэл татаж аваад сурагчдад өгөөрэй.</p>
+          <p className="text-sm text-amber-300">Нууц үгийг дараа нь харах боломжгүй. Одоо хуулж эсвэл татаж аваад сурагчдад өгөөрэй.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={copy} className="flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-1.5 text-sm font-medium hover:bg-neutral-700">
@@ -372,7 +372,7 @@ function AppLink() {
         <Smartphone size={18} className="text-blue-300" /> Сурагчдаа апп суулгуулах
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Энэ линкийг ангийн группт явуулаарай: нээхэд утсанд нь (iPhone, Android) суулгах заавар шууд гарна. iPhone дээр Messenger-ээс нээвэл эхлээд Safari-д нээх товч гарна.
+        Энэ линкийг ангийн группт явуулаарай. Сурагч нээхэд утсанд нь суулгах заавар шууд гарна. Messenger-ээс нээсэн бол эхлээд Safari-д нээх товч гарна.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <code className="rounded-lg bg-neutral-950 px-3 py-2 text-sm text-neutral-100">{shown}</code>

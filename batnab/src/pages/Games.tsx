@@ -24,12 +24,12 @@ export default function Games() {
         </span>
         <div className="min-w-0">
           <h1 className="text-xl font-bold leading-tight">Тоглоом</h1>
-          <p className="text-sm text-neutral-400">Тархиа сэргээ: нэг минутын математик тоглоом</p>
+          <p className="text-sm text-neutral-400">Хэдхэн минутын математик тоглоом</p>
         </div>
       </header>
       {session.admin && !settings.games && (
         <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-          Сурагчдад одоо хаалттай. Багшийн самбар → Тохиргоо → «Тоглоом»-оор нээнэ.
+          Сурагчдад хаалттай байна. Багшийн самбарын Тохиргоо хэсгээс нээнэ.
         </p>
       )}
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -57,8 +57,8 @@ function Tile({game}: {game: GameInfo}) {
           <span className="block text-lg font-bold text-neutral-50">{game.title}</span>
           <span className="block text-sm text-neutral-300">{game.short}</span>
           <span className="mt-1 block text-xs text-neutral-300">
-            {mine ? `Таны шилдэг: ${mine} · ` : ''}
-            {lead ? `${session.admin || !myClass ? 'Тэргүүлж буй' : 'Ангидаа тэргүүлж буй'}: ${lead.name} (${lead.s})` : 'Энэ долоо хоногт хараахан хэн ч тоглоогүй'}
+            {mine ? `Таны рекорд: ${mine} · ` : ''}
+            {lead ? `${session.admin || !myClass ? 'Тэргүүлж буй' : 'Ангидаа тэргүүлж буй'}: ${lead.name} (${lead.s})` : 'Энэ долоо хоногт тоглосон хүн алга'}
           </span>
         </span>
         <ChevronRight size={18} className="shrink-0 text-neutral-400" />
@@ -70,7 +70,7 @@ function Tile({game}: {game: GameInfo}) {
 export function GamesClosed() {
   return (
     <CenterNote icon={<Gamepad2 size={28} />} title="Тоглоом түр хаалттай">
-      <p className="text-sm text-neutral-400">Багш тоглоомыг одоогоор хаасан байна.</p>
+      <p className="text-sm text-neutral-400">Багш нээхээр тоглож болно.</p>
       <Link href="/" className="mt-3 inline-block text-blue-400 hover:underline">
         Нүүр хуудас руу
       </Link>

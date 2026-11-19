@@ -37,7 +37,7 @@ export default function HelpLadder({hint, steps, help, setHelp, onRetry, last}: 
           <RotateCcw size={15} /> Дахин оролдох
         </button>
       </div>
-      {help === 0 && <p className="text-xs text-neutral-500">Эхлээд сануулгаар өөрөө дахин оролдоорой. Дахин оролдлого тоологдохгүй.</p>}
+      {help === 0 && <p className="text-xs text-neutral-500">Эхлээд сануулгыг хараад өөрөө дахин оролдоорой. Дахин оролдлого дүнд орохгүй.</p>}
     </div>
   );
 }

@@ -69,7 +69,7 @@ export default function SkillBreakdown({
       {onPick && <p className="mt-2 text-xs text-neutral-500">Сэдэв дээр дарж тэр сэдэвт алдсан бодлогуудаа харна.</p>}
       {notebook && review.length > 0 && (
         <Link href="/mistakes" className="mt-3 inline-flex items-center gap-2 rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700">
-          <NotebookPen size={16} className="text-rose-300" /> Алдсан бодлогууд алдааны дэвтэрт орсон — давтах
+          <NotebookPen size={16} className="text-rose-300" /> Алдааны дэвтэрт орсон бодлогуудаа давтах
         </Link>
       )}
     </section>

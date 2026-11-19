@@ -42,7 +42,7 @@ export default function AppNudge() {
       <img src={appIcon} alt="" className="h-11 w-11 shrink-0 rounded-xl" />
       <div className="min-w-0 flex-1">
         <p className="font-semibold leading-snug">{p === 'ios' ? 'Batnab-г нүүр дэлгэцэд нэмэх үү?' : 'Batnab-г апп болгож суулгах уу?'}</p>
-        <p className="text-sm text-neutral-300">Апп шиг бүтэн дэлгэцээр, нэг товшилтоор нээгдэнэ.</p>
+        <p className="text-sm text-neutral-300">Дараа нь нүүр дэлгэцээс шууд нээнэ.</p>
         <button
           type="button"
           onClick={() => {

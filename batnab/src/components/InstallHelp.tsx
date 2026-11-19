@@ -63,7 +63,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
           <img src={appIcon} alt="" className="h-12 w-12 rounded-xl" />
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold">{win ? 'Batnab програмыг суулгах' : p === 'ios' ? 'Нүүр дэлгэцэд нэмэх' : 'Batnab-г апп болгож суулгах'}</h2>
-            <p className="text-sm text-neutral-400">{win ? 'Windows-ийн жинхэнэ програм: Start цэс, taskbar-аас нээгдэнэ.' : 'Дараа нь нүүр дэлгэцийн дүрснээс апп шиг нээгдэнэ.'}</p>
+            <p className="text-sm text-neutral-400">{win ? 'Компьютерт програм болж суугаад Start цэснээс нээгдэнэ.' : 'Дараа нь утасныхаа нүүр дэлгэцээс шууд нээнэ.'}</p>
           </div>
           <button onClick={onClose} aria-label="Хаах" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800">
             <X size={18} />
@@ -72,7 +72,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
 
         {p !== 'desktop' && (
           <p className="mt-4 rounded-xl bg-blue-500/10 px-3 py-2 text-sm text-blue-100">
-            Апп шиг: хаягийн мөргүй бүтэн дэлгэцээр, нүүр дэлгэцээсээ нэг товшилтоор нээгдэнэ; мэдэгдэл асааж болно.
+            Хаягийн мөргүй, бүтэн дэлгэцээр нээгдэнэ. Мэдэгдэл ч асааж болно.
           </p>
         )}
         {ios?.browser === 'safari' && (
@@ -100,7 +100,7 @@ export default function InstallHelp({onClose}: {onClose: () => void}) {
           {ios ? ios.browser === 'safari' && way === 'download' ? <DownloadSteps /> : <IosSteps {...ios} /> : p === 'android' ? <AndroidSteps /> : win ? <WindowsSteps /> : <DesktopSteps />}
         </ol>
 
-        <p className="mt-5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Туршилтын хувилбар: тест, шалгалт өгөхөд интернэт шаардлагатай хэвээр.</p>
+        <p className="mt-5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Апп болгосон ч тест, шалгалт өгөхөд интернэт хэрэгтэй.</p>
         <button onClick={onClose} className="mt-4 w-full rounded-full bg-neutral-800 py-2 text-sm font-medium hover:bg-neutral-700">
           Ойлголоо
         </button>
@@ -230,7 +230,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
     ) : (
       <Step n={n} mock={<SafariBar safari26={false} />}>
         Дэлгэцийн доод талын голд байгаа <Share size={16} className="-mt-1 inline" /> <Btn label={T.share} mn="хуваалцах" /> товчийг дарна.
-        {pointed && ' Сум тэр товчийг заасан.'}
+        {pointed && ' Сум тэр товчийг зааж байна.'}
       </Step>
     );
 
@@ -253,7 +253,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
         <span className="mt-2 flex items-start gap-2 rounded-lg bg-neutral-800/60 px-2.5 py-2 text-xs text-neutral-300">
           <KeyRound size={14} className="mt-0.5 shrink-0 text-amber-300" />
           <span>
-            Анх нээхэд нэвтрэх нэр, нууц үгээ <b>дахин</b> оруулна: iPhone дээр апп нь Safari-аас тусдаа. Хариулт, дүн тань хэвээр.
+            Анх нээхэд нэвтрэх нэр, нууц үгээ <b>дахин</b> оруулна. Хариулт, дүн хэвээрээ байна.
           </span>
         </span>
       </Step>
@@ -264,7 +264,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
     return (
       <>
         <Step n={1}>
-          Та Messenger, Facebook зэрэг апп доторх хөтчөөр нээсэн байна. Эндээс нүүр дэлгэцэд нэмэх боломжгүй тул эхлээд <b>Safari</b>-д нээнэ.
+          Та Messenger эсвэл Facebook дотроос нээсэн байна. Эндээс нэмэх боломжгүй, эхлээд <b>Safari</b>-д нээнэ үү.
           {/* iOS 17 and later open this address in Safari, wherever it is tapped; elsewhere nothing happens and the steps below stay. */}
           <a
             href={`x-safari-${location.origin}/?app`}
@@ -273,7 +273,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
             <Compass size={16} /> Safari-д нээх
           </a>
           <span className="mt-2 block">
-            Нээгдэхгүй бол: баруун дээд эсвэл доод буланд байгаа <Ellipsis size={16} className="-mt-1 inline" /> / <Share size={16} className="-mt-1 inline" /> товчийг дараад{' '}
+            Нээгдэхгүй бол баруун дээд эсвэл доод буланд байгаа <Ellipsis size={16} className="-mt-1 inline" /> / <Share size={16} className="-mt-1 inline" /> товчийг дараад{' '}
             <Btn label={T.openSafari} mn="Safari-д нээх" />
             -г сонгоно.
           </span>
@@ -286,7 +286,7 @@ function IosSteps({browser, ipad, safari26}: {browser: Browser; ipad: boolean; s
             }}
             className="mt-2 flex items-center gap-2 rounded-full bg-neutral-800 px-3 py-1.5 text-xs font-medium hover:bg-neutral-700"
           >
-            <Copy size={14} /> {copied ? 'Хуулагдлаа — Safari-д хуулж оруулна уу' : 'Эсвэл хаягийг хуулж аваад Safari-д нээх'}
+            <Copy size={14} /> {copied ? 'Хуулсан. Safari-д буулгаад нээнэ үү' : 'Хаягийг хуулаад Safari-д нээх'}
           </button>
         </Step>
         <li className="text-xs text-neutral-500">Safari-д нээсний дараа:</li>
@@ -319,12 +319,12 @@ function DownloadSteps() {
         <Btn label={T.done} mn="болсон" />.
         <span className="mt-2 flex items-start gap-2 rounded-lg bg-neutral-800/60 px-2.5 py-2 text-xs text-neutral-300">
           <Check size={14} className="mt-0.5 shrink-0 text-green-400" />
-          <span>«Not Signed» гэж гарч болно: энэ профайл зөвхөн нүүр дэлгэцэд Batnab-ийн дүрс нэмнэ, өөр юу ч өөрчлөхгүй. Хүсвэл Settings → General → VPN & Device Management-ээс устгана.</span>
+          <span>«Not Signed» гэж гарвал санаа зовох хэрэггүй. Энэ профайл зөвхөн Batnab-ийн дүрсийг нүүр дэлгэцэд нэмнэ. Устгах бол Settings → General → VPN & Device Management.</span>
         </span>
       </Step>
       <Step n={4}>
         <Check size={16} className="-mt-1 mr-1 inline text-green-400" />
-        Нүүр дэлгэцэд гарсан <img src={appIcon} alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээгээд нэвтэрнэ (Safari-аас тусдаа тул дахин).
+        Нүүр дэлгэцэд гарсан <img src={appIcon} alt="" className="-mt-1 inline h-5 w-5 rounded-md" /> <b>Batnab</b> дүрсээр нээгээд дахин нэвтэрнэ.
       </Step>
     </>
   );
@@ -387,15 +387,14 @@ function WindowsSteps() {
         .
       </Step>
       <Step n={2}>
-        Татагдсан файлыг нээнэ (хөтчийн татсан файлууд эсвэл <b>Downloads</b> хавтас). Хөтөч «түгээмэл биш файл» гэж анхааруулбал <Btn label={W.keep} mn="хадгалах" />{' '}
+        Татагдсан файлыг <b>Downloads</b> хавтаснаас нээнэ. Хөтөч анхааруулга гаргавал <Btn label={W.keep} mn="хадгалах" />{' '}
         дарна.
       </Step>
       <Step n={3} mock={<SmartScreen />}>
-        Цэнхэр цонх гарвал <Btn label={W.more} mn="дэлгэрэнгүй" /> → <Btn label={W.run} mn="ажиллуулах" /> дарна. Програм шинэ, гарын үсэг (сертификат)-гүй учраас
-        Windows ингэж асуудаг.
+        Цэнхэр цонх гарвал <Btn label={W.more} mn="дэлгэрэнгүй" /> → <Btn label={W.run} mn="ажиллуулах" /> дарна. Шинэ програм болохоор Windows ингэж асуудаг.
       </Step>
       <Step n={4}>
-        Суулгаж дуусахад <Btn label="Run Batnab" mn="нээх" /> дарна. Дараа нь <b>Start</b> цэснээс «Batnab» гэж хайж нээнэ.
+        Суулгаж дуусахад <Btn label="Run Batnab" mn="нээх" /> дарна. Дараа нь <b>Start</b> цэснээс Batnab-г хайж нээнэ.
       </Step>
       {canPrompt && (
         <li className="text-sm text-neutral-400">

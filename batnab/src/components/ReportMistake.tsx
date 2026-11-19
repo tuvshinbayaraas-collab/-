@@ -50,7 +50,7 @@ export function ReasonPicker({
         maxLength={400}
         rows={2}
         onChange={(e) => setWords(e.target.value)}
-        placeholder={reason === 'Өөр' ? 'Юу нь буруу вэ?' : 'Нэмж хэлэх зүйл (заавал биш). Жишээ нь: В сонголтод хасах тэмдэг дутуу.'}
+        placeholder={reason === 'Өөр' ? 'Юу нь буруу вэ?' : 'Нэмж хэлэх зүйл байвал бичнэ үү. Жишээ нь: В сонголтод хасах тэмдэг дутуу.'}
         aria-label="Алдааны тайлбар"
         className="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-amber-400"
       />
@@ -83,7 +83,7 @@ export default function ReportButton({what}: {what: Pick<Report, 'kind' | 'ref' 
       setReason('');
       setWords('');
     } catch (e) {
-      setError(/permission/i.test((e as Error).message) ? 'Болсонгүй: багш энэ эрхийг унтраасан байж магадгүй.' : (e as Error).message);
+      setError(/permission/i.test((e as Error).message) ? 'Илгээж чадсангүй. Багш энэ боломжийг хаасан байна.' : (e as Error).message);
     } finally {
       setBusy(false);
     }

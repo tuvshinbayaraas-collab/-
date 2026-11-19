@@ -67,7 +67,7 @@ export default function TopicCheck(props: {topic: Topic; students: Student[]; pr
         <p className="min-w-0 flex-1 text-sm text-neutral-300">
           {total ? (
             <>
-              <span className="font-semibold text-violet-200">{total} хариулт</span> таныг шалгахыг хүлээж байна. Ижил хариултууд нэг мөрөнд: нэг товшилтоор бүгдийг нь шалгана.
+              <span className="font-semibold text-violet-200">{total} хариулт</span> таныг шалгахыг хүлээж байна. Ижил хариултууд нэг мөрөнд байгаа тул нэг дарахад бүгд шалгагдана.
             </>
           ) : (
             'Шалгах хариулт алга.'
@@ -81,7 +81,7 @@ export default function TopicCheck(props: {topic: Topic; students: Student[]; pr
       {error && <p className="text-sm text-red-400">{error}</p>}
       {!list.length && (
         <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">
-          {all ? 'Сурагчид хариулт илгээгээгүй байна.' : 'Бүх хариултыг шалгасан. Хариултгүй (түлхүүргүй) бодлогын хариулт энд ирнэ.'}
+          {all ? 'Сурагчид хариулт илгээгээгүй байна.' : 'Бүх хариултыг шалгасан. Зөв хариулт оруулаагүй бодлогын хариулт энд ирнэ.'}
         </p>
       )}
       {list.map(({p, i, entries, waiting}) => (
@@ -212,7 +212,7 @@ function Person({tid, p, e, onMark}: {tid: string; p: Problem; e: Entry; onMark:
           onChange={(x) => setNote(x.target.value)}
           onBlur={saveNote}
           onKeyDown={(x) => x.key === 'Enter' && saveNote()}
-          placeholder="Сурагчид харагдах тайлбар (заавал биш)"
+          placeholder="Сурагчид харагдах тайлбар"
           className="mt-1.5 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500"
         />
       )}

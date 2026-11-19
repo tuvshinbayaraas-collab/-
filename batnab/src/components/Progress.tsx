@@ -61,11 +61,11 @@ export function ProgressChart({points}: {points: WeekPoint[]}) {
         <h2 className="flex items-center gap-2 font-semibold">
           <TrendingUp size={18} className="text-blue-300" /> Ахиц
         </h2>
-        <p className="text-sm text-neutral-400">Долоо хоног бүрийн тестүүдийн шилдэг оноо (дундаж)</p>
+        <p className="text-sm text-neutral-400">Долоо хоног бүрийн шилдэг оноонуудын дундаж</p>
         {change !== null && <p className={`ml-auto text-sm font-semibold ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>{change >= 0 ? `▲ ${change}%` : `▼ ${-change}%`} өмнөх долоо хоногоос</p>}
       </div>
       {!points.length ? (
-        <p className="mt-3 text-sm text-neutral-400">Тест өгөхөд долоо хоног бүрийн дүн энд хадгалагдаж, ахиц тань харагдана.</p>
+        <p className="mt-3 text-sm text-neutral-400">Тест өгөх тусам долоо хоног бүрийн дүн энд нэмэгдэнэ.</p>
       ) : (
         <>
           <div className="relative mt-4 h-40 pl-9">

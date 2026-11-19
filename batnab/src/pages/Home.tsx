@@ -119,7 +119,7 @@ export default function Home() {
           {student && session.admin && (
             <Link href="/admin" className="mt-5 flex items-center gap-3 rounded-2xl bg-blue-500/10 p-4 text-blue-300 hover:bg-blue-500/15">
               <GraduationCap size={22} />
-              <span className="flex-1 font-semibold">Багшийн самбар: сурагчид, түлхүүр, анализ</span>
+              <span className="flex-1 font-semibold">Багшийн самбар</span>
               <ChevronRight size={18} />
             </Link>
           )}
@@ -180,7 +180,7 @@ export default function Home() {
                     })}
                   </ul>
                 ) : (
-                  <p className="mt-3 text-sm text-neutral-400">Тест өгөхөд шилдэг дүн тань энд гарна.</p>
+                  <p className="mt-3 text-sm text-neutral-400">Тест өгсний дараа шилдэг дүн энд гарна.</p>
                 )}
               </section>
             )}
@@ -205,7 +205,7 @@ function Hero({trial, guest, admin}: {trial?: {id: string}; guest: boolean; admi
           <LogoMark size={22} /> Batnab
         </p>
         <h1 className="text-2xl font-extrabold tracking-tight sm:mt-3 sm:text-4xl">Математикийн тест</h1>
-        <p className="mt-2 text-neutral-300 sm:mt-3">Тест бүр 30 бодлоготой. Тест өгөх бүрт бодлогуудын байр холилдоно. Дуусгахад оноо болон аль бодлого дээр алдсан нь харагдана.</p>
+        <p className="mt-2 text-neutral-300 sm:mt-3">Тест бүр 30 бодлоготой. Дуусгамагц оноо, алдсан бодлогоо харна.</p>
         <div className="mt-5 flex flex-wrap gap-2.5 sm:mt-6 sm:gap-3">
           {guest && (
             <>
@@ -221,7 +221,7 @@ function Hero({trial, guest, admin}: {trial?: {id: string}; guest: boolean; admi
           )}
           {admin && (
             <Link href="/admin" className="flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 font-semibold text-black hover:bg-blue-400">
-              <GraduationCap size={18} /> Багшийн самбар: сурагчид, түлхүүр, анализ
+              <GraduationCap size={18} /> Багшийн самбар
             </Link>
           )}
         </div>
@@ -348,7 +348,7 @@ function ExamCard({test, exam, uid, now}: {test: string; exam: Exam; uid: string
     state === 'upcoming' ? (
       <p className="text-sm text-neutral-400">Эхлэхэд {span(exam.start - now)}</p>
     ) : state === 'active' ? (
-      <p className="text-sm font-medium text-green-400">{mine?.done ? 'Өгсөн. Дүн дууссаны дараа гарна' : `Явагдаж байна • ${span(exam.end - now)} үлдлээ`}</p>
+      <p className="text-sm font-medium text-green-400">{mine?.done ? 'Өгсөн. Дүн шалгалтын дараа гарна' : `Явагдаж байна • ${span(exam.end - now)} үлдлээ`}</p>
     ) : (
       <p className="text-sm text-neutral-400">Дууссан • {!mine ? 'өгөөгүй' : g ? `таны дүн ${g.score}/${g.total} (${percent(g)}%)` : keys[test] === undefined ? '…' : 'дүн удахгүй гарна'}</p>
     );

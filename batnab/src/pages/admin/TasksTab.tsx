@@ -128,7 +128,7 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
       const t = kind === 'topic' ? topics?.find((x) => x.id === chosen) : undefined;
       const gap = t ? topicGap(asMap(to), t, classes) : null;
       await createAssignment({kind, ref: chosen, due: at, classes: asMap(to)}, gap ? gap.open : undefined);
-      if (gap && t) setNote(`«${t.title}» сэдвийг ${gap.open ? `${gap.names.join(', ')} ангид` : 'бүх ангид'} ч нээлээ (өмнө нь зөвхөн ${Object.keys(t.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean).join(', ') || 'цөөн'} ангид нээлттэй байсан).`);
+      if (gap && t) setNote(`«${t.title}» сэдвийг ${gap.open ? `${gap.names.join(', ')} ангид` : 'бүх ангид'} ч нээлээ. Өмнө нь зөвхөн ${Object.keys(t.classes ?? {}).map((id) => classes.find((c) => c.id === id)?.name).filter(Boolean).join(', ') || 'цөөн'} ангид нээлттэй байсан.`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -222,14 +222,14 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
                   if (!t.published)
                     return (
                       <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
-                        <TriangleAlert size={13} className="shrink-0" /> Сэдэв нь ноорог (сурагчдад нээгээгүй): сурагчид харахгүй.
+                        <TriangleAlert size={13} className="shrink-0" /> Сэдэв ноорог хэвээр байгаа тул сурагчид харахгүй.
                       </p>
                     );
                   const gap = topicGap(a.classes, t, classes);
                   if (!gap) return null;
                   return (
                     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-300">
-                      <TriangleAlert size={13} className="shrink-0" /> Сэдэв нь {gap.names.join(', ')} ангид хаалттай: тэд энэ даалгаврыг харахгүй.
+                      <TriangleAlert size={13} className="shrink-0" /> Сэдэв нь {gap.names.join(', ')} ангид хаалттай тул тэд энэ даалгаврыг харахгүй.
                       <button type="button" onClick={() => openTopicTo(t.id, gap.open).catch((e) => alert(e.message))} className="rounded-full bg-amber-500/15 px-2.5 py-0.5 font-medium text-amber-200 hover:bg-amber-500/25">
                         Сэдвийг {gap.open ? `${gap.names.join(', ')} ангид` : 'бүх ангид'} нээх
                       </button>
@@ -242,7 +242,7 @@ function Assignments({data, picked}: {data: AdminData; picked: string}) {
                 {open === a.id && (
                   <div className="mt-3">
                     <p className="flex items-center gap-1.5 text-xs text-neutral-500">
-                      <Timer size={13} /> Зарцуулсан хугацаа: нэр дээр дарж бодлого бүрийнхийг харна. Зөвхөн танд харагдана.
+                      <Timer size={13} /> Зарцуулсан хугацаа. Нэр дээр дарж бодлого бүрийнхийг харна. Зөвхөн танд харагдана.
                     </p>
                     <ul className="mt-2 divide-y divide-neutral-800/70 text-sm">
                       {rows
@@ -331,7 +331,7 @@ function Announcements({picked}: {picked: string}) {
         <button disabled={busy || !text.trim()} className={primary}>
           <Send size={16} /> {busy ? 'Илгээж байна…' : 'Зарлах'}
         </button>
-        <p className="text-xs text-neutral-500">Сурагчдын нүүр хуудсанд 3 долоо хоног харагдана (сурагч хааж болно).</p>
+        <p className="text-xs text-neutral-500">Сурагчдын нүүр хуудсанд 3 долоо хоног харагдана. Сурагч хааж болно.</p>
       </form>
       {shown.length > 0 && (
         <ul className="divide-y divide-neutral-800 rounded-2xl bg-neutral-900">
@@ -436,8 +436,8 @@ function Polls({data, picked}: {data: AdminData; picked: string}) {
           <VoteIcon size={16} /> {busy ? 'Илгээж байна…' : 'Асуулга илгээх'}
         </button>
         <p className="text-xs text-neutral-500">
-          Сурагчдын нүүр хуудсанд гарна (хаах хүртэл). Хоёроос доошгүй сонголт, эсвэл «санаагаа бичиж болно». Хариуг зөвхөн та харна.
-          {ideas && ' «Санаа нэмэх»: сурагч бүр 3 хүртэл санаа нэмж, бүх сонголт, санаанаас дуртайдаа санал өгнө; саналын тоо бүгдэд харагдана, хэн нэмж, хэн юу сонгосныг зөвхөн та харна. Сонголтгүй ч болно.'}
+          Хаах хүртэл сурагчдын нүүр хуудсанд гарна. Хоёроос доошгүй сонголт бичих эсвэл «санаагаа бичиж болно»-г асаана. Хариуг зөвхөн та харна.
+          {ideas && ' Сурагч бүр 3 хүртэл санаа нэмж, дуртай сонголтдоо санал өгнө. Саналын тоог бүгд харна, хэн юу сонгосныг зөвхөн та харна. Сонголтгүй ч болно.'}
         </p>
       </form>
       {shown.length > 0 && (
@@ -611,7 +611,7 @@ function IdeasResult({poll, data}: {poll: Poll; data: AdminData}) {
                 {e.idea && (
                   <button
                     type="button"
-                    onClick={() => confirm(`«${e.text}» санааг устгах уу? Түүнд өгсөн саналууд тоологдохоо болино.`) && deleteIdea(poll.id, e.idea!.iid).catch((err) => alert(err.message))}
+                    onClick={() => confirm(`«${e.text}» санааг устгах уу? Түүнд өгсөн саналууд устна.`) && deleteIdea(poll.id, e.idea!.iid).catch((err) => alert(err.message))}
                     aria-label="Санааг устгах"
                     className="shrink-0 self-center rounded-lg p-1 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
                   >

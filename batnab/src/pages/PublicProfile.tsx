@@ -147,7 +147,7 @@ export default function PublicProfile({uid}: {uid: string}) {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-sm text-neutral-400">{mine ? 'Профайл хуудсаа нээхэд амжилтууд тань энд гарна.' : 'Одоогоор амжилт алга.'}</p>
+                <p className="mt-1 text-sm text-neutral-400">{mine ? 'Профайл хуудсаа нээхэд амжилтууд энд гарна.' : 'Одоогоор амжилт алга.'}</p>
               )}
             </div>
           )}

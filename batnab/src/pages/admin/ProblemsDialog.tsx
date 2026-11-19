@@ -256,7 +256,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
   const answered = chosen.filter((it) => it.key).length;
 
   return (
-    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ: томьёо, дүрс яг хэвээрээ." onClose={close} wide>
+    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ. Томьёо, дүрс нь яг хэвээрээ үлдэнэ." onClose={close} wide>
       {error ? (
         <div className="rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
           {error}
@@ -282,7 +282,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-800">
             <div className="h-full rounded-full bg-violet-400 transition-[width]" style={{width: `${Math.round(progress.p * 100)}%`}} />
           </div>
-          <p className="mt-3 text-xs text-neutral-500">Зургийг тэгшилж, цайруулаад багана бүрийг уншина (хуудас бүрт 10–30 секунд). Анх удаа хэлний өгөгдлийг (≈4 MB) татна.</p>
+          <p className="mt-3 text-xs text-neutral-500">Зургийг тэгшилж, цайруулаад багана бүрийг уншина. Хуудас бүрт 10–30 секунд болно. Анх удаа 4 MB орчим өгөгдөл татна.</p>
         </div>
       )}
 
@@ -361,7 +361,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
           </div>
 
           <div className="min-w-0 space-y-3">
-            {page.problems.length === 0 && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">Дугаартай бодлого олдсонгүй. Бүх хуудсыг нэг бодлого болгосон: хүрээг нь тохируулж эсвэл «Хоёр хуваах»-аар хуваана уу.</p>}
+            {page.problems.length === 0 && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">Дугаартай бодлого олдсонгүй, тиймээс бүх хуудсыг нэг бодлого болгосон. Хүрээг нь тохируулах эсвэл «Хоёр хуваах» товчоор хуваана уу.</p>}
             {items.length > 1 && (dupes.size > 0 || !inOrder(items)) && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">
                 <AlertTriangle size={16} className="shrink-0" />
@@ -371,7 +371,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
                 </button>
               </div>
             )}
-            <p className="text-xs text-neutral-500">Бодлого бүр зураг хэлбэрээр нэмэгдэнэ. Бичвэр хэрэгтэй бол «Бичвэр» эсвэл «Хоёулаа»-г гараар сонгоно. Зөв хариултыг энд сонгож болно; сонгоогүй бодлогын сурагчдын хариултыг та «Шалгах»-д шалгана.</p>
+            <p className="text-xs text-neutral-500">Бодлого бүр зураг хэлбэрээр нэмэгдэнэ. Бичвэр хэрэгтэй бол «Бичвэр» эсвэл «Хоёулаа»-г сонгоно. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.</p>
             {items.map((it) => (
               <div key={it.id} className={`rounded-2xl border p-3 ${sel === it.id ? 'border-blue-500/70 bg-blue-500/5' : 'border-neutral-800 bg-neutral-900'} ${it.on ? '' : 'opacity-50'}`}>
                 <div className="flex flex-wrap items-center gap-2">
@@ -408,7 +408,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
                 {it.use !== 'img' && (
                   <div className="mt-2">
                     <MathArea value={it.text} onChange={(text) => edit(it.id, (x) => ({...x, text}))} max={2000} rows={4} label={`${it.num}-р бодлогын бичвэр`} placeholder="Бодлогын бичвэр (томьёо $…$ дотор)" />
-                    <p className="mt-1 text-xs text-amber-200/80">Уншсан бичвэр ихэвчлэн алдаатай: зурагтай тулгаж засна уу.{it.kind === 'choice' && ' А) … Д) сонголтуудыг бичвэрээс өөрөө салгана.'}</p>
+                    <p className="mt-1 text-xs text-amber-200/80">Уншсан бичвэрт алдаа их байдаг тул зурагтай нь тулгаж засна уу.{it.kind === 'choice' && ' А) … Д) сонголтуудыг бичвэрээс өөрөө салгана.'}</p>
                   </div>
                 )}
               </div>

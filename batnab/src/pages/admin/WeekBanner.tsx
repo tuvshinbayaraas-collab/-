@@ -19,7 +19,7 @@ export default function WeekBanner({data}: {data: AdminData}) {
         <span className="font-medium">
           Энэ долоо хоног: {day(start)} – {day(end)}.
         </span>{' '}
-        <span className="text-neutral-400">Дүн Баасан гарагийн 24:00-д цэвэрлэгдэнэ ({untilReset()} үлдлээ).</span>
+        <span className="text-neutral-400">Дүн Баасан гарагийн 24:00-д цэвэрлэгдэнэ. {untilReset()} үлдлээ.</span>
       </p>
       <button
         onClick={() => download(`batnab-dun-${ymd(start)}.csv`, resultsCsv(data))}

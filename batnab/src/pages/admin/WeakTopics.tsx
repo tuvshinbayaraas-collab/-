@@ -99,7 +99,7 @@ export default function WeakTopics({data}: {data: AdminData}) {
           );
         })}
       </ul>
-      <p className="mt-1.5 text-xs text-neutral-500">Сурагч бүрийн эхний хариултаар. «Анхаарах»: тэр сэдэвт хагасаас бага нь зөв.</p>
+      <p className="mt-1.5 text-xs text-neutral-500">Сурагч бүрийн эхний хариултаар. «Анхаарах» гэдэг нь тэр сэдэвт хагасаас бага нь зөв бодсон гэсэн үг.</p>
     </section>
   );
 }

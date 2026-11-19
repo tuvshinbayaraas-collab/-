@@ -101,7 +101,7 @@ export default function Mistakes() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Алдааны дэвтэр</h1>
           <p className="text-sm text-neutral-400">
-            Алдсан бодлого энд цуглана. Зөв бодох бүрд дараа нь (маргааш, 3 хоног, 7 хоногийн дараа) дахин гарч, сүүлд нь төстэй өөр бодлогыг зөв бодвол сурсанд тооцно.
+            Алдсан бодлого энд цуглана. Зөв бодох бүрд маргааш, 3 хоногийн, 7 хоногийн дараа дахин гарна. Эцэст нь төстэй өөр бодлогыг зөв бодвол сурсанд тооцно.
           </p>
         </div>
       </header>
@@ -203,7 +203,7 @@ export default function Mistakes() {
       {(tab === 'learned' || tab === 'notes') && (
         <div className="mt-5 space-y-3">
           {tab === 'learned' && learnedCount > learned.length && !topic && (
-            <p className="text-xs text-neutral-500">Өмнө нь сурсан {learnedCount - learned.length} бодлого энд хадгалагдаагүй (тэр үед сурсан бодлогыг дэвтрээс хасдаг байсан).</p>
+            <p className="text-xs text-neutral-500">Өмнө нь сурсан {learnedCount - learned.length} бодлого энд харагдахгүй. Тэр үед сурсан бодлогыг дэвтрээс хасдаг байсан.</p>
           )}
           {(tab === 'learned' ? learned : notes).map((m) => (
             <div key={m.id} className="rounded-2xl bg-neutral-900">
@@ -246,7 +246,7 @@ export default function Mistakes() {
           ))}
           {!(tab === 'learned' ? learned : notes).length && (
             <p className="rounded-2xl bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-400">
-              {tab === 'learned' ? 'Сурсан бодлого энд гарна.' : 'Бодлогын доорх «Тэмдэглэл нэмэх»-ээр өөртөө тайлбар үлдээгээрэй.'}
+              {tab === 'learned' ? 'Сурсан бодлого энд гарна.' : 'Бодлогын доорх «Тэмдэглэл нэмэх» товчоор өөртөө тэмдэглэл үлдээж болно.'}
             </p>
           )}
         </div>

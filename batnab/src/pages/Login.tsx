@@ -94,7 +94,7 @@ export default function Login() {
           </button>
           {slow && (
             <div role="status" className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              <p>{navigator.onLine ? 'Нэвтрэхэд удаж байна. Интернэт сул эсвэл сервер ачаалалтай байж магадгүй.' : 'Интернэт холболт алга байна. Холбогдоод дахин оролдоно уу.'}</p>
+              <p>{navigator.onLine ? 'Нэвтрэхэд удаж байна. Интернэтээ шалгаад дахин оролдоно уу.' : 'Интернэт холболт алга байна. Холбогдоод дахин оролдоно уу.'}</p>
               <button type="button" onClick={() => void go()} className="mt-2 inline-flex items-center gap-1.5 font-semibold text-amber-200 underline underline-offset-2">
                 <RefreshCw size={14} /> Дахин оролдох
               </button>
@@ -106,7 +106,7 @@ export default function Login() {
             <button onClick={app.start} className="flex w-full items-center justify-center gap-2 rounded-full bg-neutral-800 py-2.5 text-sm font-semibold hover:bg-neutral-700">
               <Download size={18} /> Апп татах <BetaBadge />
             </button>
-            <p className="mt-2 text-center text-xs text-neutral-500">Утасныхаа нүүр дэлгэцэд нэмээд апп шиг нээж ашиглана.</p>
+            <p className="mt-2 text-center text-xs text-neutral-500">Утасныхаа нүүр дэлгэцэд нэмээд шууд нээнэ.</p>
           </div>
         )}
         {trial && (
@@ -125,9 +125,9 @@ export default function Login() {
 /** What Batnab is, in the site's colours (a computer's login page only). */
 function BrandPanel() {
   const points: [typeof ListChecks, string, string][] = [
-    [ListChecks, 'Тест, шалгалт', 'Бодлого бүр холилдож, дуусгахад оноо, алдаа тэр даруй.'],
-    [NotebookPen, 'Алдааны дэвтэр', 'Алдсан бодлого өөрөө орж, давтах өдөр нь эргэж гарна.'],
-    [Zap, 'Шууд тэмцээн', 'Ангиараа, багаараа утсаар уралдана.'],
+    [ListChecks, 'Тест, шалгалт', 'Дуусгамагц оноо, алдсан бодлогоо харна.'],
+    [NotebookPen, 'Алдааны дэвтэр', 'Алдсан бодлого хэдэн өдрийн дараа дахин гарна.'],
+    [Zap, 'Шууд тэмцээн', 'Хичээл дээр утсаараа өрсөлдөнө.'],
   ];
   return (
     <section className="relative hidden overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-600/30 via-blue-500/10 to-transparent p-10 lg:block">
