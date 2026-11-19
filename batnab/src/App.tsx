@@ -51,6 +51,8 @@ const Questions = lazy(() => import('./pages/Questions'));
 const LeadPage = lazy(() => import('./pages/LeadPage'));
 const Live = lazy(() => import('./pages/Live'));
 const PrintTopic = lazy(() => import('./pages/PrintTopic'));
+const Games = lazy(() => import('./pages/Games'));
+const GamePage = lazy(() => import('./pages/GamePage'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -101,6 +103,8 @@ export default function App() {
   else if (path === '/questions') page = <Questions />;
   else if (path === '/lead') page = <LeadPage />;
   else if (path === '/live') page = <Live />;
+  else if (path === '/games') page = <Games />;
+  else if (parts[0] === 'games' && parts.length === 2) page = <GamePage id={parts[1]} />;
   else if (parts[0] === 'print' && parts[1] === 'topic' && parts.length === 3) page = <PrintTopic id={parts[2]} />;
   else if (parts[0] === 'topics' && parts.length === 2) page = <TopicView id={parts[1]} />;
   else if (parts[0] === 'admin' && (parts.length === 1 || (parts[1] === 'report' && parts.length === 2) || ((parts[1] === 'student' || parts[1] === 'topic') && parts.length === 3)))

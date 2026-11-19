@@ -40,6 +40,9 @@
       "leadHelp": {
         ".validate": "newData.isBoolean()"
       },
+      "games": {
+        ".validate": "newData.isBoolean()"
+      },
       "$other": {
         ".validate": false
       }
@@ -1329,6 +1332,35 @@
     "liveScores": {
       ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "gameScores": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$week": {
+        ".validate": "$week.matches(/^[0-9]{13}$/)",
+        "$game": {
+          ".validate": "$game.matches(/^(sprint|g24|graph|tf)$/)",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && $week === (now - ((now - 144000000) % 604800000)) + '' && root.child('settings/games').val() !== false && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && newData.exists() && (!data.exists() || newData.child('s').val() >= data.child('s').val())",
+            ".validate": "newData.hasChildren(['s', 'at', 'name'])",
+            "s": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() % 1 === 0 && (($game === 'sprint' && newData.val() <= 3000) || ($game === 'g24' && newData.val() <= 300) || ($game === 'graph' && newData.val() <= 500) || ($game === 'tf' && newData.val() <= 3000))"
+            },
+            "at": {
+              ".validate": "newData.val() === now"
+            },
+            "name": {
+              ".validate": "newData.isString() && (newData.val() === root.child('users').child($uid).child('nickname').val() || newData.val() === '@' + root.child('users').child($uid).child('username').val())"
+            },
+            "cls": {
+              ".validate": "newData.val() === root.child('users').child($uid).child('class').val()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
     }
   }
 }

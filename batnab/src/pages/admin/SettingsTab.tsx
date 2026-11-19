@@ -18,7 +18,7 @@ export default function SettingsTab({data}: {data: AdminData}) {
     setError('');
     saveSetting(name, value).then(flash, (e) => setError((e as Error).message));
   };
-  const row = (name: 'retakes' | 'leaderboard' | 'photos' | 'shuffleChoices', title: string, text: string) => (
+  const row = (name: 'retakes' | 'leaderboard' | 'photos' | 'shuffleChoices' | 'games', title: string, text: string) => (
     <Switch on={settings[name]} onChange={(on) => change(name, on)} className="items-start p-5">
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
@@ -63,6 +63,11 @@ export default function SettingsTab({data}: {data: AdminData}) {
           'photos',
           'Сурагчид өөрийн зураг тавихыг зөвшөөрөх',
           'Унтраавал сурагчид зөвхөн бэлэн дүрснээс (амьтан г.м.) сонгоно, тавьсан зургууд нь сайт дээр харагдахгүй болно. Зургууд устахгүй: буцааж асаахад дахин харагдана. Нэг сурагчийн зургийг түүний хуудаснаас устгаж болно.',
+        )}
+        {row(
+          'games',
+          'Тоглоом',
+          'Сурагчид «Тоглоом» хэсгээс математик тоглоом (Хурдан тооцоо, 24 тоглоом, График таах, Зөв үү буруу юу) тоглож, ангидаа долоо хоногийн шилдэг оноогоор өрсөлдөнө. Хичээлийн үеэр хаах бол унтраана.',
         )}
         {row(
           'shuffleChoices',

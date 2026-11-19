@@ -21,9 +21,11 @@ export interface Settings {
   leadNotes: boolean;
   leadReports: boolean;
   leadHelp: boolean;
+  /** Whether the math games (src/games) are open to students. */
+  games: boolean;
 }
 
-const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true, studentPolls: true, leadRemind: true, leadNotes: true, leadReports: true, leadHelp: true};
+const DEFAULTS: Settings = {trial: '1A', retakes: true, leaderboard: true, photos: true, shuffleChoices: true, studentPolls: true, leadRemind: true, leadNotes: true, leadReports: true, leadHelp: true, games: true};
 
 let current: Settings | null = null;
 const listeners = new Set<() => void>();
@@ -47,6 +49,7 @@ function start() {
         leadNotes: v.leadNotes !== false,
         leadReports: v.leadReports !== false,
         leadHelp: v.leadHelp !== false,
+        games: v.games !== false,
       };
       listeners.forEach((l) => l());
     },
