@@ -1,6 +1,7 @@
 import {RotateCcw, SkipForward, Undo2} from 'lucide-react';
-import {useRef, useState} from 'react';
-import {apply, isQ, newPuzzle, OPS, q, show, type Op, type Q} from './make24';
+import {useEffect, useRef, useState} from 'react';
+import {climb, ladder} from './adapt';
+import {apply, grade, isQ, levelOfSet, newPuzzle, OPS, q, show, solve, type Op, type Q} from './make24';
 import type {Play} from './Shell';
 
 interface Card {
@@ -8,21 +9,39 @@ interface Card {
   v: Q;
 }
 
+const GRADE = ['', 'Хөнгөн', 'Дунд', 'Хүнд'];
+/** A way to 24 for the review: «8 ÷ 2 = 4, 4 × 6 = 24». */
+const wayFor = (xs: number[]) => (solve(xs.map((n) => q(n))) ?? []).join(', ');
+
 /**
  * «24 тоглоом»: four cards. Tap one, an operation, then another: the two become one card with the result. One card left
- * at 24 solves it (a point, and the next four); not 24, they shake and come back. «Буцаах» takes the last step back,
- * «Дахин» starts the four again, «Алгасах» gives new ones for 10 seconds.
+ * at 24 solves it (its grade in points: 1 easy, 2 middling, 3 hard, and the next four); not 24, they shake and come
+ * back. «Буцаах» takes the last step back, «Дахин» starts the four again, «Алгасах» gives new ones for 10 seconds and
+ * puts the four, with a way, into the review. The grade climbs and falls with the sets solved and skipped.
  */
 export default function Make24({play}: {play: Play}) {
+  const daily = !!play.rngAt;
   const nextId = useRef(0);
   const deal = (xs: number[]): Card[] => xs.map((n) => ({id: nextId.current++, v: q(n)}));
-  const [nums, setNums] = useState(() => newPuzzle());
+  const [k, setK] = useState(0);
+  const [lad, setLad] = useState(() => ladder(play.start, 3));
+  const [nums, setNums] = useState(() => newPuzzle(daily ? levelOfSet(0) : Math.min(3, play.start), undefined, play.rngAt?.(0)));
   const [cards, setCards] = useState<Card[]>(() => deal(nums));
   const [history, setHistory] = useState<Card[][]>([]);
   const [sel, setSel] = useState<number | null>(null);
   const [op, setOp] = useState<Op | null>(null);
   const [state, setState] = useState<'' | 'won' | 'wrong'>('');
   const [solved, setSolved] = useState(0);
+  const g = grade(nums);
+  // The four on the table when the time runs out go into the review with a way.
+  const open = useRef(nums);
+  open.current = state === 'won' ? [] : nums;
+  useEffect(() => {
+    play.onEnd(() => {
+      if (open.current.length) play.miss({q: `Сүүлийн тоонууд: ${open.current.join(', ')}`, right: wayFor(open.current)});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fresh = (xs: number[]) => {
     setNums(xs);
@@ -31,6 +50,15 @@ export default function Make24({play}: {play: Play}) {
     setSel(null);
     setOp(null);
     setState('');
+  };
+  /** The next four, at the ladder's grade (or the day's), after one solved (`good`) or skipped. */
+  const following = (good: boolean) => {
+    const next = climb(lad, good);
+    play.reached(next.top);
+    setLad(next);
+    const i = k + 1;
+    setK(i);
+    return newPuzzle(daily ? levelOfSet(i) : next.level, nums, play.rngAt?.(i));
   };
   const tap = (c: Card) => {
     if (state) return;
@@ -52,9 +80,10 @@ export default function Make24({play}: {play: Play}) {
     setSel(null);
     if (isQ(r, 24)) {
       setState('won');
-      play.add(1);
+      play.add(g);
       setSolved((n) => n + 1);
-      setTimeout(() => fresh(newPuzzle(nums)), 900);
+      const xs = following(true);
+      setTimeout(() => fresh(xs), 900);
     } else {
       setState('wrong');
       setTimeout(() => {
@@ -76,7 +105,9 @@ export default function Make24({play}: {play: Play}) {
     <div className="space-y-4">
       <p className="text-center text-sm text-neutral-400">
         {state === 'won' ? '24 боллоо!' : state === 'wrong' ? '24 болсонгүй. Дахиад оролдоорой.' : sel === null ? 'Тоогоо сонго' : op === null ? 'Үйлдлээ сонго' : 'Нөгөө тоогоо сонго'}
-        <span className="ml-2 text-neutral-500">· бодсон: {solved}</span>
+        <span className="ml-2 text-neutral-500">
+          · {GRADE[g]}, +{g} · бодсон: {solved}
+        </span>
       </p>
       <div className={`grid grid-cols-2 gap-3 ${state === 'wrong' ? 'animate-[shake_.4s_ease-in-out]' : ''}`} role="group" aria-label="Тоонууд">
         {cards.map((c) => (
@@ -121,7 +152,8 @@ export default function Make24({play}: {play: Play}) {
           onClick={() => {
             if (state) return;
             play.penalty(10);
-            fresh(newPuzzle(nums));
+            play.miss({q: `Алгассан тоонууд: ${nums.join(', ')}`, right: wayFor(nums)});
+            fresh(following(false));
           }}
           className="flex items-center justify-center gap-1.5 rounded-full bg-neutral-800 py-2.5 hover:bg-neutral-700"
         >

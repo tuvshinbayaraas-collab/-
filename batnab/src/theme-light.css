@@ -112,16 +112,16 @@
 }
 }
 
-/* A coloured button lights up under the pointer on the dark page; on the light one it deepens instead (its light
-   shade is a dark one here, too dark for the black text on it). */
+/* A coloured button lights up under the pointer, on the light page too: its own light shade (the variable is a dark one
+   here, too dark for the black text on it; a deeper shade would be as well). */
 :root[data-theme='light'] .hover\:bg-blue-400:hover {
-  background-color: var(--color-blue-600);
+  background-color: oklch(70.7% 0.165 254.624);
 }
 :root[data-theme='light'] .hover\:bg-violet-400:hover {
-  background-color: var(--color-violet-600);
+  background-color: oklch(70.2% 0.183 293.541);
 }
 :root[data-theme='light'] .hover\:bg-pink-400:hover {
-  background-color: var(--color-pink-600);
+  background-color: oklch(71.8% 0.202 349.761);
 }
 
 /* Silver stays silver (a medal, the podium's second step): its light shade, under black digits. */

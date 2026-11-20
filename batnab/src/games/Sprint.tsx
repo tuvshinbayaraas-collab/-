@@ -1,31 +1,41 @@
 import {Delete} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
+import {climb, ladder} from './adapt';
 import type {Play} from './Shell';
 import {levelAfter, nextSum, type Sum} from './sprint';
 
 /**
- * «Хурдан тооцоо»: a sum, typed on the keypad (or the keyboard) and sent with OK. Right: its level in points and the next
- * one, harder as more are right; wrong: 3 seconds off and the right answer shown a moment.
+ * «Хурдан тооцоо»: a sum, typed on the keypad (or the keyboard). The right answer goes on its own as soon as it is typed;
+ * another one is sent with OK. Right: its level in points; wrong: 3 seconds off and the right answer shown a moment.
+ * The level climbs and falls with the answers (games/adapt); in the day's challenge it goes by count, the same for all.
  */
 export default function Sprint({play}: {play: Play}) {
-  const [right, setRight] = useState(0);
-  const [sum, setSum] = useState<Sum>(() => nextSum(1));
+  const daily = !!play.rngAt;
+  const [i, setI] = useState(0);
+  const [lad, setLad] = useState(() => ladder(play.start));
+  const [sum, setSum] = useState<Sum>(() => nextSum(daily ? levelAfter(0) : play.start, undefined, play.rngAt?.(0)));
   const [typed, setTyped] = useState('');
   const [shown, setShown] = useState<{answer: number; good: boolean} | null>(null);
   const busy = useRef(false);
 
-  const send = () => {
-    if (busy.current || typed === '' || typed === '-') return;
-    const good = Number(typed) === sum.answer;
+  const send = (value: string) => {
+    if (busy.current || value === '' || value === '-') return;
+    const good = Number(value) === sum.answer;
     busy.current = true;
     setShown({answer: sum.answer, good});
     if (good) play.add(sum.level);
-    else play.penalty(3);
-    const n = good ? right + 1 : right;
+    else {
+      play.penalty(3);
+      play.miss({q: sum.text, your: value.replace('-', '−'), right: String(sum.answer).replace('-', '−'), why: sum.why});
+    }
+    const next = climb(lad, good);
+    play.reached(next.top);
+    const n = i + 1;
     setTimeout(
       () => {
-        setRight(n);
-        setSum((s) => nextSum(levelAfter(n), s.text));
+        setI(n);
+        setLad(next);
+        setSum((s) => nextSum(daily ? levelAfter(n) : next.level, s.text, play.rngAt?.(n)));
         setTyped('');
         setShown(null);
         busy.current = false;
@@ -33,6 +43,11 @@ export default function Sprint({play}: {play: Play}) {
       good ? 250 : 900,
     );
   };
+  // The right answer needs no OK.
+  useEffect(() => {
+    if (typed !== '' && typed !== '-' && Number(typed) === sum.answer) send(typed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typed]);
   const key = (k: string) => {
     if (busy.current) return;
     if (k === '⌫') return setTyped((t) => t.slice(0, -1));
@@ -42,6 +57,8 @@ export default function Sprint({play}: {play: Play}) {
   // The keyboard too, on a computer.
   const sendRef = useRef(send);
   sendRef.current = send;
+  const typedRef = useRef(typed);
+  typedRef.current = typed;
   const keyRef = useRef(key);
   keyRef.current = key;
   useEffect(() => {
@@ -49,7 +66,7 @@ export default function Sprint({play}: {play: Play}) {
       if (/^\d$/.test(e.key)) keyRef.current(e.key);
       else if (e.key === '-' || e.key === '−') keyRef.current('−');
       else if (e.key === 'Backspace') keyRef.current('⌫');
-      else if (e.key === 'Enter') sendRef.current();
+      else if (e.key === 'Enter') sendRef.current(typedRef.current);
       else return;
       e.preventDefault();
     };
@@ -92,7 +109,7 @@ export default function Sprint({play}: {play: Play}) {
       </div>
       <button
         type="button"
-        onClick={send}
+        onClick={() => send(typed)}
         disabled={typed === '' || typed === '-'}
         className="h-14 w-full rounded-xl bg-blue-500 text-lg font-bold text-black hover:bg-blue-400 disabled:opacity-50"
       >

@@ -2,7 +2,7 @@ import {lazy, Suspense, useEffect} from 'react';
 import Loading from '../components/Loading';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
 import GameShell from '../games/Shell';
-import {gameOf, type GameId} from '../lib/games';
+import {dailyGame, gameOf, ubDay, type GameId} from '../lib/games';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -13,14 +13,19 @@ const LOAD = {
   g24: () => import('../games/Make24'),
   graph: () => import('../games/GraphGuess'),
   tf: () => import('../games/TrueFalse'),
+  ees: () => import('../games/Ees'),
 } satisfies Record<GameId, unknown>;
-const GAME = {sprint: lazy(LOAD.sprint), g24: lazy(LOAD.g24), graph: lazy(LOAD.graph), tf: lazy(LOAD.tf)};
+const GAME = {sprint: lazy(LOAD.sprint), g24: lazy(LOAD.g24), graph: lazy(LOAD.graph), tf: lazy(LOAD.tf), ees: lazy(LOAD.ees)};
 
-/** /games/{id}: one of the games (src/games), in its shell (the clock, the score, the week's board). */
+/**
+ * /games/{id}: one of the games (src/games), in its shell (the clock, the score, the week's board); /games/daily: the
+ * day's challenge, today's game with the same problems for everyone.
+ */
 export default function GamePage({id}: {id: string}) {
   const session = useSession();
   const settings = useSettings();
-  const game = gameOf(id);
+  const day = id === 'daily' ? ubDay() : undefined;
+  const game = day !== undefined ? dailyGame(day) : gameOf(id);
   // The game's code comes down while its rules are read, so the clock doesn't run while it loads.
   useEffect(() => {
     if (game) LOAD[game.id]().catch(() => {});
@@ -40,7 +45,7 @@ export default function GamePage({id}: {id: string}) {
   if (!settings.games && !session.admin) return <GamesClosed />;
   const Game = GAME[game.id];
   return (
-    <GameShell game={game}>
+    <GameShell key={`${game.id}:${day ?? ''}`} game={game} day={day}>
       {(play) => (
         <Suspense fallback={<Loading small />}>
           <Game play={play} />

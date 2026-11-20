@@ -47,6 +47,9 @@ const NODES: [string, number][] = [
   ['classPolls', 0],
   ['classPollVotes', 0],
   ['leaderboard', 0],
+  ['gameScores', 0],
+  ['gameTries', 0],
+  ['gameDaily', 0],
   ['pub', 0],
 ];
 

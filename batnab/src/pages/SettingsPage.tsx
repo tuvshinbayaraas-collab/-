@@ -4,6 +4,7 @@ import {useGuideRole} from '../components/Guide';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import Switch, {SavedNote, useSavedNote} from '../components/Switch';
 import {showGuideAgain} from '../lib/guide';
+import {withdrawGames} from '../lib/games';
 import {grade, useKeys} from '../lib/keys';
 import {compare, refreshMine, submitScore, withdraw, type Entry} from '../lib/leaderboard';
 import {syncMine} from '../lib/people';
@@ -50,7 +51,7 @@ export default function SettingsPage() {
     setBusy(key);
     try {
       await save;
-      if (on) await withdraw();
+      if (on) await Promise.all([withdraw(), withdrawGames()]);
       // Back on the leaderboard: this week's best score of each test goes up again.
       if (!on) {
         const best = new Map<string, Entry>();
