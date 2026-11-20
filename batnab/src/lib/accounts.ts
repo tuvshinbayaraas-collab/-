@@ -12,6 +12,7 @@ import {get, ref, serverTimestamp, set, update} from 'firebase/database';
 import {auth, db, emulators, firebaseConfig} from './firebase';
 import {emailFor, USERNAME_RE} from './session';
 import {classPollPathsOf} from './classPolls';
+import {gamePathsOf} from './games';
 import {pollPathsOf} from './polls';
 import {leadPathsOf, outOfClass} from './lead';
 
@@ -68,7 +69,7 @@ export async function setLead(uid: string, lead: boolean) {
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
 /**
  * The account's record, results, questions, topic answers (with the teacher's marks and their photos, and the times
- * done again), the time counted, and their poll answers.
+ * done again), the time counted, their poll answers and their places on the games' boards.
  */
 export async function deleteStudent(uid: string) {
   const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? null;
@@ -92,6 +93,7 @@ export async function deleteStudent(uid: string) {
     // as a class leader, their notes and explanations; their questions' copies for the leaders.
     ...work,
     ...leadPathsOf(uid, notes, queue, mine),
+    ...gamePathsOf(uid),
   });
 }
 export const deleteResult = (uid: string, test: string, id: string) => set(ref(db, `results/${uid}/${test}/${id}`), null);

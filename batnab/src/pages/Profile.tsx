@@ -35,14 +35,15 @@ import {BANNERS, bannerOf, type Banner} from '../lib/banners';
 import {FRAMES, frameOf, isOpen, type Frame} from '../lib/frames';
 import {useClasses} from '../lib/classes';
 import {useKeys} from '../lib/keys';
-import {publicName, refreshMine, useMedals} from '../lib/leaderboard';
+import {publicName, refreshMine} from '../lib/leaderboard';
+import {useMedals} from '../lib/medals';
 import {ABOUT_MAX, saveAbout, syncMine} from '../lib/people';
 import {useMyResults} from '../lib/results';
 import {Link} from '../lib/router';
 import {authError, changePassword, shownName, useSession, type Profile as ProfileData} from '../lib/session';
 import {useSettings} from '../lib/settings';
 import Loading from '../components/Loading';
-import MedalBadge from '../components/MedalBadge';
+import MedalCase from '../components/MedalCase';
 
 const field = 'w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2.5 outline-none focus:border-blue-500';
 const card = 'rounded-2xl bg-neutral-900';
@@ -159,29 +160,38 @@ function Growth({uid}: {uid: string}) {
   );
 }
 
-/** Leaderboard medals: each week's tests' gold, silver and bronze (its animal's) and the «Шилдэг» orders. */
+/** The medals: each week's tests' gold, silver and bronze (its animal's), the «Шилдэг» orders, the games' every 14 days. */
 function Medals({uid}: {uid: string}) {
   const settings = useSettings();
   const medals = useMedals(uid, true);
-  if (!medals || (!medals.length && !settings?.leaderboard)) return null;
+  if (!medals || (!medals.length && !settings?.leaderboard && !settings?.games)) return null;
   return (
-    <section className={`${card} p-5`}>
+    <section className={`${card} p-5`} data-medals>
       <h2 className="flex items-center gap-2 font-semibold">
         <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
         {medals.length > 0 && <span className="text-sm font-normal text-neutral-500">{medals.length}</span>}
       </h2>
       {medals.length ? (
-        <ul className="mt-4 grid grid-cols-3 gap-3">
-          {medals.map((m) => (
-            <MedalBadge key={m.key} m={m} detail />
-          ))}
-        </ul>
+        <MedalCase medals={medals} detail />
       ) : (
         <p className="mt-1 text-sm text-neutral-400">
-          <Link href="/leaderboard" className="text-blue-400 hover:underline">
-            leaderboard
-          </Link>
-          -д долоо хоногийн эхний 3-т орж авсан медаль, одон энд гарна.
+          {settings?.leaderboard && (
+            <>
+              <Link href="/leaderboard" className="text-blue-400 hover:underline">
+                leaderboard
+              </Link>
+              -д долоо хоногийн эхний 3-т{settings.games ? ', ' : ' '}
+            </>
+          )}
+          {settings?.games && (
+            <>
+              <Link href="/games" className="text-blue-400 hover:underline">
+                {settings.leaderboard ? 'тоглоомд' : 'Тоглоомд'}
+              </Link>{' '}
+              14 хоногийн эхний 3-т{' '}
+            </>
+          )}
+          орж авсан медаль энд гарна.
         </p>
       )}
     </section>

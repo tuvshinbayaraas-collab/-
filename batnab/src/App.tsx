@@ -53,6 +53,7 @@ const Live = lazy(() => import('./pages/Live'));
 const PrintTopic = lazy(() => import('./pages/PrintTopic'));
 const Games = lazy(() => import('./pages/Games'));
 const GamePage = lazy(() => import('./pages/GamePage'));
+const NewMedal = lazy(() => import('./components/NewMedal'));
 
 export default function App() {
   const {path, query} = useLocation();
@@ -147,7 +148,20 @@ export default function App() {
       <WorkSync />
       <GuideHost />
       <InstallHelpHost />
+      <MedalMoment path={path} />
     </div>
+  );
+}
+
+/** A student's new medal, shown once (components/NewMedal) between tasks: not in a test, a topic or a game. */
+function MedalMoment({path}: {path: string}) {
+  const session = useSession();
+  const uid = session.user?.uid;
+  if (!uid || !session.profile || session.profile.disabled || session.admin || !(safePage(path) || path === '/games')) return null;
+  return (
+    <Suspense fallback={null}>
+      <NewMedal uid={uid} />
+    </Suspense>
   );
 }
 

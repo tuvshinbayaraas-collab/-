@@ -48,6 +48,8 @@ export interface Medal {
   /** A «Шилдэг оноогоор» order: `tests` tests' scores added up. */
   top?: boolean;
   tests?: number;
+  /** A game's medal (lib/games: every 14 days, `week` the round's start; `test` '', `total` 0). */
+  game?: string;
 }
 
 /**
@@ -285,6 +287,10 @@ const day = (ts: number) => {
 };
 /** "10.10–10.16" (Saturday to Friday). */
 export const weekLabel = (start: number) => `${day(start)}–${day(start + 6 * 86400000)}`;
+/** The days a medal was won over: its week, or a game's 14 days ("11.21–12.04"). */
+export const medalPeriod = (m: Pick<Medal, 'week' | 'game'>) => `${day(m.week)}–${day(m.week + (m.game ? 13 : 6) * 86400000)}`;
+/** When a medal's days ended (the newest first). */
+export const medalEnd = (m: Pick<Medal, 'week' | 'game'>) => m.week + (m.game ? 14 : 7) * 86400000;
 
 export const PLACES = {
   1: {name: 'Алт', ring: 'ring-amber-400', badge: 'bg-amber-400 text-black', text: 'text-amber-300', block: 'bg-amber-400/15'},
@@ -295,7 +301,14 @@ export const PLACES = {
 /** The «Шилдэг оноогоор» orders' names. */
 export const ORDERS = {1: 'Алтан одон', 2: 'Мөнгөн одон', 3: 'Хүрэл одон'} as const;
 
-/** A medal's name: «Алтан одон» for «Шилдэг»'s, «Морины алт» with its week's animal, «Алт» from before the animals. */
-export const medalName = (m: Pick<Medal, 'place' | 'round' | 'top'>) => (m.top ? ORDERS[m.place] : m.round ? `${animalOf(m.round)[1]} ${PLACES[m.place].name.toLowerCase()}` : PLACES[m.place].name);
+/** The games' medals' names. */
+export const GAME_MEDALS = {1: 'Алтан медаль', 2: 'Мөнгөн медаль', 3: 'Хүрэл медаль'} as const;
+
+/**
+ * A medal's name: «Алтан одон» for «Шилдэг»'s, «Морины алт» with its week's animal, «Алт» from before the animals,
+ * «Алтан медаль» for a game's.
+ */
+export const medalName = (m: Pick<Medal, 'place' | 'round' | 'top' | 'game'>) =>
+  m.game ? GAME_MEDALS[m.place] : m.top ? ORDERS[m.place] : m.round ? `${animalOf(m.round)[1]} ${PLACES[m.place].name.toLowerCase()}` : PLACES[m.place].name;
 
 export const percentOf = (e: {score: number; total: number}) => percent({score: e.score, total: e.total, count: e.total});

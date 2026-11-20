@@ -1,13 +1,13 @@
-import {CalendarDays, ChevronRight, Flame, Gamepad2} from 'lucide-react';
+import {CalendarDays, ChevronRight, Flame, Gamepad2, Medal} from 'lucide-react';
 import Loading from '../components/Loading';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
-import {classTotals, dailyGame, GAMES, liveStreak, ubDay, useDailyBoard, useGameBoard, useStreak, useTry, type GameInfo} from '../lib/games';
+import {classTotals, dailyGame, GAMES, liveStreak, ubDay, untilMedals, useDailyBoard, useGameBoard, useStreak, useTry, type GameInfo} from '../lib/games';
 import {useClasses} from '../lib/classes';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
 
-/** /games — «Тоглоом»: the day's challenge, then the five games, each with the student's best this week and who leads. */
+/** /games — «Тоглоом»: the day's challenge, the medals every 14 days, then the five games, each with the student's best this round and who leads. */
 export default function Games() {
   const session = useSession();
   const settings = useSettings();
@@ -32,6 +32,12 @@ export default function Games() {
         <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200">Сурагчдад хаалттай байна. Багшийн самбарын Тохиргоо хэсгээс нээнэ.</p>
       )}
       <Daily />
+      <p className="mt-3 flex items-start gap-2 text-sm text-neutral-300" data-medal-info>
+        <Medal size={16} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+        <span>
+          Тоглоом бүрийн эхний гурав 14 хоног тутам медаль авна. Медаль олгоход <b className="whitespace-nowrap text-neutral-100">{untilMedals()}</b> үлдлээ.
+        </span>
+      </p>
       <ul className="mt-3 grid gap-3 sm:grid-cols-2">
         {GAMES.map((g) => (
           <Tile key={g.id} game={g} />
@@ -103,8 +109,8 @@ function Tile({game}: {game: GameInfo}) {
           <span className="block text-lg font-bold text-neutral-50">{game.title}</span>
           <span className="block text-sm text-neutral-300">{game.short}</span>
           <span className="mt-1 block text-xs text-neutral-300">
-            {mine ? `Энэ долоо хоногт: ${mine} · ` : ''}
-            {lead ? `${session.admin || !myClass ? 'Тэргүүлж буй' : 'Ангидаа тэргүүлж буй'}: ${lead.name} (${lead.s})` : 'Энэ долоо хоногт тоглосон хүн алга'}
+            {mine ? `Энэ 14 хоногт: ${mine} · ` : ''}
+            {lead ? `${session.admin || !myClass ? 'Тэргүүлж буй' : 'Ангидаа тэргүүлж буй'}: ${lead.name} (${lead.s})` : 'Энэ 14 хоногт тоглосон хүн алга'}
           </span>
           {topClass && <span className="block text-xs text-neutral-400">Тэргүүлж буй анги: {classes?.find((c) => c.id === topClass.cls)?.name ?? '…'}</span>}
         </span>

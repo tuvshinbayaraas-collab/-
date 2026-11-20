@@ -11,12 +11,13 @@ import {
   removeScore,
   saveScore,
   startTry,
-  thisWeek,
+  thisRound,
   useDailyBoard,
   useGameBoard,
   useGameStats,
   useStreak,
   useTry,
+  untilMedals,
   type GameInfo,
   type Score,
 } from '../lib/games';
@@ -24,7 +25,6 @@ import type {Rng} from '../lib/rand';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {setSoundOn, sfx, soundOn, unlock} from '../lib/sfx';
-import {untilReset} from '../lib/week';
 
 /** A slip, for the review at the end. */
 export interface Miss {
@@ -289,7 +289,7 @@ export default function GameShell({game, day, children}: {game: GameInfo; day?: 
               </p>
               {(personal || result?.record) && (
                 <p className="mx-auto mt-3 flex w-fit items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-200" data-record>
-                  <Crown size={15} /> {personal ? 'Хувийн шинэ рекорд!' : 'Долоо хоногийн шинэ рекорд!'}
+                  <Crown size={15} /> {personal ? 'Хувийн шинэ рекорд!' : '14 хоногийн шинэ рекорд!'}
                 </p>
               )}
               {daily && student && (
@@ -355,7 +355,7 @@ export default function GameShell({game, day, children}: {game: GameInfo; day?: 
             )
           ) : (
             <p className="mt-4 text-sm text-neutral-400">
-              Энэ долоо хоногт: <b className="text-neutral-100">{Math.max(mine, phase === 'done' && result?.saved && !lbOff ? score : 0)}</b>
+              Энэ 14 хоногт: <b className="text-neutral-100">{Math.max(mine, phase === 'done' && result?.saved && !lbOff ? score : 0)}</b>
               {shownBest > 0 && ` · Рекорд: ${shownBest}`}
             </p>
           )}
@@ -377,9 +377,9 @@ export default function GameShell({game, day, children}: {game: GameInfo; day?: 
           board={board}
           me={uid}
           myClass={admin ? undefined : session.profile?.class}
-          title={daily ? 'Өнөөдрийн шилдэг' : 'Энэ долоо хоногийн шилдэг'}
-          note={daily ? 'Маргааш шинэ сорил гарна' : `Шинэчлэгдэх хүртэл ${untilReset()}`}
-          remove={admin ? (e) => removeScore(daily ? `gameDaily/${day}/${e.uid}` : `gameScores/${thisWeek()}/${game.id}/${e.uid}`) : undefined}
+          title={daily ? 'Өнөөдрийн шилдэг' : 'Энэ 14 хоногийн шилдэг'}
+          note={daily ? 'Маргааш шинэ сорил гарна' : `Эхний гурав медаль авна. Медаль олгоход ${untilMedals()} үлдлээ`}
+          remove={admin ? (e) => removeScore(daily ? `gameDaily/${day}/${e.uid}` : `gameScores/${thisRound()}/${game.id}/${e.uid}`) : undefined}
         />
       )}
     </div>

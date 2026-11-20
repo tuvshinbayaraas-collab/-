@@ -11,8 +11,9 @@ import {testInfo} from '../tests';
 import {useAllQuestions, useAnnouncements, useAssignments, useMyQuestions} from './classroom';
 import {useExams} from './exams';
 import {opened} from './cosmetics';
-import {medalName, useMedals} from './leaderboard';
-import {WEEK} from './week';
+import {gameOf} from './games';
+import {medalEnd, medalName} from './leaderboard';
+import {useMedals} from './medals';
 import {liveOn, useLiveQuiz} from './liveQuiz';
 import {NOTE_DAYS, useAllReports, useClassNotes, useHelpQueue, useMyNudges, useReminders, waitingHelp} from './lead';
 import {usePolls} from './polls';
@@ -162,10 +163,12 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
     notes.push({
       id: `md:${m.key}`,
       kind: 'medal',
-      at: m.week + WEEK,
-      text: m.top
-        ? `${PLACES[m.place]} ${medalName(m)} · Шилдэг оноогоор ${m.place}-р байр · ${m.score} оноо, ${m.tests ?? 1} тест`
-        : `${PLACES[m.place]} ${m.round ? `${medalName(m)} ·` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
+      at: medalEnd(m),
+      text: m.game
+        ? `${PLACES[m.place]} ${medalName(m)} · ${m.place}-р байр: ${gameOf(m.game)?.title ?? m.game} (${m.score} оноо)`
+        : m.top
+          ? `${PLACES[m.place]} ${medalName(m)} · Шилдэг оноогоор ${m.place}-р байр · ${m.score} оноо, ${m.tests ?? 1} тест`
+          : `${PLACES[m.place]} ${m.round ? `${medalName(m)} ·` : ''} ${m.place}-р байр: ${testInfo(m.test)?.title ?? m.test} (${m.score}/${m.total})`.replace(/\s+/g, ' '),
       href: '/profile',
     });
   if (liveOn(live, now) && forClass(live.classes, classId))

@@ -3,7 +3,7 @@ import {useEffect, useMemo, useState} from 'react';
 import {useMyQuestions} from '../lib/classroom';
 import {grade, useKeys} from '../lib/keys';
 import {useHistory} from '../lib/history';
-import {useMedals} from '../lib/leaderboard';
+import {useMedals} from '../lib/medals';
 import {useLive} from '../lib/live';
 import {useMyResults, type Result} from '../lib/results';
 import {badges, useStats, type BadgeFacts} from '../lib/stats';
@@ -64,14 +64,16 @@ export function useBadgeFacts(uid: string | undefined, results: Result[] | null,
 
 /**
  * The signed-in student's badges, as ids: `all` every one earned (shown, and published on their profile), `open` the
- * ones that count for opening a frame or banner — «medal» only once a medal is awarded to them, as the rules check that
- * (a finished week's medal can show before the teacher's page has awarded it). Null while loading.
+ * ones that count for opening a frame or banner — «medal» only once a medal (a test's or a game's) is awarded to them, as
+ * the rules check that (a finished week's medal can show before the teacher's page has awarded it). Null while loading.
  */
 export function useEarned(uid: string | undefined): {all: string[]; open: Set<string>} | null {
   const results = useMyResults();
   const keys = useKeys(results ? results.map((r) => r.test) : []);
   const facts = useBadgeFacts(uid, results, keys);
-  const awarded = useLive(uid ? `medals/${uid}` : null, (v) => !!v && Object.keys(v as object).length > 0);
+  const fromTests = useLive(uid ? `medals/${uid}` : null, (v) => !!v && Object.keys(v as object).length > 0);
+  const fromGames = useLive(uid ? `gameMedals/${uid}` : null, (v) => !!v && Object.keys(v as object).length > 0);
+  const awarded = fromTests === null || fromGames === null ? null : fromTests || fromGames;
   const sig = facts
     ? badges(facts)
         .flatMap((b) => (b.earned ? [b.id] : []))

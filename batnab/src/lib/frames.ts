@@ -1,5 +1,5 @@
 // A frame around the student's picture (users/{uid}/frame; pub/{uid}/frame for classmates, like the photo). The plain
-// ones anyone may take; the special ones open with a badge (lib/stats), a leaderboard medal or being a class leader.
+// ones anyone may take; the special ones open with a badge (lib/stats), a medal (a test's or a game's) or being a class leader.
 // The site checks what is earned; the rules check the medal and the class leader (the rest is only how one looks).
 
 export interface Frame {
@@ -25,7 +25,7 @@ export const FRAMES: Frame[] = [
   {id: 'perfect', name: 'Төгс', bg: 'linear-gradient(135deg, #86efac, #16a34a)', earn: {badge: 'perfect', hint: 'Тестэд бүх бодлогыг зөв бодох'}},
   {id: 'master', name: 'Мастер', bg: 'linear-gradient(135deg, #67e8f9, #2563eb)', earn: {badge: 'master', hint: 'Сэдвийн бүх бодлогыг эхний оролдлогоор зөв бодох'}},
   {id: 'rainbow', name: 'Солонго', bg: 'conic-gradient(#ef4444, #f97316, #facc15, #22c55e, #3b82f6, #8b5cf6, #ef4444)', earn: {badge: 'topics5', hint: '5 сэдвийг бүрэн бодох'}},
-  {id: 'gold', name: 'Алтан', bg: 'linear-gradient(135deg, #fde68a, #d97706, #fef3c7)', earn: {badge: 'medal', hint: 'Leaderboard-оос медаль авах'}},
+  {id: 'gold', name: 'Алтан', bg: 'linear-gradient(135deg, #fde68a, #d97706, #fef3c7)', earn: {badge: 'medal', hint: 'Тест эсвэл тоглоомоос медаль авах'}},
   {id: 'galaxy', name: 'Одот', bg: 'linear-gradient(135deg, #a78bfa, #6366f1, #f0abfc)', earn: {badge: 'streak30', hint: '30 өдөр дараалан өдрийн дасгал хийх'}},
   {id: 'lead', name: 'Ангийн дарга', bg: 'linear-gradient(135deg, #5eead4, #0f766e)', earn: {lead: true, hint: 'Багш таныг ангийн дарга болгоход'}},
 ];

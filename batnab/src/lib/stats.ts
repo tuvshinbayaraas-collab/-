@@ -85,7 +85,7 @@ export const BADGES: Omit<Badge, 'earned'>[] = [
   {id: 'streak7', icon: '⚡', name: '7 өдөр', hint: '7 өдөр дараалан өдрийн дасгал хийх'},
   {id: 'streak30', icon: '🌟', name: '30 өдөр', hint: '30 өдөр дараалан өдрийн дасгал хийх'},
   {id: 'fixer', icon: '🛠️', name: 'Алдаагаа засагч', hint: 'Алдааны дэвтрээс 10 бодлого сурах'},
-  {id: 'medal', icon: '🏅', name: 'Медальт', hint: 'Leaderboard-оос медаль авах'},
+  {id: 'medal', icon: '🏅', name: 'Медальт', hint: 'Тест эсвэл тоглоомоос медаль авах'},
   {id: 'curious', icon: '💬', name: 'Сониуч', hint: 'Багшаас анхны асуултаа асуух'},
   {id: 'regular', icon: '📅', name: 'Тогтмол', hint: '4 өөр долоо хоногт тест өгөх'},
 ];

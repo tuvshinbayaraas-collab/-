@@ -1,17 +1,22 @@
 import {useId} from 'react';
-import {animalOf, medalName, PLACES, weekLabel, type Medal} from '../lib/leaderboard';
+import {gameOf} from '../lib/games';
+import {animalOf, medalName, medalPeriod, PLACES, type Medal} from '../lib/leaderboard';
+import {medalFor} from '../lib/medals';
 import {testInfo} from '../tests';
 
-/** The metals: a disc's light and dark, its rim, and the ribbon's two colours. */
-const METAL = {
-  1: {hi: '#ffe27a', lo: '#d39b12', rim: '#9a6a05', ribbon: ['#2f5bea', '#ffbf2e']},
-  2: {hi: '#f4f6fa', lo: '#9aa3b2', rim: '#6b7381', ribbon: ['#2f5bea', '#c8ced8']},
-  3: {hi: '#f2b27a', lo: '#b2622a', rim: '#7a3d14', ribbon: ['#2f5bea', '#cd7f45']},
+/** The metals: a disc's light and dark, its rim, a glint, and the ribbon's two colours. */
+export const METAL = {
+  1: {hi: '#ffe27a', lo: '#d39b12', rim: '#9a6a05', edge: '#fff4c2', ribbon: ['#2f5bea', '#ffbf2e']},
+  2: {hi: '#f4f6fa', lo: '#9aa3b2', rim: '#6b7381', edge: '#ffffff', ribbon: ['#2f5bea', '#c8ced8']},
+  3: {hi: '#f2b27a', lo: '#b2622a', rim: '#7a3d14', edge: '#ffd9b8', ribbon: ['#2f5bea', '#cd7f45']},
 } as const;
 
+/** A four-pointed glint at (x, y). */
+const glint = (x: number, y: number, r: number) => `M${x} ${y - r}l${r * 0.28} ${r * 0.72} ${r * 0.72} ${r * 0.28}-${r * 0.72} ${r * 0.28}-${r * 0.28} ${r * 0.72}-${r * 0.28}-${r * 0.72}-${r * 0.72}-${r * 0.28} ${r * 0.72}-${r * 0.28}z`;
+
 /**
- * A test's medal as drawn: a two-colour ribbon and a metal disc, with its week's animal and number («Морины алт», №1);
- * one from before the animals, with its place.
+ * A test's medal as drawn: a striped ribbon through a ring, a bevelled metal disc lit from the upper left, with its
+ * week's animal and number («Морины алт», №1); one from before the animals, with its place. Gold catches a glint.
  */
 export function MedalArt({place, round, size = 64}: {place: 1 | 2 | 3; round?: number; size?: number}) {
   const id = useId();
@@ -20,19 +25,30 @@ export function MedalArt({place, round, size = 64}: {place: 1 | 2 | 3; round?: n
   return (
     <svg width={size} height={size * 1.25} viewBox="0 0 64 80" aria-hidden className="shrink-0 drop-shadow">
       <defs>
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={m.edge} />
+          <stop offset="0.45" stopColor={m.hi} />
+          <stop offset="1" stopColor={m.rim} />
+        </linearGradient>
         <radialGradient id={`${id}d`} cx="0.35" cy="0.3" r="0.8">
           <stop offset="0" stopColor={m.hi} />
           <stop offset="1" stopColor={m.lo} />
         </radialGradient>
       </defs>
-      {/* The ribbon: two bands meeting under the disc. */}
-      <path d="M14 0h14l10 30H24z" fill={m.ribbon[0]} />
-      <path d="M50 0H36L26 30h14z" fill={m.ribbon[1]} />
-      <circle cx="32" cy="50" r="27" fill={`url(#${id}d)`} stroke={m.rim} strokeWidth="2.5" />
-      <circle cx="32" cy="50" r="21" fill="none" stroke={m.rim} strokeOpacity="0.45" strokeWidth="1.2" strokeDasharray="2 2.4" />
+      {/* The ribbon: two bands meeting under the ring, each with a light stripe, the far one in shade. */}
+      <path d="M13 0h15l10 28H24z" fill={m.ribbon[0]} />
+      <path d="M18.5 0h3.2l10 28h-3.2z" fill="#fff" fillOpacity="0.35" />
+      <path d="M51 0H36L26 28h14z" fill={m.ribbon[1]} />
+      <path d="M44 0h-3L31 28h3z" fill="#fff" fillOpacity="0.3" />
+      <path d="M26 28h14l-3 5H29z" fill="#000" fillOpacity="0.18" />
+      <circle cx="32" cy="24.5" r="3" fill="none" stroke={m.lo} strokeWidth="1.8" />
+      {/* The disc: a bevelled rim, the face, a dotted ring. */}
+      <circle cx="32" cy="51" r="27" fill={`url(#${id}b)`} />
+      <circle cx="32" cy="51" r="23" fill={`url(#${id}d)`} stroke={m.rim} strokeOpacity="0.6" strokeWidth="1" />
+      <circle cx="32" cy="51" r="19.5" fill="none" stroke={m.rim} strokeOpacity="0.45" strokeWidth="1.1" strokeDasharray="2 2.3" />
       {sign ? (
         <>
-          <text x="32" y="55" textAnchor="middle" fontSize="22">
+          <text x="32" y="56" textAnchor="middle" fontSize="20">
             {sign}
           </text>
           <text x="32" y="69" textAnchor="middle" fontSize="7.5" fontWeight="800" fill={m.rim}>
@@ -40,10 +56,64 @@ export function MedalArt({place, round, size = 64}: {place: 1 | 2 | 3; round?: n
           </text>
         </>
       ) : (
-        <text x="32" y="59" textAnchor="middle" fontSize="24" fontWeight="900" fill={m.rim}>
+        <text x="32" y="60" textAnchor="middle" fontSize="24" fontWeight="900" fill={m.rim}>
           {place}
         </text>
       )}
+      {/* The light on it. */}
+      <path d="M14.5 44a19 19 0 0 1 13-14" fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="2.4" strokeLinecap="round" />
+      {place === 1 && <path d={glint(47, 36, 5)} fill="#fff" className="motion-safe:animate-pulse" />}
+    </svg>
+  );
+}
+
+/** A hexagon's points around (32, cy), one corner straight up. */
+const hexagon = (r: number, cy = 51) =>
+  Array.from({length: 6}, (_, i) => {
+    const t = (Math.PI / 3) * i - Math.PI / 2;
+    return `${(32 + r * Math.cos(t)).toFixed(2)},${(cy + r * Math.sin(t)).toFixed(2)}`;
+  }).join(' ');
+
+/**
+ * A game's medal: a violet ribbon in the metal's colour, a bevelled metal hexagon (unlike the tests' round ones) with the
+ * game's sign and its place.
+ */
+export function GameMedalArt({place, game, size = 64}: {place: 1 | 2 | 3; game: string; size?: number}) {
+  const id = useId();
+  const m = METAL[place];
+  const sign = gameOf(game)?.sign ?? '🎮';
+  return (
+    <svg width={size} height={size * 1.25} viewBox="0 0 64 80" aria-hidden className="shrink-0 drop-shadow">
+      <defs>
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={m.edge} />
+          <stop offset="0.45" stopColor={m.hi} />
+          <stop offset="1" stopColor={m.rim} />
+        </linearGradient>
+        <radialGradient id={`${id}d`} cx="0.35" cy="0.3" r="0.85">
+          <stop offset="0" stopColor={m.hi} />
+          <stop offset="1" stopColor={m.lo} />
+        </radialGradient>
+      </defs>
+      {/* The ribbon: violet and the metal, crossed. */}
+      <path d="M13 0h15l10 28H24z" fill="#7c3aed" />
+      <path d="M18.5 0h3.2l10 28h-3.2z" fill="#fff" fillOpacity="0.3" />
+      <path d="M51 0H36L26 28h14z" fill={m.ribbon[1]} />
+      <path d="M44 0h-3L31 28h3z" fill="#fff" fillOpacity="0.3" />
+      <path d="M26 28h14l-3 5H29z" fill="#000" fillOpacity="0.18" />
+      <circle cx="32" cy="24.5" r="3" fill="none" stroke={m.lo} strokeWidth="1.8" />
+      <polygon points={hexagon(27)} fill={`url(#${id}b)`} strokeLinejoin="round" />
+      <polygon points={hexagon(22.5)} fill={`url(#${id}d)`} stroke={m.rim} strokeOpacity="0.6" strokeWidth="1" strokeLinejoin="round" />
+      <polygon points={hexagon(19)} fill="none" stroke={m.rim} strokeOpacity="0.45" strokeWidth="1.1" strokeDasharray="2 2.3" />
+      <text x="32" y="55" textAnchor="middle" fontSize="18">
+        {sign}
+      </text>
+      <circle cx="32" cy="66" r="5.2" fill={m.rim} />
+      <text x="32" y="68.7" textAnchor="middle" fontSize="7.5" fontWeight="900" fill={m.edge}>
+        {place}
+      </text>
+      <path d="M15.5 40.5l10-6" fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="2.4" strokeLinecap="round" />
+      {place === 1 && <path d={glint(47, 35, 5)} fill="#fff" className="motion-safe:animate-pulse" />}
     </svg>
   );
 }
@@ -115,14 +185,32 @@ export function OrderArt({place, size = 64}: {place: 1 | 2 | 3; size?: number}) 
   );
 }
 
-/** A medal with its name, when it was won and (`detail`) with what. */
-export default function MedalBadge({m, detail}: {m: Medal; detail?: boolean}) {
-  return (
-    <li className="flex flex-col items-center text-center" title={`${m.top ? '«Шилдэг оноогоор» · ' : ''}${weekLabel(m.week)}`}>
-      {m.top ? <OrderArt place={m.place} size={56} /> : <MedalArt place={m.place} round={m.round} size={56} />}
+/** Any medal's art: a test's, an order, a game's. */
+export function Art({m, size}: {m: Medal; size: number}) {
+  return m.game ? <GameMedalArt place={m.place} game={m.game} size={size} /> : m.top ? <OrderArt place={m.place} size={size} /> : <MedalArt place={m.place} round={m.round} size={size} />;
+}
+
+export const testTitle = (id: string) => testInfo(id)?.title ?? id;
+
+/** A medal with its name, when it was won and (`detail`) with what; a button opening its card when `onOpen` is given. */
+export default function MedalBadge({m, detail, onOpen}: {m: Medal; detail?: boolean; onOpen?: (m: Medal) => void}) {
+  const body = (
+    <>
+      <Art m={m} size={56} />
       <span className={`mt-1.5 text-sm font-semibold ${PLACES[m.place].text}`}>{medalName(m)}</span>
-      <span className="text-xs text-neutral-400">{weekLabel(m.week)}</span>
-      {detail && <span className="text-[11px] text-neutral-500">{m.top ? `${m.score} оноо · ${m.tests ?? 1} тест` : `${testInfo(m.test)?.title ?? m.test} · ${m.score}/${m.total}`}</span>}
+      <span className="text-xs text-neutral-400">{medalPeriod(m)}</span>
+      {detail && <span className="text-[11px] text-neutral-500">{medalFor(m, testTitle)}</span>}
+    </>
+  );
+  return (
+    <li className="flex flex-col items-center text-center" data-medal={m.key}>
+      {onOpen ? (
+        <button type="button" onClick={() => onOpen(m)} className="flex w-full flex-col items-center rounded-xl px-1 py-1.5 hover:bg-neutral-800/60" aria-label={`${medalName(m)}, ${medalFor(m, testTitle)}`}>
+          {body}
+        </button>
+      ) : (
+        body
+      )}
     </li>
   );
 }

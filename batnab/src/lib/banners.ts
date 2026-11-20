@@ -1,6 +1,6 @@
 // A banner across the top of the student's profile (users/{uid}/banner; people/{uid}/banner for others, lib/people),
 // behind their picture. Like the frames (lib/frames): the plain ones anyone may take, the special ones open with a badge
-// (lib/stats), a leaderboard medal or being a class leader; the rules check the medal and the class leader.
+// (lib/stats), a medal (a test's or a game's) or being a class leader; the rules check the medal and the class leader.
 
 export interface Banner {
   id: string;
@@ -49,7 +49,7 @@ export const BANNERS: Banner[] = [
   {id: 'flame', name: 'Галт', fx: 'drift', bg: `${EMBERS}, radial-gradient(circle at 80% 120%, #facc15 0, transparent 45%), linear-gradient(135deg, #7f1d1d, #ea580c)`, earn: {badge: 'streak7', hint: '7 өдөр дараалан өдрийн дасгал хийх'}},
   {id: 'formulas', name: 'Томьёо', fx: 'drift', bg: `${SYMBOLS}, linear-gradient(135deg, #312e81, #0f766e)`, earn: {badge: 'perfect', hint: 'Тестэд бүх бодлогыг зөв бодох'}},
   {id: 'aurora', name: 'Туяа', fx: 'glow', bg: 'radial-gradient(ellipse at 20% 0%, #22d3ee 0, transparent 55%), radial-gradient(ellipse at 80% 100%, #a855f7 0, transparent 60%), linear-gradient(135deg, #064e3b, #1e1b4b)', earn: {badge: 'topics5', hint: '5 сэдвийг бүрэн бодох'}},
-  {id: 'gold', name: 'Алтан', fx: 'shine', bg: 'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%) 160% 0 / 220% 100% no-repeat, linear-gradient(135deg, #92400e, #f59e0b, #fde68a)', earn: {badge: 'medal', hint: 'Leaderboard-оос медаль авах'}},
+  {id: 'gold', name: 'Алтан', fx: 'shine', bg: 'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%) 160% 0 / 220% 100% no-repeat, linear-gradient(135deg, #92400e, #f59e0b, #fde68a)', earn: {badge: 'medal', hint: 'Тест эсвэл тоглоомоос медаль авах'}},
   {id: 'stars', name: 'Од эрхэс', fx: 'drift', bg: `${STARS}, radial-gradient(ellipse at 70% 30%, #4c1d95 0, transparent 60%), linear-gradient(135deg, #020617, #1e1b4b)`, earn: {badge: 'streak30', hint: '30 өдөр дараалан өдрийн дасгал хийх'}},
   {id: 'lead', name: 'Ангийн дарга', bg: `${STRIPES}, linear-gradient(135deg, #134e4a, #0d9488)`, earn: {lead: true, hint: 'Багш таныг ангийн дарга болгоход'}},
 ];

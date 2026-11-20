@@ -29,7 +29,7 @@ export const THEMES: Theme[] = [
   {id: 'galaxy', name: 'Сансар', dark: ['#2e1065', '#062b38'], light: ['#ede9fe', '#cffafe']},
   {id: 'berry', name: 'Нэрс', dark: ['#4a044e', '#1e1b4b'], light: ['#fae8ff', '#e0e7ff']},
   {id: 'mono', name: 'Хар цагаан', dark: ['#262626', '#0a0a0a'], light: ['#f5f5f5', '#e5e5e5']},
-  {id: 'gold', name: 'Алтан', dark: ['#422006', '#451a03'], light: ['#fef9c3', '#fef3c7'], earn: {badge: 'medal', hint: 'Leaderboard-оос медаль авах'}},
+  {id: 'gold', name: 'Алтан', dark: ['#422006', '#451a03'], light: ['#fef9c3', '#fef3c7'], earn: {badge: 'medal', hint: 'Тест эсвэл тоглоомоос медаль авах'}},
 ];
 
 export interface Effect {
@@ -60,7 +60,7 @@ export const EFFECTS: Effect[] = [
   {id: 'embers', name: 'Оч', motion: 'rise', shape: 'dot', colors: ['#fb923c', '#facc15', '#f87171'], speed: 7, size: 4, extra: 'sway', glow: true, earn: {badge: 'streak7', hint: '7 өдөр дараалан өдрийн дасгал хийх'}},
   {id: 'confetti', name: 'Конфетти', motion: 'fall', shape: 'rect', colors: ['#f472b6', '#facc15', '#34d399', '#60a5fa', '#a78bfa'], speed: 8, size: 9, extra: 'spin', earn: {badge: 'perfect', hint: 'Тестэд бүх бодлогыг зөв бодох'}},
   {id: 'comets', name: 'Од харвах', motion: 'shoot', shape: 'streak', colors: ['#ffffff', '#c7d2fe', '#a5f3fc'], speed: 6, size: 10, earn: {badge: 'streak30', hint: '30 өдөр дараалан өдрийн дасгал хийх'}},
-  {id: 'gold', name: 'Алтан гялбаа', motion: 'twinkle', shape: 'text', glyphs: ['✦', '✧', '✦'], colors: ['#fde68a', '#fbbf24', '#fef3c7'], speed: 2.6, size: 12, glow: true, earn: {badge: 'medal', hint: 'Leaderboard-оос медаль авах'}},
+  {id: 'gold', name: 'Алтан гялбаа', motion: 'twinkle', shape: 'text', glyphs: ['✦', '✧', '✦'], colors: ['#fde68a', '#fbbf24', '#fef3c7'], speed: 2.6, size: 12, glow: true, earn: {badge: 'medal', hint: 'Тест эсвэл тоглоомоос медаль авах'}},
 ];
 
 export const themeOf = (id: string | null | undefined) => (id ? (THEMES.find((t) => t.id === id) ?? null) : null);

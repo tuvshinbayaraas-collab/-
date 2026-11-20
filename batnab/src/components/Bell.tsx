@@ -66,7 +66,7 @@ export default function Bell() {
     <div className="relative">
       <button onClick={toggle} aria-label={fresh ? `Мэдэгдэл: ${fresh} шинэ` : 'Мэдэгдэл'} aria-expanded={open} className="relative block rounded-full p-1.5 text-neutral-300 hover:bg-neutral-800">
         {fresh ? <BellRing size={22} /> : <BellIcon size={22} />}
-        {fresh > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-500 px-1 text-center text-[11px] font-bold leading-[18px] text-white">{fresh > 9 ? '9+' : fresh}</span>}
+        {fresh > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-600 px-1 text-center text-[11px] font-bold leading-[18px] text-white">{fresh > 9 ? '9+' : fresh}</span>}
       </button>
       {open && (
         <>

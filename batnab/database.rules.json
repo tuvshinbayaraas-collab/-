@@ -88,11 +88,11 @@
         },
         "frame": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|dawn|aqua|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^(sky|mint|violet|rose|amber|white|dawn|aqua|fire|perfect|master|rainbow|gold|galaxy|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists() || root.child('gameMedals').child($uid).exists())"
         },
         "banner": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^(dusk|sea|forest|sunset|night|notebook|flame|formulas|aurora|gold|stars|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^(dusk|sea|forest|sunset|night|notebook|flame|formulas|aurora|gold|stars|lead)$/) && (newData.val() !== 'lead' || newData.parent().child('lead').val() === true) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists() || root.child('gameMedals').child($uid).exists())"
         },
         "accent": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
@@ -104,15 +104,15 @@
         },
         "title": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/) && (newData.val() !== 'medal' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/) && (newData.val() !== 'medal' || root.child('medals').child($uid).exists() || root.child('gameMedals').child($uid).exists())"
         },
         "theme": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^(night|ocean|forest|sunset|fire|candy|mint|galaxy|berry|mono|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^(night|ocean|forest|sunset|fire|candy|mint|galaxy|berry|mono|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists() || root.child('gameMedals').child($uid).exists())"
         },
         "effect": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
-          ".validate": "newData.isString() && newData.val().matches(/^(snow|stars|bubbles|hearts|math|embers|confetti|comets|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists())"
+          ".validate": "newData.isString() && newData.val().matches(/^(snow|stars|bubbles|hearts|math|embers|confetti|comets|gold)$/) && (newData.val() !== 'gold' || root.child('medals').child($uid).exists() || root.child('gameMedals').child($uid).exists())"
         },
         "about": {
           ".write": "auth != null && auth.uid === $uid && data.parent().child('username').exists() && data.parent().child('disabled').val() !== true",
@@ -1364,7 +1364,7 @@
         "$game": {
           ".validate": "$game.matches(/^(sprint|g24|graph|tf|ees)$/)",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (!newData.exists() || ($week === (now - ((now - 144000000) % 604800000)) + '' && root.child('settings/games').val() !== false && (!data.exists() || newData.child('s').val() >= data.child('s').val())))",
+            ".write": "auth != null && auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true && (!newData.exists() || ($week === (now - ((now - 144000000) % 1209600000)) + '' && root.child('settings/games').val() !== false && (!data.exists() || newData.child('s').val() >= data.child('s').val())))",
             ".validate": "newData.hasChildren(['s', 'at', 'name'])",
             "s": {
               ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() % 1 === 0 && (($game === 'sprint' && newData.val() <= 500) || ($game === 'g24' && newData.val() <= 200) || ($game === 'graph' && newData.val() <= 500) || ($game === 'tf' && newData.val() <= 1000) || ($game === 'ees' && newData.val() <= 500))"
@@ -1434,6 +1434,44 @@
           "$other": {
             ".validate": false
           }
+        }
+      }
+    },
+    "gameMedals": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('settings/games').val() !== false && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+        "$key": {
+          ".validate": "$key < (now - ((now - 144000000) % 1209600000)) + '' && $key.matches(/^[0-9]{13}_(sprint|g24|graph|tf|ees)$/) && newData.hasChildren(['place', 'game', 'score']) && $key.endsWith('_' + newData.child('game').val())",
+          "place": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 3 && newData.val() % 1 === 0"
+          },
+          "game": {
+            ".validate": "newData.isString() && newData.val().matches(/^(sprint|g24|graph|tf|ees)$/)"
+          },
+          "score": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "gameRounds": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$round": {
+        ".validate": "$round < (now - ((now - 144000000) % 1209600000)) + '' && $round.matches(/^[0-9]{13}$/) && newData.hasChildren(['at', 'medals'])",
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "medals": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "$other": {
+          ".validate": false
         }
       }
     }

@@ -2,6 +2,7 @@
 import {get, onValue, ref, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
+import {awardGameMedals, roundStart} from '../../lib/games';
 import {db} from '../../lib/firebase';
 import {useSignIns} from '../../lib/live';
 import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
@@ -17,6 +18,8 @@ import {TESTS, testInfo, type TestInfo} from '../../tests';
 /** Where the class leaders' things were kept before: the teacher's page clears them away. */
 const LEGACY = ['doneBy', 'doneCount', 'helpAnswers'];
 let legacyDone = false;
+/** The 14-day round of the games in which the finished rounds' medals were last given from here (lib/games). */
+let gamesAwarded = 0;
 
 export interface Student {
   uid: string;
@@ -95,6 +98,14 @@ export function useAdminData() {
     const fixes = leaderboardFixes(users, admins, results, keys, leaderboard);
     if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
   }, [raw, settings?.leaderboard, settings?.photos]);
+  // A finished 14-day round of the games: each game's top 3 get its medals, once (lib/games). Nothing is taken away.
+  useEffect(() => {
+    const {users, error} = raw;
+    const round = roundStart();
+    if (!users || error || gamesAwarded === round) return;
+    gamesAwarded = round;
+    awardGameMedals(users).catch(() => (gamesAwarded = 0));
+  }, [raw.users, raw.error]);
   // Each class's students: how many (classes/{id}/n) and who (classRoster/{id}: names, for its class leaders and its
   // students, lib/lead and lib/people); everyone's picture and directory entry. Kept here, as the teacher's page has
   // everyone.

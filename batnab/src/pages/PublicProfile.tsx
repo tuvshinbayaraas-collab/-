@@ -4,8 +4,9 @@ import ProfileBanner, {BANNER_SHAPE} from '../components/ProfileBanner';
 import {ProfileCard} from '../components/ProfileCard';
 import {LooksName, TitleChip} from '../components/Looks';
 import {CenterNote, LockedNote} from '../components/Notices';
-import {overall, PLACES, percentOf, ranking, usePics, useMedals, useWeekBoard} from '../lib/leaderboard';
-import MedalBadge from '../components/MedalBadge';
+import {overall, PLACES, percentOf, ranking, usePics, useWeekBoard} from '../lib/leaderboard';
+import {useMedals} from '../lib/medals';
+import MedalCase from '../components/MedalCase';
 import {formatDuration} from '../lib/attempt';
 import {useClasses} from '../lib/classes';
 import {useRoster} from '../lib/lead';
@@ -37,10 +38,12 @@ export default function PublicProfile({uid}: {uid: string}) {
   const everyone = useLive(allowed && session.admin ? 'classRoster' : null, (v) => (v ?? {}) as Record<string, Record<string, string>>);
   const classes = useClasses();
   const board = useWeekBoard(lb);
-  const medals = useMedals(uid, lb);
+  // The games' medals while the games are open.
+  const gm = allowed && !!settings?.games;
+  const medals = useMedals(uid, lb, gm);
 
   if (session.ready && !session.user) return <LockedNote />;
-  if (!allowed || person === null || !settings || (lb && (!board || !medals))) return <Loading />;
+  if (!allowed || person === null || !settings || (lb && !board) || ((lb || gm) && !medals)) return <Loading />;
 
   // This week's places, every test they are on (the leaderboard's own order).
   const places = lb
@@ -152,18 +155,14 @@ export default function PublicProfile({uid}: {uid: string}) {
             </div>
           )}
 
-          {lb && (
-            <div className="mt-5">
+          {(lb || gm) && (
+            <div className="mt-5" data-medals>
               <h2 className="flex items-center gap-2 font-semibold">
                 <MedalIcon size={18} className="text-amber-300" /> Медалиуд{' '}
                 {medals!.length > 0 && <span className="text-sm font-normal text-neutral-400">{medals!.length}</span>}
               </h2>
               {medals!.length ? (
-                <ul className="mt-3 grid grid-cols-3 gap-3">
-                  {medals!.map((m) => (
-                    <MedalBadge key={m.key} m={m} />
-                  ))}
-                </ul>
+                <MedalCase medals={medals!} />
               ) : (
                 <p className="mt-1 text-sm text-neutral-400">Одоогоор медаль аваагүй байна.</p>
               )}

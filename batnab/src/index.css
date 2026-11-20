@@ -38,6 +38,20 @@
     transform: translateY(100%);
   }
 }
+/* A medal comes out: small and turned, then a little past its size. */
+@keyframes medal-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08) rotate(3deg);
+  }
+  100% {
+    transform: none;
+  }
+}
 @keyframes guide-next {
   from {
     opacity: 0;
