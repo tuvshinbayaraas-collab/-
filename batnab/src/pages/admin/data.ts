@@ -1,0 +1,371 @@
+// Everything the teacher's dashboard shows, read live from the database (admins may read users, results and keys).
+import {get, onValue, ref, update} from 'firebase/database';
+import {useEffect, useState} from 'react';
+import {parseExamAnswer, type Exam, type ExamAnswer} from '../../lib/exams';
+import {db} from '../../lib/firebase';
+import {useSignIns} from '../../lib/live';
+import {choiceAt, grade, percent, type Grade} from '../../lib/keys';
+import {compare, finishedWeeks, medalData, parseWeek, publicName, pubOf, weekKey, weekMedals, type Entry} from '../../lib/leaderboard';
+import {entryOf} from '../../lib/people';
+import {archiveOps, type History} from '../../lib/history';
+import {flatten, type Result} from '../../lib/results';
+import type {Profile} from '../../lib/session';
+import {useSettings} from '../../lib/settings';
+import {inThisWeek, weekStart} from '../../lib/week';
+import {TESTS, testInfo, type TestInfo} from '../../tests';
+
+/** Where the class leaders' things were kept before: the teacher's page clears them away. */
+const LEGACY = ['doneBy', 'doneCount', 'helpAnswers'];
+let legacyDone = false;
+
+export interface Student {
+  uid: string;
+  profile: Profile;
+}
+
+export interface AdminData {
+  students: Student[];
+  /** Every student's results, newest first. */
+  results: Result[];
+  keys: Record<string, string>;
+  /** Scheduled exams by test id. */
+  exams: Record<string, Exam>;
+  /** Exam answers by test id, then student uid. */
+  examAnswers: Record<string, Record<string, ExamAnswer>>;
+}
+
+export function useAdminData() {
+  const [raw, setRaw] = useState<{
+    users?: Record<string, Profile>;
+    admins?: Record<string, boolean>;
+    results?: Record<string, Record<string, unknown>>;
+    keys?: Record<string, string>;
+    exams?: Record<string, Partial<Exam>>;
+    examAnswers?: Record<string, Record<string, Partial<ExamAnswer>>>;
+    leaderboard?: Record<string, Record<string, Record<string, Partial<Entry>>>>;
+    pub?: Record<string, {photo?: string}>;
+    error?: string;
+  }>({});
+  const settings = useSettings();
+  // Last week's results are cleared by whoever opens the site first after the reset; the teacher clears everyone's,
+  // along with results of deleted accounts and leftovers in an older format.
+  useEffect(() => {
+    if (!raw.results || !raw.users || raw.error) return;
+    const gone: Record<string, null> = {};
+    for (const [uid, tree] of Object.entries(raw.results)) {
+      if (!raw.users[uid]) gone[`results/${uid}`] = null;
+      else for (const key of Object.keys(tree ?? {})) if (!/^[0-9]{1,2}[AB]$/.test(key)) gone[`results/${uid}/${key}`] = null;
+    }
+    // Exams that ended before this week's reset go too, with their answers.
+    for (const [test, e] of Object.entries(raw.exams ?? {})) {
+      if (typeof e?.end === 'number' && e.end < weekStart()) {
+        gone[`exams/${test}`] = null;
+        gone[`examAnswers/${test}`] = null;
+      }
+    }
+    if (Object.keys(gone).length) update(ref(db), gone).catch(() => {});
+    // Finished weeks' results: a summary goes into everyone's history (for the progress charts), then they go.
+    if (!raw.keys) return;
+    const old = Object.entries(raw.results).flatMap(([uid, tree]) => (raw.users![uid] ? flatten(uid, tree).filter((r) => !inThisWeek(r.at)) : []));
+    if (!old.length) return;
+    const keys = raw.keys;
+    get(ref(db, 'history'))
+      .then((h) => {
+        const have = (h.val() ?? {}) as Record<string, History>;
+        const ops: Record<string, unknown> = {};
+        for (const uid of new Set(old.map((r) => r.uid)))
+          Object.assign(
+            ops,
+            archiveOps(
+              uid,
+              old.filter((r) => r.uid === uid),
+              Object.fromEntries(TESTS.map((t) => [t.id, typeof keys[t.id] === 'string' ? keys[t.id] : null])),
+              have[uid] ?? {},
+            ),
+          );
+        if (Object.keys(ops).length) return update(ref(db), ops);
+      })
+      .catch(() => {});
+  }, [raw.results, raw.users, raw.exams, raw.keys, raw.error]);
+  // The leaderboard stays right: this week's entries are worked out again from the results and keys (what a student
+  // sent is trusted only until then), and a finished week's top 3 become medals.
+  useEffect(() => {
+    const {users, admins, results, keys, leaderboard, error} = raw;
+    if (!users || !admins || !results || !keys || !leaderboard || error || !settings?.leaderboard) return;
+    const fixes = leaderboardFixes(users, admins, results, keys, leaderboard);
+    if (Object.keys(fixes).length) update(ref(db), fixes).catch(() => {});
+  }, [raw, settings?.leaderboard, settings?.photos]);
+  // Each class's students: how many (classes/{id}/n) and who (classRoster/{id}: names, for its class leaders and its
+  // students, lib/lead and lib/people); everyone's picture and directory entry. Kept here, as the teacher's page has
+  // everyone.
+  useEffect(() => {
+    const {users, admins, error} = raw;
+    if (!users || !admins || error) return;
+    const n: Record<string, number> = {};
+    const roster: Record<string, Record<string, string>> = {};
+    for (const [uid, p] of Object.entries(users))
+      if (!admins[uid] && p?.username && p.class && !p.disabled) {
+        n[p.class] = (n[p.class] ?? 0) + 1;
+        (roster[p.class] ??= {})[uid] = String(p.name ?? '').slice(0, 60) || p.username;
+      }
+    // (What was kept before is looked for once a visit.)
+    const old = legacyDone ? [] : LEGACY;
+    legacyDone = true;
+    Promise.all([get(ref(db, 'classes')), get(ref(db, 'classRoster')), get(ref(db, 'people')), ...old.map((path) => get(ref(db, path)))])
+      .then(([classes, have, people, ...legacy]) => {
+        // Everyone's picture and directory entry (lib/people); those on this week's leaderboard keep a picture.
+        const onBoard = new Set(Object.values((raw.leaderboard ?? {})[weekKey()] ?? {}).flatMap((t) => Object.keys(t ?? {})));
+        const ops: Record<string, unknown> = profileFixes(users, admins, raw.pub ?? {}, (people.val() ?? {}) as Record<string, Record<string, unknown>>, onBoard, settings?.photos !== false);
+        const known = (classes.val() ?? {}) as Record<string, {n?: number}>;
+        for (const [id, c] of Object.entries(known)) if (c?.n !== (n[id] ?? 0)) ops[`classes/${id}/n`] = n[id] ?? 0;
+        const was = (have.val() ?? {}) as Record<string, Record<string, unknown>>;
+        for (const id of new Set([...Object.keys(was), ...Object.keys(roster)])) {
+          const now = id in known ? (roster[id] ?? {}) : {};
+          for (const [uid, name] of Object.entries(now)) if (was[id]?.[uid] !== name) ops[`classRoster/${id}/${uid}`] = name;
+          for (const uid of Object.keys(was[id] ?? {})) if (!(uid in now)) ops[`classRoster/${id}/${uid}`] = null;
+        }
+        // What the class leaders' counts were kept in before (replaced by classWork, and their explanations going
+        // straight to the asker): cleared away.
+        legacy.forEach((x, i) => x.exists() && (ops[old[i]] = null));
+        if (Object.keys(ops).length) return update(ref(db), ops);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw.users, raw.admins, raw.error, raw.pub, raw.leaderboard, settings?.photos]);
+  const signIns = useSignIns();
+  useEffect(() => {
+    const stops = (['users', 'admins', 'results', 'keys', 'exams', 'examAnswers', 'leaderboard', 'pub'] as const).map((path) =>
+      onValue(
+        ref(db, path),
+        (s) => setRaw((r) => ({...r, [path]: s.val() ?? {}})),
+        (e) => setRaw((r) => ({...r, [path]: {}, error: e.message})),
+      ),
+    );
+    return () => {
+      stops.forEach((f) => f());
+      // Someone else signed in: everything is read again from nothing (a refusal before isn't kept).
+      setRaw({});
+    };
+  }, [signIns]);
+
+  if (!raw.users || !raw.admins || !raw.results || !raw.keys || !raw.exams || !raw.examAnswers) return {data: null, error: raw.error};
+  const students = Object.entries(raw.users)
+    .filter(([uid, p]) => !raw.admins![uid] && p && typeof p.username === 'string')
+    .map(([uid, profile]) => ({uid, profile}))
+    .sort((a, b) => a.profile.name.localeCompare(b.profile.name, 'mn'));
+  const known = new Set(students.map((s) => s.uid));
+  const results = Object.entries(raw.results)
+    .filter(([uid]) => known.has(uid))
+    .flatMap(([uid, tree]) => flatten(uid, tree).filter((r) => inThisWeek(r.at)))
+    .sort((a, b) => b.at - a.at);
+  const keys = Object.fromEntries(Object.entries(raw.keys).filter(([, k]) => typeof k === 'string'));
+  const exams = Object.fromEntries(
+    Object.entries(raw.exams).flatMap(([test, e]) => (testInfo(test) && typeof e?.start === 'number' && typeof e?.end === 'number' ? [[test, {start: e.start, end: e.end}]] : [])),
+  );
+  const examAnswers = Object.fromEntries(
+    Object.entries(raw.examAnswers).map(([test, byUid]) => [
+      test,
+      Object.fromEntries(Object.entries(byUid ?? {}).flatMap(([uid, a]) => (known.has(uid) && parseExamAnswer(a as ExamAnswer) ? [[uid, parseExamAnswer(a as ExamAnswer)!]] : []))),
+    ]),
+  );
+  return {data: {students, results, keys, exams, examAnswers} as AdminData, error: raw.error};
+}
+
+/**
+ * The pictures (pub/{uid}: photo and frame) and the directory (people/{uid}, lib/people) of every student: a picture for
+ * each one whose profile is open, or who is on this week's leaderboard (for the podium); an entry for each one whose
+ * profile is open. Their badges are their own page's to keep (left as they are). While photos are off, only
+ * ready-made pictures.
+ */
+export function profileFixes(
+  users: Record<string, Profile>,
+  admins: Record<string, boolean>,
+  pub: Record<string, {photo?: string; frame?: string}>,
+  people: Record<string, Record<string, unknown>>,
+  onBoard: Set<string>,
+  photos = true,
+) {
+  const ops: Record<string, unknown> = {};
+  const active = (uid: string) => !admins[uid] && typeof users[uid]?.username === 'string' && !users[uid].disabled;
+  const open = (uid: string) => active(uid) && !users[uid].prefs?.profileHidden;
+  for (const uid of new Set([...Object.keys(users), ...Object.keys(pub)])) {
+    const pic = open(uid) || (active(uid) && onBoard.has(uid)) ? pubOf(users[uid]?.photo, users[uid]?.frame, photos) : null;
+    if ((pub[uid]?.photo ?? null) !== (pic?.photo ?? null) || (pub[uid]?.frame ?? null) !== (pic?.frame ?? null)) ops[`pub/${uid}`] = pic;
+  }
+  for (const uid of new Set([...Object.keys(users), ...Object.keys(people)])) {
+    if (!open(uid)) {
+      if (people[uid]) ops[`people/${uid}`] = null;
+      continue;
+    }
+    for (const [k, v] of Object.entries(entryOf(users[uid]))) if ((people[uid]?.[k] ?? null) !== v) ops[`people/${uid}/${k}`] = v;
+  }
+  return ops;
+}
+
+/** The writes that bring the leaderboard in line with the results (see the effect in useAdminData). */
+export function leaderboardFixes(
+  users: Record<string, Profile>,
+  admins: Record<string, boolean>,
+  results: Record<string, Record<string, unknown>>,
+  keys: Record<string, string>,
+  leaderboard: Record<string, Record<string, Record<string, Partial<Entry>>>>,
+) {
+  const ops: Record<string, unknown> = {};
+  const week = weekKey();
+  const start = Number(week);
+  // Each taking part student's best attempt at each test this week.
+  const want: Record<string, Record<string, Entry>> = {};
+  for (const [uid, p] of Object.entries(users)) {
+    if (admins[uid] || typeof p?.username !== 'string' || p.disabled || p.prefs?.lbOff) continue;
+    for (const r of flatten(uid, (results[uid] ?? null) as Parameters<typeof flatten>[1])) {
+      const g = r.at >= start ? grade(r.answers, keys[r.test], testInfo(r.test)!.count) : null;
+      if (!g?.score) continue;
+      const e: Entry = {uid, test: r.test, score: g.score, total: g.total, seconds: r.seconds, name: publicName(p), rid: r.id, at: r.at};
+      const b = want[r.test]?.[uid];
+      if (!b || compare(e, b) < 0) (want[r.test] ??= {})[uid] = e;
+    }
+  }
+  const current = parseWeek(leaderboard[week] ?? null);
+  for (const test of new Set([...Object.keys(current), ...Object.keys(want)])) {
+    const have = new Map((current[test] ?? []).map((e) => [e.uid, e]));
+    for (const [uid, e] of Object.entries(want[test] ?? {})) {
+      const h = have.get(uid);
+      have.delete(uid);
+      if (h && h.score === e.score && h.total === e.total && h.seconds === e.seconds && h.rid === e.rid && h.name === e.name) continue;
+      ops[`leaderboard/${week}/${test}/${uid}`] = {score: e.score, total: e.total, seconds: e.seconds, name: e.name, rid: e.rid, at: h?.rid === e.rid && h.at ? h.at : e.at};
+    }
+    for (const uid of have.keys()) ops[`leaderboard/${week}/${test}/${uid}`] = null;
+  }
+  // (The pictures for the podium: profileFixes, from this week's entries.)
+  // Finished weeks: medals for each test's top 3 (the week's animal's, lib/leaderboard) and «Шилдэг» orders for the top 3
+  // of the sum, then the week's entries go.
+  for (const w of finishedWeeks(leaderboard)) {
+    for (const {uid, m} of weekMedals(w, (uid) => !!users[uid])) ops[`medals/${uid}/${m.key}`] = medalData(m);
+    ops[`leaderboard/${w.week}`] = null;
+  }
+  return ops;
+}
+
+export const gradeOf = (r: Result, keys: Record<string, string>) => grade(r.answers, keys[r.test], testInfo(r.test)!.count);
+
+export interface StudentTest {
+  student: Student;
+  /** Oldest first. */
+  attempts: Result[];
+  first: Grade | null;
+  best: Grade | null;
+}
+
+export interface QuestionStat {
+  /** Index in book order. */
+  i: number;
+  /** Key choice, or null when the teacher hasn't set it. */
+  key: number | null;
+  answered: number;
+  correct: number;
+  /** How many picked А…Д. */
+  picks: number[];
+  /** The wrong choice picked most often (null if none). */
+  topWrong: number | null;
+}
+
+export interface TestReport {
+  info: TestInfo;
+  key: string | undefined;
+  rows: StudentTest[];
+  missing: Student[];
+  /** First-attempt percentages of graded students. */
+  firstPercents: number[];
+  questions: QuestionStat[];
+  avgSeconds: number | null;
+}
+
+const best = (gs: (Grade | null)[]) => gs.reduce<Grade | null>((b, g) => (g && (!b || percent(g) > percent(b)) ? g : b), null);
+export const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+
+/** One test across the class. Question statistics use each student's first attempt, before they saw the answers. */
+export function testReport(info: TestInfo, data: AdminData): TestReport {
+  const key = data.keys[info.id];
+  const mine = data.results.filter((r) => r.test === info.id);
+  const rows: StudentTest[] = [];
+  const missing: Student[] = [];
+  for (const student of data.students) {
+    const attempts = mine.filter((r) => r.uid === student.uid).sort((a, b) => a.at - b.at);
+    if (!attempts.length) {
+      if (!student.profile.disabled) missing.push(student);
+      continue;
+    }
+    const grades = attempts.map((r) => grade(r.answers, key, info.count));
+    rows.push({student, attempts, first: grades[0], best: best(grades)});
+  }
+  const firsts = rows.map((r) => r.attempts[0]);
+  const questions = Array.from({length: info.count}, (_, i): QuestionStat => {
+    const picks = [0, 0, 0, 0, 0];
+    for (const r of firsts) {
+      const c = choiceAt(r.answers, i);
+      if (c !== null) picks[c]++;
+    }
+    const k = choiceAt(key, i);
+    const wrong = picks.map((n, c) => (c === k ? -1 : n));
+    const top = Math.max(...wrong);
+    return {i, key: k, answered: picks.reduce((a, b) => a + b, 0), correct: k === null ? 0 : picks[k], picks, topWrong: top > 0 ? wrong.indexOf(top) : null};
+  });
+  return {
+    info,
+    key,
+    rows,
+    missing,
+    firstPercents: rows.flatMap((r) => (r.first ? [percent(r.first)] : [])),
+    questions,
+    avgSeconds: mean(firsts.map((r) => r.seconds)),
+  };
+}
+
+export const reports = (data: AdminData) => TESTS.map((t) => testReport(t, data));
+
+/** Spreadsheet of every attempt (opens in Excel thanks to the BOM). */
+export function resultsCsv(data: AdminData) {
+  const byUid = new Map(data.students.map((s) => [s.uid, s.profile]));
+  const cell = (v: string | number) => {
+    const s = String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = [['Нэр', 'Nickname', 'Нэвтрэх нэр', 'Тест', 'Огноо', 'Хугацаа (мин)', 'Оноо', 'Тооцсон бодлого', 'Хувь', 'Хуудаснаас гарсан', 'Хариултууд']];
+  for (const r of [...data.results].sort((a, b) => a.at - b.at)) {
+    const p = byUid.get(r.uid)!;
+    const g = gradeOf(r, data.keys);
+    const d = new Date(r.at);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    rows.push([
+      p.name,
+      p.nickname ?? '',
+      p.username,
+      testInfo(r.test)!.title,
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      (r.seconds / 60).toFixed(1),
+      g ? String(g.score) : '',
+      g ? String(g.total) : '',
+      g ? String(percent(g)) : '',
+      String(r.leaves ?? 0),
+      r.answers.replace(/[A-E]/g, (c) => 'АБВГД'['ABCDE'.indexOf(c)]),
+    ]);
+  }
+  return '﻿' + rows.map((row) => row.map(cell).join(',')).join('\r\n');
+}
+
+export function download(name: string, text: string, type = 'text/csv;charset=utf-8') {
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export const timeAgo = (ts: number) => {
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return 'дөнгөж сая';
+  if (s < 3600) return `${Math.floor(s / 60)} мин өмнө`;
+  if (s < 86400) return `${Math.floor(s / 3600)} цагийн өмнө`;
+  return `${Math.floor(s / 86400)} өдрийн өмнө`;
+};
