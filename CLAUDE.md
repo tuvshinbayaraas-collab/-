@@ -10,11 +10,12 @@ Work on it is done by a team of agents in three levels. The session the owner ta
    writing code itself.
 2. **Section leads** (`.claude/agents/batnab-lead-*.md`), one per section. A lead plans its section's work as worker
    tasks, then reviews what the workers did. Leads do not edit files.
-3. **Workers** (`.claude/agents/batnab-worker.md`): each does one task written by a lead.
+3. **Workers** (`.claude/agents/batnab-worker.md`): each does one task written by a lead. The ideas section's workers
+   are the idea makers (`.claude/agents/batnab-idea-maker.md`).
 
 | Section (owner's name)      | Lead                     | Owns                                                                   |
 | --------------------------- | ------------------------ | ---------------------------------------------------------------------- |
-| Санаа                       | `batnab-lead-ideas`      | Ideas for the site. Proposes only; builds nothing until the owner agrees. |
+| Санаа                       | `batnab-lead-ideas`      | Ideas: gives idea makers points of view, filters their ideas, passes up only useful ones. Builds nothing. |
 | Сурагчийн хэсэг             | `batnab-lead-student`    | What students use: `src/pages/` (not `admin/`), `src/components/`, `src/games/`, `src/tests/` |
 | Багшийн хэсэг               | `batnab-lead-teacher`    | The teacher's dashboard: `src/pages/admin/`                            |
 | Өгөгдөл, аюулгүй байдал     | `batnab-lead-data`       | `database.rules.json`, `src/lib/`, `scripts/`, `firebase.json`         |
@@ -34,6 +35,16 @@ Subagents cannot start subagents, so the director does the dispatching for the l
    limit then loses only the piece in progress.
 5. If the named agent types are missing (the session started on a branch without `.claude/agents/`), read the lead's or
    worker's file and start a general-purpose agent with the file's text as its instructions.
+
+## Ideas
+
+On Mondays in the daily check, or when the owner asks for ideas:
+
+1. Ask `batnab-lead-ideas` for its points of view (tell it if the owner asked about one area).
+2. Start one `batnab-idea-maker` per point of view, all at once, each with its task text unchanged.
+3. Send all their ideas back to the same lead to filter.
+4. Only the ideas the lead kept go to the owner, in the report under «Санаа». Nothing is built until the owner agrees;
+   then the idea goes to its section's lead like any other work.
 
 ## Rules
 
@@ -55,6 +66,7 @@ paths unless asked):
 **Товч тайлан** (огноо)
 - Юу хийсэн: <хэсэг бүрээр нэг мөр>
 - Үр дүн: <шалгалт давсан эсэх, юу өөрчлөгдсөн>
+- Санаа: <шүүгдсэн санаа бүрээр нэг мөр; санаа гараагүй бол энэ мөрийг бичихгүй>
 - Таны шийдэх зүйл: <зөвшөөрөх, сонгох зүйл; байхгүй бол «Байхгүй»>
 - Branch: <нэр> (сайт руу хараахан ороогүй)
 ```
@@ -70,8 +82,12 @@ Started by the owner's scheduled task once a day:
 2. Each problem found goes to its section's lead, then workers, review and the quality lead, as above. Before that, look
    at the agent branches already pushed (`git branch -r --list 'origin/claude/*'` and their recent commits): a problem
    already fixed there and waiting for the owner is not fixed again, only listed under «Таны шийдэх зүйл».
-3. On Mondays the ideas lead also proposes up to three ideas. They go into the report; nothing is built.
+3. On Mondays the ideas flow above also runs. The kept ideas go into the report; nothing is built.
 4. Report as above.
+
+A scheduled run starts without the repository attached for pushing. Before the first push, attach it with `add_repo`
+(owner `tuvshinbayaraas-collab`, repo `-`, access `push`); if that is refused, say in the report that pushing is
+blocked.
 
 ## When work is cut off
 
