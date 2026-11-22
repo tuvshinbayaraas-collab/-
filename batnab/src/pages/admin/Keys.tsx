@@ -40,14 +40,19 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
   const dirty = changed > 0;
   const takers = new Set(data.results.filter((r) => r.test === info.id).map((r) => r.uid)).size;
 
-  // Start from the stored key when switching tests (or when it changes elsewhere and nothing is being edited).
+  // Start from the stored key when switching tests, and when it changes elsewhere while nothing is being edited here.
+  // Being edited is judged against the key as it was when the draft was last loaded or saved: next to the new key, an
+  // untouched draft would look edited.
   const [shownFor, setShownFor] = useState({id: info.id, saved});
-  if (shownFor.id !== info.id || (shownFor.saved !== saved && !dirty)) {
+  const editing = draft !== shownFor.saved;
+  if (shownFor.id !== info.id || (shownFor.saved !== saved && !editing)) {
     setShownFor({id: info.id, saved});
     setDraft(saved);
     setStatus(null);
     setPreview(null);
   }
+  // Edited here while the stored key changed elsewhere: the edits stay, and saving them would replace that change.
+  const changedElsewhere = dirty && shownFor.saved !== saved;
 
   // Unsaved changes: ask before the page or a link takes the teacher elsewhere.
   useEffect(() => {
@@ -77,6 +82,12 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
   const set = (i: number, ci: number) => {
     setDraft((d) => d.slice(0, i) + (choiceAt(d, i) === ci ? '-' : CODES[ci]) + d.slice(i + 1));
     setStatus(null);
+  };
+
+  // Back to the stored key as it is now, which the draft then starts from.
+  const discard = () => {
+    setShownFor({id: info.id, saved});
+    setDraft(saved);
   };
 
   const save = async () => {
@@ -181,12 +192,17 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
       {dirty && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-800 bg-page/95 px-4 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
+            {changedElsewhere && (
+              <p role="alert" className="w-full text-sm text-neutral-300">
+                <span className="font-semibold text-amber-200">Энэ хооронд түлхүүрийг өөр таб, утас эсвэл компьютерээс өөрчилж хадгалжээ.</span> Хадгалбал тэнд хийснийг солино.
+              </p>
+            )}
             <p className="min-w-0 flex-1 text-sm">
               <span className="font-medium text-amber-300">{changed} өөрчлөлт хадгалаагүй.</span>{' '}
               {takers > 0 && <span className="text-neutral-400">Хадгалахад энэ тестийг өгсөн {takers} сурагчийн оноо шинээр тооцогдоно.</span>}
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDraft(saved)} className="rounded-full px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
+              <button onClick={discard} className="rounded-full px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
                 Болих
               </button>
               <button onClick={save} disabled={busy} className="rounded-full bg-blue-500 px-6 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-60">
