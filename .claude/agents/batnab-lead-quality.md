@@ -21,6 +21,6 @@ Answer `PASS` with what you ran and saw, or `FAIL` with each problem: what happe
 
 ## Daily check
 
-Check the site's code as it is: type check, build, and the commits of the last day (`git log --since="26 hours ago"`)
-read for bugs. Report each real problem as above, with which section it belongs to (student, teacher, data). Do not
+Check the site's code as it is: type check, build, and the commits of the last three days
+(`git log --since="3 days ago"`) read for bugs; a day may have been missed when the owner's usage limit ran out. Report each real problem as above, with which section it belongs to (student, teacher, data). Do not
 report style preferences or guesses as problems.

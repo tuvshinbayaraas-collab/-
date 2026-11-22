@@ -30,7 +30,8 @@ Subagents cannot start subagents, so the director does the dispatching for the l
    files don't overlap.
 3. Send the workers' reports back to the same lead (continue it with SendMessage) for review. The lead accepts, or
    writes a fix task for a worker. After two rounds without acceptance, stop and tell the owner.
-4. Give the whole change to the quality lead. Commit only after it passes.
+4. Give the whole change to the quality lead. Commit only after it passes, and push at once: a run cut off by the usage
+   limit then loses only the piece in progress.
 5. If the named agent types are missing (the session started on a branch without `.claude/agents/`), read the lead's or
    worker's file and start a general-purpose agent with the file's text as its instructions.
 
@@ -64,11 +65,21 @@ If nothing needed doing, one line is enough: «Бүх зүйл хэвийн.»
 
 Started by the owner's scheduled task once a day:
 
-1. The quality lead checks the site's code as it is now: type check, build, and the commits of the last day read for
-   bugs. Emulator tests only where a change needs them.
-2. Each problem found goes to its section's lead, then workers, review and the quality lead, as above.
+1. The quality lead checks the site's code as it is now: type check, build, and the commits of the last three days read
+   for bugs (so a day missed for the usage limit is still covered). Emulator tests only where a change needs them.
+2. Each problem found goes to its section's lead, then workers, review and the quality lead, as above. Before that, look
+   at the agent branches already pushed (`git branch -r --list 'origin/claude/*'` and their recent commits): a problem
+   already fixed there and waiting for the owner is not fixed again, only listed under «Таны шийдэх зүйл».
 3. On Mondays the ideas lead also proposes up to three ideas. They go into the report; nothing is built.
 4. Report as above.
+
+## When work is cut off
+
+The owner's usage limit can run out in the middle of work; nothing runs until it resets.
+
+- In a session the owner talks to: when the owner writes again, first finish what was cut off (see `git status`,
+  `git log` and the conversation), then go on with anything new.
+- Daily check: the schedule keeps going, and the next run covers the missed days as described above.
 
 ## Working on the site
 
