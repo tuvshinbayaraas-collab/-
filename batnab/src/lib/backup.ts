@@ -12,6 +12,8 @@ const NODES: [string, number][] = [
   ['classes', 1],
   ['users', 1],
   ['keys', 1],
+  ['learn', 1],
+  ['learnIndex', 1],
   ['topics', 1],
   ['topicImages', 2],
   ['topicKeys', 2],
@@ -63,6 +65,7 @@ export const PARTS = [
   {id: 'work', label: 'Сурагчдын хариулт, дүн', sub: 'тест, сэдэв, багшийн шалгалт, түүх, медаль', nodes: ['results', 'history', 'topicProgress', 'topicMarks', 'topicWork', 'topicRounds', 'medals', 'gameMedals', 'gameRounds']},
   {id: 'tasks', label: 'Даалгавар, мэдээ, асуулт', sub: 'санал асуулга ч', nodes: ['assignments', 'announcements', 'polls', 'questions']},
   {id: 'keys', label: 'Тестүүдийн түлхүүр', sub: '', nodes: ['keys']},
+  {id: 'learn', label: 'Тестийн бодолт', sub: '«Сурах» хэсэг', nodes: ['learn', 'learnIndex']},
   {id: 'exams', label: 'Шалгалтууд', sub: 'товлол, хариулт', nodes: ['exams', 'examAnswers', 'examEvents']},
   {id: 'settings', label: 'Тохиргоо', sub: '', nodes: ['settings']},
 ] as const;

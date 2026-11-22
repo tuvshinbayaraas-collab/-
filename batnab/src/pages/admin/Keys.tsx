@@ -7,6 +7,7 @@ import {navigate} from '../../lib/router';
 import {TESTS, testInfo} from '../../tests';
 import {CODES, LETTERS, type Test} from '../../tests/types';
 import type {AdminData} from './data';
+import LearnImport from './LearnImport';
 import {useTest} from './useTest';
 
 // Latin letters that look like the Cyrillic ones, in case the keyboard was on English.
@@ -174,6 +175,8 @@ export default function Keys({data, initial}: {data: AdminData; initial?: string
           }}
         />
       </section>
+
+      <LearnImport info={info} keyString={saved} />
 
       {dirty && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-800 bg-page/95 px-4 py-3 backdrop-blur">

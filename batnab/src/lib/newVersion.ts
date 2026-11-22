@@ -33,7 +33,7 @@ export const useStale = () =>
   );
 
 /** Pages a reload can't cost much on (answers are saved as they are given; no test, exam, live quiz or editor). */
-const SAFE = /^\/(|results|leaderboard|topics|questions|lead|profile|settings|credits|admin|people)$/;
+const SAFE = /^\/(|results|leaderboard|topics|questions|lead|profile|settings|credits|admin|people|learn)$/;
 
 async function check() {
   const mine = own();

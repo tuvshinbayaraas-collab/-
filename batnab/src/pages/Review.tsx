@@ -1,4 +1,4 @@
-import {ArrowLeft} from 'lucide-react';
+import {ArrowLeft, BookOpenCheck} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import Loading from '../components/Loading';
 import {CenterNote, LockedNote} from '../components/Notices';
@@ -14,6 +14,7 @@ import {asResult, awayTimes, awayTotal, useExamAnswer, useExamEvents, useExams} 
 import AwayList from '../components/AwayList';
 import {formatDate, useResult} from '../lib/results';
 import {focusOn} from '../lib/focus';
+import {useLearnIndex} from '../lib/learn';
 import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {skillStats} from '../lib/skills';
@@ -45,6 +46,8 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
   const [test, setTest] = useState<Test | null>(null);
   const [onlyWrong, setOnlyWrong] = useState(false);
   const info = testInfo(testId);
+  // The test's step-by-step solutions in «Сурах», when the teacher has put them there.
+  const learn = !!useLearnIndex()?.[testId];
 
   // Opened at one question (?q=<index>, e.g. from a question about it): every card laid out, so it lands on it.
   const focus = useLocation().query.get('q');
@@ -163,6 +166,11 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
             notebook={!session.admin}
           />
         )}
+        {learn && !other && (
+          <Link href={`/learn/${testId}`} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3.5 py-1.5 text-sm font-medium text-emerald-200 hover:bg-emerald-500/25" data-learn-link>
+            <BookOpenCheck size={15} /> Бодлого бүрийн бодолтыг харах
+          </Link>
+        )}
         <p className="mt-2 text-sm text-neutral-500">Бодлогууд номын дарааллаар харагдаж байна.</p>
       </div>
       <QuestionList full={focus !== null}>
@@ -182,6 +190,11 @@ export default function Review({test: testId, id, uid: other}: {test: string; id
                 !session.admin && !other && (canReport || missed.includes(i)) ? (
                   <span className="flex flex-wrap justify-end gap-1">
                     <ReportButton what={{kind: 'test', ref: testId, q: String(i + 1), label: `${test.title} · ${i + 1}-р бодлого`}} />
+                    {missed.includes(i) && learn && (
+                      <Link href={`/learn/${testId}?n=${i + 1}`} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10">
+                        <BookOpenCheck size={15} /> Бодолт
+                      </Link>
+                    )}
                     {missed.includes(i) && <AskButton ctx={{s: 't', t: testId, q: String(i), label: `${test.title} · ${i + 1}-р бодлого`}} />}
                   </span>
                 ) : undefined

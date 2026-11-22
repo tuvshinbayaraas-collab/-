@@ -1474,6 +1474,54 @@
           ".validate": false
         }
       }
+    },
+    "learn": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$testId": {
+        ".read": "!(root.child('exams').child($testId).exists() && now <= root.child('exams').child($testId).child('end').val()) && (root.child('settings/trial').val() === $testId || (!root.child('settings/trial').exists() && $testId === '1A') || (auth != null && (root.child('results').child(auth.uid).child($testId).exists() || root.child('examAnswers').child($testId).child(auth.uid).exists() || root.child('mistakeTests').child(auth.uid).child($testId).exists())))",
+        ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/)",
+        "$n": {
+          ".validate": "$n.matches(/^[1-9][0-9]?$/) && newData.hasChildren(['a', 'steps'])",
+          "a": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-E]$/)"
+          },
+          "rule": {
+            ".validate": "newData.isString() && newData.val().length <= 3000"
+          },
+          "check": {
+            ".validate": "newData.isString() && newData.val().length <= 3000"
+          },
+          "note": {
+            ".validate": "newData.isString() && newData.val().length <= 3000"
+          },
+          "steps": {
+            ".validate": "newData.hasChildren()",
+            "$i": {
+              ".validate": "$i.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 3000"
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "learnIndex": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$testId": {
+        ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.hasChildren(['n', 'at'])",
+        "n": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }
