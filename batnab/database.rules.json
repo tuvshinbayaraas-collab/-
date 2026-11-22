@@ -1501,6 +1501,21 @@
               ".validate": "$i.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 3000"
             }
           },
+          "try": {
+            ".validate": "newData.hasChildren(['q', 'a'])",
+            "q": {
+              ".validate": "newData.isString() && newData.val().length <= 3000"
+            },
+            "a": {
+              ".validate": "newData.isString() && newData.val().length <= 3000"
+            },
+            "s": {
+              ".validate": "newData.isString() && newData.val().length <= 3000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
           "$other": {
             ".validate": false
           }

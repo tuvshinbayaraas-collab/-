@@ -1,5 +1,6 @@
-import {ArrowLeft, BookOpenCheck, ChevronDown, ChevronRight, Lightbulb, Lock} from 'lucide-react';
+import {ArrowLeft, BookOpenCheck, Check, ChevronRight, Eye, Footprints, Lightbulb, Lock, PencilLine} from 'lucide-react';
 import {Fragment, useEffect, useRef, useState} from 'react';
+import AskButton from '../components/Ask';
 import Loading from '../components/Loading';
 import MathText from '../components/MathText';
 import {CenterNote, InactiveNote, LockedNote} from '../components/Notices';
@@ -7,11 +8,14 @@ import QuestionCard from '../components/QuestionCard';
 import {QuestionList, useJump} from '../components/QuestionList';
 import {useExams} from '../lib/exams';
 import {focusOn} from '../lib/focus';
+import {grade, useKeys} from '../lib/keys';
 import {useLearnIndex, useSolutions, type Solution} from '../lib/learn';
+import {useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useNow} from '../lib/time';
 import {TESTS, testInfo} from '../tests';
+import {skillOf, SKILLS} from '../tests/skills';
 import {CODES, LETTERS, type Test} from '../tests/types';
 import {useTest} from './admin/useTest';
 
@@ -25,11 +29,40 @@ export default function Learn({test}: {test?: string}) {
   return test ? <TestSolutions id={test} /> : <Hub />;
 }
 
+// The problems a student has marked «Ойлголоо», on this device: batnab.learn.{uid}.{test} = [n…].
+const doneKey = (uid: string, test: string) => `batnab.learn.${uid}.${test}`;
+function readDone(uid: string | undefined, test: string): Set<number> {
+  if (!uid) return new Set();
+  try {
+    const v = JSON.parse(localStorage.getItem(doneKey(uid, test)) ?? '[]') as unknown;
+    return new Set(Array.isArray(v) ? v.filter((n): n is number => Number.isInteger(n)) : []);
+  } catch {
+    return new Set();
+  }
+}
+function useDone(uid: string | undefined, test: string) {
+  const [done, setDone] = useState(() => readDone(uid, test));
+  useEffect(() => setDone(readDone(uid, test)), [uid, test]);
+  const toggle = (n: number) => {
+    const next = new Set(done);
+    if (next.has(n)) next.delete(n);
+    else next.add(n);
+    setDone(next);
+    try {
+      if (uid) localStorage.setItem(doneKey(uid, test), JSON.stringify([...next].sort((a, b) => a - b)));
+    } catch {
+      // A private window: kept for this visit only.
+    }
+  };
+  return [done, toggle] as const;
+}
+
 function Hub() {
   const session = useSession();
   const index = useLearnIndex();
   if (!index) return <Loading />;
   const tests = TESTS.filter((t) => index[t.id]);
+  const uid = session.admin ? undefined : session.user?.uid;
   return (
     <div className="mx-auto max-w-2xl py-4 sm:py-6">
       <header className="flex items-center gap-2.5">
@@ -43,17 +76,22 @@ function Hub() {
       </header>
       {tests.length ? (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {tests.map((t) => (
-            <li key={t.id}>
-              <Link href={`/learn/${t.id}`} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800/80" data-learn-test={t.id}>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-lg font-bold">{t.title}</span>
-                  <span className="block text-sm text-neutral-400">{index[t.id].n} бодлогын бодолт</span>
-                </span>
-                <ChevronRight size={18} className="shrink-0 text-neutral-400" />
-              </Link>
-            </li>
-          ))}
+          {tests.map((t) => {
+            const done = readDone(uid, t.id).size;
+            return (
+              <li key={t.id}>
+                <Link href={`/learn/${t.id}`} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800/80" data-learn-test={t.id}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-lg font-bold">{t.title}</span>
+                    <span className="block text-sm text-neutral-400">
+                      {index[t.id].n} бодлогын бодолт{uid && done > 0 ? ` · ${done} ойлгосон` : ''}
+                    </span>
+                  </span>
+                  <ChevronRight size={18} className="shrink-0 text-neutral-400" />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="mt-4 rounded-2xl bg-neutral-900 p-4 text-sm text-neutral-400">
@@ -64,24 +102,37 @@ function Hub() {
   );
 }
 
+/** How many parts a solution opens in: its rule (the hint), then each step. */
+const partsOf = (s: Solution) => (s.rule ? 1 : 0) + s.steps.length;
+type Filter = 'all' | 'missed' | 'todo';
+
 function TestSolutions({id}: {id: string}) {
   const session = useSession();
+  const student = !session.admin;
+  const uid = session.user?.uid;
   const info = testInfo(id);
   const test = useTest(info ? id : '');
   const solutions = useSolutions(info ? id : undefined);
   const exam = useExams()?.[id];
   const now = useNow(30_000);
-  const [open, setOpen] = useState<Set<number>>(new Set());
-  const {full, jump} = useJump(() => {});
-  // Opened at one problem (?n=5, from a test's result): that one open and brought into view.
+  // How far each problem's solution is open: 0 closed; then its rule, then a step at a time; partsOf = all of it.
+  const [level, setLevel] = useState<Record<number, number>>({});
+  const [filter, setFilter] = useState<Filter>('all');
+  const [done, toggleDone] = useDone(student ? uid : undefined, id);
+  // The student's last go at the test this week, against the key: what they got, and the problems they missed.
+  const results = useMyResults();
+  const last = student ? results?.filter((r) => r.test === id).sort((a, b) => b.at - a.at)[0] : undefined;
+  const key = useKeys(last ? [id] : [])[id] ?? null;
+  const {full, jump} = useJump(() => setFilter('all'));
+  // Opened at one problem (?n=5, from a test's result): that one open in full and brought into view.
   const focus = Number(useLocation().query.get('n')) || 0;
   const focused = useRef(0);
   useEffect(() => {
-    if (!focus || focused.current === focus || !test || !solutions || solutions === 'locked') return;
+    if (!focus || focused.current === focus || !test || !solutions || solutions === 'locked' || !solutions[focus]) return;
     const el = document.getElementById(`q${focus}`);
     if (!el) return;
     focused.current = focus;
-    setOpen((o) => new Set(o).add(focus));
+    setLevel((l) => ({...l, [focus]: partsOf(solutions[focus])}));
     focusOn(el);
   });
 
@@ -112,17 +163,27 @@ function TestSolutions({id}: {id: string}) {
       </div>
     );
   }
-  const count = Object.keys(solutions).length;
-  if (!count) return <CenterNote title={`${info.title}-гийн бодолт одоогоор алга`} />;
-  const all = test.questions.map((_, i) => i + 1).filter((n) => solutions[n]);
-  const allOpen = all.every((n) => open.has(n));
-  const toggle = (n: number) =>
-    setOpen((o) => {
-      const next = new Set(o);
-      if (next.has(n)) next.delete(n);
-      else next.add(n);
-      return next;
-    });
+  const numbers = test.questions.map((_, i) => i + 1).filter((n) => solutions[n]);
+  if (!numbers.length) return <CenterNote title={`${info.title}-гийн бодолт одоогоор алга`} />;
+
+  const g = last && key ? grade(last.answers, key, info.count) : null;
+  // Their answer to each problem they got wrong ('-': none).
+  const missed = new Map<number, string>();
+  if (last && key)
+    for (let i = 0; i < info.count; i++) {
+      const k = key[i];
+      if (k && k !== '-' && CODES.includes(k) && (last.answers[i] ?? '-') !== k) missed.set(i + 1, last.answers[i] ?? '-');
+    }
+  const missedShown = numbers.filter((n) => missed.has(n));
+  const todo = numbers.filter((n) => !done.has(n));
+  const shown = (n: number) => !!solutions[n] && (filter === 'all' || (filter === 'missed' ? missed.has(n) : !done.has(n)));
+  const isFull = (n: number) => (level[n] ?? 0) >= partsOf(solutions[n]);
+  const allOpen = numbers.every(isFull);
+  const filters: [Filter, string, number][] = [
+    ['all', 'Бүгд', numbers.length],
+    ...(missedShown.length ? ([['missed', 'Алдсан', missedShown.length]] as [Filter, string, number][]) : []),
+    ...(student ? ([['todo', 'Ойлгоогүй', todo.length]] as [Filter, string, number][]) : []),
+  ];
 
   return (
     <div className="mx-auto max-w-3xl py-4 sm:py-6">
@@ -131,51 +192,127 @@ function TestSolutions({id}: {id: string}) {
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Сурах</p>
         <h1 className="text-xl font-bold">{info.title}</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          {count} бодлогын бодолт. Эхлээд өөрөө бодоод, дараа нь бодолтыг нээж хараарай.
+          {numbers.length} бодлогын бодолт. Эхлээд өөрөө бодоорой. Гацвал сануулга аваад, дараа нь бодолтыг алхам алхмаар нээгээрэй.
           {session.admin && ' Сурагч энэ тестийг өгсний дараа харна.'}
         </p>
+        {g && (
+          <p className="mt-2 text-sm" data-learn-score>
+            Сүүлд өгөхдөө <b>{g.score}/{g.total}</b> авсан.
+            {missed.size > 0 && <span className="text-red-300"> Алдсан {missed.size} бодлогоо эхэлж үзээрэй.</span>}
+          </p>
+        )}
+        {student && (
+          <div className="mt-3" data-learn-progress>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-neutral-300">Ойлгосон</span>
+              <span className="font-semibold tabular-nums">
+                {numbers.length - todo.length}/{numbers.length}
+              </span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-neutral-800" aria-hidden>
+              <div className="h-full rounded-full bg-green-500" style={{width: `${((numbers.length - todo.length) / numbers.length) * 100}%`}} />
+            </div>
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {filters.length > 1 && (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Аль бодлогыг харах">
+              {filters.map(([f, label, count]) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={filter === f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded-full border px-3 py-1 text-sm ${filter === f ? 'border-emerald-400 bg-emerald-500/15 text-emerald-100' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'}`}
+                  data-learn-filter={f}
+                >
+                  {label} <span className={filter === f ? 'text-emerald-200' : 'text-neutral-400'}>{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <button
             type="button"
-            onClick={() => setOpen(allOpen ? new Set() : new Set(all))}
-            className="rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700"
+            onClick={() => setLevel(allOpen ? {} : Object.fromEntries(numbers.map((n) => [n, partsOf(solutions[n])])))}
+            className="ml-auto rounded-full bg-neutral-800 px-3.5 py-1.5 text-sm font-medium hover:bg-neutral-700"
             data-learn-all
           >
             {allOpen ? 'Бүгдийг хаах' : 'Бүгдийг нээх'}
           </button>
         </div>
         <nav aria-label="Бодлогууд" className="mt-3 flex flex-wrap gap-1.5">
-          {test.questions.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => jump(i + 1)}
-              aria-label={`${i + 1}-р бодлого`}
-              className={`h-8 w-8 rounded-full text-sm font-medium tabular-nums ${open.has(i + 1) ? 'bg-emerald-500/20 text-emerald-200' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
-            >
-              {i + 1}
-            </button>
-          ))}
+          {test.questions.map((_, i) => {
+            const n = i + 1;
+            const miss = missed.has(n);
+            const ok = done.has(n);
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => {
+                  if (!shown(n)) setFilter('all');
+                  jump(n);
+                }}
+                aria-label={`${n}-р бодлого${miss ? ', алдсан' : ''}${ok ? ', ойлгосон' : ''}`}
+                className={`h-8 w-8 rounded-full text-sm font-medium tabular-nums ${ok ? 'bg-green-500/20 text-green-200' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'} ${miss ? 'ring-2 ring-red-400/70' : ''}`}
+                data-learn-no={n}
+              >
+                {n}
+              </button>
+            );
+          })}
         </nav>
+        {(missed.size > 0 || student) && (
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400" aria-hidden>
+            {missed.size > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full ring-2 ring-red-400/70" /> алдсан
+              </span>
+            )}
+            {student && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-green-500/40" /> ойлгосон
+              </span>
+            )}
+          </p>
+        )}
       </div>
       <QuestionList full={full || !!focus}>
         {test.questions.map((q, i) => {
           const n = i + 1;
           const s = solutions[n];
-          const shown = !!s && open.has(n);
+          if (!s) return null;
+          if (!shown(n)) return null;
+          const lv = level[n] ?? 0;
           return (
             <QuestionCard
               key={i}
               id={`q${n}`}
               num={n}
               q={q}
-              chosen={shown ? CODES.indexOf(s.a) : null}
+              chosen={lv >= partsOf(s) ? CODES.indexOf(s.a) : null}
               keyMode
-              footer={s ? <SolutionPanel n={n} s={s} test={test} shown={shown} onToggle={() => toggle(n)} /> : <p className="text-sm text-neutral-500">Энэ бодлогын бодолт алга.</p>}
+              footer={
+                <SolutionPanel
+                  n={n}
+                  s={s}
+                  test={test}
+                  level={lv}
+                  setLevel={(l) => setLevel((m) => ({...m, [n]: l}))}
+                  topic={skillOf(id, i) ? SKILLS[skillOf(id, i)!] : undefined}
+                  theirs={missed.get(n)}
+                  done={student ? done.has(n) : undefined}
+                  onDone={() => toggleDone(n)}
+                  ask={student ? {s: 't', t: id, q: String(i), label: `${info.title} · ${n}-р бодлого`} : undefined}
+                />
+              }
             />
           );
         })}
       </QuestionList>
+      {filter !== 'all' && numbers.every((n) => !shown(n)) && (
+        <p className="mt-4 rounded-2xl bg-neutral-900 p-4 text-center text-sm text-neutral-400">{filter === 'todo' ? 'Бүх бодлогыг ойлгосон байна.' : 'Алдсан бодлого алга.'}</p>
+      )}
     </div>
   );
 }
@@ -260,66 +397,160 @@ function Lines({text}: {text: string}) {
   );
 }
 
-function SolutionPanel({n, s, test, shown, onToggle}: {n: number; s: Solution; test: Test; shown: boolean; onToggle: () => void}) {
+const button = 'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium';
+
+/**
+ * One problem's way to the answer, given a bit at a time so the student keeps thinking: first the rule it rests on,
+ * then each step, then the check, the slip to watch for, the answer and a problem of the same kind to try. «Ойлголоо»
+ * marks it learnt; «Багшаас асуух» is there for what still isn't clear.
+ */
+function SolutionPanel(props: {
+  n: number;
+  s: Solution;
+  test: Test;
+  level: number;
+  setLevel: (l: number) => void;
+  topic?: string;
+  theirs?: string;
+  done?: boolean;
+  onDone: () => void;
+  ask?: {s: 't'; t: string; q: string; label: string};
+}) {
+  const {n, s, test, level, setLevel, topic, theirs, done, onDone, ask} = props;
+  const [tryOpen, setTryOpen] = useState(false);
+  const parts = partsOf(s);
+  const full = level >= parts;
+  const ruleShown = !!s.rule && level >= 1;
+  const stepsShown = full ? s.steps.length : Math.max(0, level - (s.rule ? 1 : 0));
   const ci = CODES.indexOf(s.a);
   const choice = test.questions[n - 1]?.c[ci];
   return (
     <div className="w-full text-left" data-solution={n}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={shown}
-        className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium ${shown ? 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700' : 'bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'}`}
-      >
-        <Lightbulb size={15} /> {shown ? 'Бодолтыг хаах' : 'Бодолтыг харах'}
-        <ChevronDown size={15} className={shown ? 'rotate-180' : ''} />
-      </button>
-      {shown && (
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+        {topic && <span>Сэдэв: {topic}</span>}
+        {theirs !== undefined && (
+          <span className="font-medium text-red-300" data-theirs>
+            {theirs === '-' ? 'Хариулаагүй' : `Таны хариулт: ${LETTERS[CODES.indexOf(theirs)] ?? theirs}`}
+          </span>
+        )}
+      </p>
+      {level === 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {s.rule ? (
+            <button type="button" onClick={() => setLevel(1)} className={`${button} bg-sky-500/15 text-sky-200 hover:bg-sky-500/25`} data-step="hint">
+              <Lightbulb size={15} /> Сануулга
+            </button>
+          ) : (
+            <button type="button" onClick={() => setLevel(1)} className={`${button} bg-sky-500/15 text-sky-200 hover:bg-sky-500/25`} data-step="next">
+              <Footprints size={15} /> Эхний алхам
+            </button>
+          )}
+          <button type="button" onClick={() => setLevel(parts)} className={`${button} bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25`} data-step="all">
+            <Eye size={15} /> Бодолтыг харах
+          </button>
+        </div>
+      )}
+      {level > 0 && (
         <div className="mt-3 space-y-4 text-[15px] leading-relaxed text-neutral-200">
-          {s.rule && (
+          {ruleShown && (
             <section className="rounded-xl bg-neutral-800/60 px-4 py-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-300">Дүрэм</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-300">Сануулга</h3>
               <div className="mt-1 space-y-1">
-                <Lines text={s.rule} />
+                <Lines text={s.rule!} />
               </div>
             </section>
           )}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Бодолт</h3>
-            <ol className="mt-2 space-y-3">
-              {s.steps.map((step, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-200" aria-hidden>
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Lines text={step} />
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-          {s.check && (
+          {stepsShown > 0 && (
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-300">Шалгах</h3>
-              <div className="mt-1 space-y-1">
-                <Lines text={s.check} />
-              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Бодолт</h3>
+              <ol className="mt-2 space-y-3">
+                {s.steps.slice(0, stepsShown).map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-200" aria-hidden>
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <Lines text={step} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </section>
           )}
-          {s.note && (
-            <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-300">Санамж</h3>
-              <div className="mt-1 space-y-1 text-amber-100">
-                <Lines text={s.note} />
-              </div>
-            </section>
+          {!full && (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setLevel(level + 1)} className={`${button} bg-sky-500/15 text-sky-200 hover:bg-sky-500/25`} data-step="next">
+                <Footprints size={15} /> {stepsShown === 0 ? 'Эхний алхам' : `Дараагийн алхам (${stepsShown + 1}/${s.steps.length})`}
+              </button>
+              <button type="button" onClick={() => setLevel(parts)} className={`${button} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`} data-step="all">
+                <Eye size={15} /> Бүгдийг харах
+              </button>
+            </div>
           )}
-          <p className="flex flex-wrap items-center gap-2 font-semibold" data-answer={s.a}>
-            <span className="text-neutral-400">Хариу:</span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-black">{LETTERS[ci]}</span>
-            {typeof choice === 'string' && <MathText text={choice} display />}
-          </p>
+          {full && (
+            <>
+              {s.check && (
+                <section>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-300">Шалгах</h3>
+                  <div className="mt-1 space-y-1">
+                    <Lines text={s.check} />
+                  </div>
+                </section>
+              )}
+              {s.note && (
+                <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-300">Санамж</h3>
+                  <div className="mt-1 space-y-1 text-amber-100">
+                    <Lines text={s.note} />
+                  </div>
+                </section>
+              )}
+              <p className="flex flex-wrap items-center gap-2 font-semibold" data-answer={s.a}>
+                <span className="text-neutral-400">Хариу:</span>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-black">{LETTERS[ci]}</span>
+                {typeof choice === 'string' && <MathText text={choice} display />}
+              </p>
+              {s.try && (
+                <section className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3" data-try>
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-violet-300">
+                    <PencilLine size={14} /> Өөрөө бодоод үз
+                  </h3>
+                  <div className="mt-1 space-y-1">
+                    <Lines text={s.try.q} />
+                  </div>
+                  {tryOpen ? (
+                    <div className="mt-2 space-y-1 border-t border-violet-500/20 pt-2" data-try-answer>
+                      <p className="font-semibold">
+                        Хариу: <MathText text={s.try.a} />
+                      </p>
+                      {s.try.s && <Lines text={s.try.s} />}
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setTryOpen(true)} className={`${button} mt-2 bg-violet-500/15 text-violet-200 hover:bg-violet-500/25`}>
+                      Хариуг харах
+                    </button>
+                  )}
+                </section>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {done !== undefined && (
+                  <button
+                    type="button"
+                    onClick={onDone}
+                    aria-pressed={done}
+                    className={`${button} ${done ? 'bg-green-500 text-black hover:bg-green-400' : 'border border-green-500/50 text-green-200 hover:bg-green-500/10'}`}
+                    data-done
+                  >
+                    <Check size={15} /> {done ? 'Ойлгосон' : 'Ойлголоо'}
+                  </button>
+                )}
+                {ask && <AskButton ctx={ask} />}
+                <button type="button" onClick={() => setLevel(0)} className={`${button} ml-auto text-neutral-400 hover:bg-neutral-800`}>
+                  Хаах
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

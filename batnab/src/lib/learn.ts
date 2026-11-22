@@ -22,6 +22,8 @@ export interface Solution {
   check?: string;
   /** A slip to watch for, or a quicker way. */
   note?: string;
+  /** A problem of the same kind to try after it: the problem, its answer and a line on how. */
+  try?: {q: string; a: string; s?: string};
 }
 
 /** A test's solutions by problem number (from 1). */
@@ -46,7 +48,11 @@ export function parseSolution(v: unknown): Solution | null {
   const rule = text(o.rule);
   const check = text(o.check);
   const note = text(o.note);
-  return {a, steps, ...(rule ? {rule} : {}), ...(check ? {check} : {}), ...(note ? {note} : {})};
+  const t = (o.try ?? {}) as Record<string, unknown>;
+  const tq = text(t.q);
+  const ta = text(t.a);
+  const ts = text(t.s);
+  return {a, steps, ...(rule ? {rule} : {}), ...(check ? {check} : {}), ...(note ? {note} : {}), ...(tq && ta ? {try: {q: tq, a: ta, ...(ts ? {s: ts} : {})}} : {})};
 }
 
 /** A test's solutions as stored (an object by number, or the list the database makes of one). */
