@@ -1,12 +1,14 @@
-import {BarChart3, BookOpen, CalendarClock, ClipboardList, KeyRound, MessageCircleQuestion, Printer, Settings2, Users} from 'lucide-react';
+import {BarChart3, BookOpen, Bot, CalendarClock, ClipboardList, KeyRound, MessageCircleQuestion, Printer, Settings2, Users} from 'lucide-react';
 import {useEffect, useMemo, useRef} from 'react';
 import {CenterNote, LockedNote} from '../../components/Notices';
 import {Link, useLocation} from '../../lib/router';
+import {useAgentTasks} from '../../lib/agents';
 import {useAllQuestions} from '../../lib/classroom';
 import {usePickedClass} from '../../lib/classes';
 import {useSession} from '../../lib/session';
 import {ClassBar, forClass} from './Classes';
 import {useAdminData} from './data';
+import AgentTab from './AgentTab';
 import Exams from './Exams';
 import Keys from './Keys';
 import Overview from './Overview';
@@ -28,6 +30,7 @@ const TABS = [
   {id: 'tasks', label: 'Даалгавар', icon: ClipboardList},
   {id: 'questions', label: 'Асуулт', icon: MessageCircleQuestion},
   {id: 'keys', label: 'Түлхүүр', icon: KeyRound},
+  {id: 'agent', label: 'Agent', icon: Bot},
   {id: 'settings', label: 'Тохиргоо', icon: Settings2},
 ] as const;
 
@@ -48,6 +51,8 @@ export default function Admin({student, topic, report}: {student?: string; topic
   }, [where, session.admin]);
   const questions = useAllQuestions();
   const unanswered = (questions ?? []).filter((q) => !q.reply && data?.students.some((s) => s.uid === q.uid)).length;
+  // The agents' work waiting for the teacher's say.
+  const toDecide = (useAgentTasks(session.admin) ?? []).filter((t) => t.status === 'review').length;
 
   if (!session.ready) return <Loading />;
   if (!session.user) return <LockedNote title="Багшийн самбар" text="Багшийн бүртгэлээр нэвтэрнэ үү." />;
@@ -79,6 +84,9 @@ export default function Admin({student, topic, report}: {student?: string; topic
               {t.id === 'questions' && unanswered > 0 && (
                 <span className="absolute right-1 top-1 min-w-4 rounded-full bg-sky-500 px-1 text-center text-[10px] font-bold leading-4 text-black sm:static sm:ml-0.5">{unanswered}</span>
               )}
+              {t.id === 'agent' && toDecide > 0 && (
+                <span className="absolute right-1 top-1 min-w-4 rounded-full bg-amber-400 px-1 text-center text-[10px] font-bold leading-4 text-black sm:static sm:ml-0.5">{toDecide}</span>
+              )}
             </Link>
           );
         })}
@@ -105,6 +113,8 @@ export default function Admin({student, topic, report}: {student?: string; topic
           <Students data={data} all={all} picked={picked} />
         ) : tab === 'keys' ? (
           <Keys data={data} initial={query.get('test') ?? undefined} />
+        ) : tab === 'agent' ? (
+          <AgentTab />
         ) : tab === 'settings' ? (
           <SettingsTab data={data} />
         ) : (
