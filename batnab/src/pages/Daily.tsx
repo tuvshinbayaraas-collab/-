@@ -80,13 +80,15 @@ export default function Daily() {
 
   const testIds = useMemo(() => [...new Set((mistakes ?? []).filter((m) => m.s === 't').map((m) => m.t))], [mistakes]);
   const keys = useKeys(testIds);
-  const markDone = (item: string) =>
-    setSaved((v) => {
-      if (!v || v.done.includes(item)) return v;
-      const next = {...v, done: [...v.done, item]};
-      if (uid) save(storeKey(uid, day), next);
-      return next;
-    });
+  const markDone = (item: string) => {
+    // Saved here, not in the updater: it must stick even when the page is already left.
+    if (uid) {
+      const k = storeKey(uid, day);
+      const stored = load(k);
+      if (stored && !stored.done.includes(item)) save(k, {...stored, done: [...stored.done, item]});
+    }
+    setSaved((v) => (!v || v.done.includes(item) ? v : {...v, done: [...v.done, item]}));
+  };
 
   // All done: the streak moves on (once a day).
   const counted = useRef(false);

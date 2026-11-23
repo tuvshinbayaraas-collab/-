@@ -1,9 +1,11 @@
-import {Check, CheckCheck, NotebookPen, Shuffle, X} from 'lucide-react';
+import {BookOpenCheck, Check, CheckCheck, NotebookPen, Shuffle, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {auth} from '../lib/firebase';
 import {choiceAt, useKeys} from '../lib/keys';
+import {useSolutions} from '../lib/learn';
 import {addMistakes, isDue, LAST_BOX, mistakeId, NOTE_MAX, reviewed, setNote, setWhy, useMistakes, WHYS, type Mistake} from '../lib/mistakes';
 import {useMyResults} from '../lib/results';
+import {Link} from '../lib/router';
 import {learnedOne, type Stats} from '../lib/stats';
 import {dayLabel} from '../lib/time';
 import {problemNo, useProgress, type Problem, type Topic} from '../lib/topics';
@@ -276,6 +278,9 @@ function TestQuestion({
   // The first check is what counts; later tries are practice.
   const [counted, setCounted] = useState(false);
   const [help, setHelp] = useState(0);
+  // The full solution, read only once a checked answer is wrong.
+  const wrong = checked && testKey !== undefined && pick !== (testKey ? choiceAt(testKey, qi) : null);
+  const sol = useSolutions(wrong ? tid : undefined);
   if (test === undefined || testKey === undefined) return <div className="h-40 animate-pulse rounded-2xl bg-neutral-900" />;
   const q = test?.questions[qi];
   if (!q) return null;
@@ -346,7 +351,18 @@ function TestQuestion({
                   <AskButton ctx={{s: 't', t: tid, q: String(qi), label}} />
                 </span>
               </div>
-              {checked && !ok && <HelpLadder hint={hint?.hint} steps={hint?.steps} help={help} setHelp={setHelp} onRetry={retry} />}
+              {checked && !ok && (
+                <>
+                  <HelpLadder hint={hint?.hint} steps={hint?.steps} help={help} setHelp={setHelp} onRetry={retry} />
+                  {sol && sol !== 'locked' && sol[qi + 1] && (
+                    <div className="flex flex-wrap">
+                      <Link href={`/learn/${tid}?n=${qi + 1}`} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10">
+                        <BookOpenCheck size={15} /> Бүтэн бодолт
+                      </Link>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           }
         />
