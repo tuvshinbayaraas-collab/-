@@ -100,7 +100,7 @@ export default function GameShell({game, day, children}: {game: GameInfo; day?: 
   const beatRef = useRef(false);
 
   const mine = board?.find((e) => e.uid === uid)?.s ?? 0;
-  const best = Math.max(stats?.best ?? 0, bestHere(game.id));
+  const best = Math.max(stats?.best ?? 0, bestHere(uid, game.id));
   const startLevel = daily ? 1 : (stats?.lv ?? 1);
   const left = Math.max(0, end - now);
   // A student's numbers come before the start: where the ladder begins, whether today's try is taken.
