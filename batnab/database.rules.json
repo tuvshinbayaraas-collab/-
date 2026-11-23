@@ -1538,6 +1538,20 @@
         }
       }
     },
+    "learnDone": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('users').child($uid).child('username').exists() && root.child('users').child($uid).child('disabled').val() !== true))",
+        ".validate": "newData.hasChildren()",
+        "$testId": {
+          ".validate": "$testId.matches(/^[0-9]{1,2}[AB]$/) && newData.hasChildren()",
+          "$n": {
+            ".validate": "$n.matches(/^[1-9][0-9]?$/) && newData.val() === true"
+          }
+        }
+      }
+    },
     "agentTasks": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",

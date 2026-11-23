@@ -37,6 +37,7 @@ const NODES: [string, number][] = [
   ['mistakes', 0],
   ['mistakeTests', 0],
   ['stats', 0],
+  ['learnDone', 0],
   ['timeOn', 0],
   ['pollVotes', 0],
   ['pollIdeas', 0],

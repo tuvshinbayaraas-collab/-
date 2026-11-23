@@ -3,6 +3,7 @@ import {useRef, useState, type ReactNode} from 'react';
 import Avatar from '../../components/Avatar';
 import MathText from '../../components/MathText';
 import {formatDuration} from '../../lib/attempt';
+import {countLearnDone, useAllLearnDone, useLearnIndex} from '../../lib/learn';
 import {percent} from '../../lib/keys';
 import {Link, useLocation} from '../../lib/router';
 import {shownName} from '../../lib/session';
@@ -540,7 +541,15 @@ function Questions({report, rate, test, initial}: {report: TestReport; rate: (q:
   const hardestFirst = qs.filter((q) => rate(q) !== null).sort((a, b) => rate(a)! - rate(b)!)[0]?.i ?? 0;
   const [sel, setSel] = useState(initial >= 0 && initial < qs.length ? initial : hardestFirst);
   const detail = useRef<HTMLDivElement>(null);
+  const allDone = useAllLearnDone();
+  const hasLearn = !!useLearnIndex()?.[report.info.id];
   if (!report.rows.length) return null;
+  // Who marked each problem «Ойлголоо» in «Сурах»; disabled students are not counted.
+  let learned: Record<number, number> | null = null;
+  if (hasLearn && allDone) {
+    const active = new Set([...report.rows.map((r) => r.student), ...report.missing].filter((s) => !s.profile.disabled).map((s) => s.uid));
+    learned = countLearnDone(Object.fromEntries(Object.entries(allDone).filter(([uid]) => active.has(uid))), report.info.id);
+  }
   const pick = (i: number) => {
     setSel(i);
     const url = new URL(location.href);
@@ -574,6 +583,7 @@ function Questions({report, rate, test, initial}: {report: TestReport; rate: (q:
             <ChevronRight size={18} />
           </button>
         </div>
+        {learned && <p className="mt-1 text-xs text-neutral-400">«Сурах»-д ойлгосон: {learned[q.i + 1] ?? 0} сурагч</p>}
         <QuestionDetail q={q} takers={report.rows.length} question={test?.questions[q.i]} />
       </div>
     </div>

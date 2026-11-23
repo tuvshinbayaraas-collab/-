@@ -69,7 +69,7 @@ export async function setLead(uid: string, lead: boolean) {
 /** Removes the profile and all results. The sign-in account stays but can't do anything without a profile. */
 /**
  * The account's record, results, questions, topic answers (with the teacher's marks and their photos, and the times
- * done again), the time counted, their poll answers and their places on the games' boards.
+ * done again), the time counted, their «Ойлголоо» marks, their poll answers and their places on the games' boards.
  */
 export async function deleteStudent(uid: string) {
   const read = async (path: string) => (await get(ref(db, path)).catch(() => null))?.val() ?? null;
@@ -85,6 +85,7 @@ export async function deleteStudent(uid: string) {
     [`topicWork/${uid}`]: null,
     [`topicRounds/${uid}`]: null,
     [`timeOn/${uid}`]: null,
+    [`learnDone/${uid}`]: null,
     // Their poll answers, ideas and picks.
     ...pollPathsOf(uid, polls),
     // Their class polls (with those polls' votes) and their votes on classmates'.

@@ -9,7 +9,7 @@ import {QuestionList, useJump} from '../components/QuestionList';
 import {useExams} from '../lib/exams';
 import {focusOn} from '../lib/focus';
 import {grade, useKeys} from '../lib/keys';
-import {useLearnIndex, useSolutions, type Solution} from '../lib/learn';
+import {setLearnDone, useLearnDone, useLearnIndex, useSolutions, type Solution} from '../lib/learn';
 import {useMyResults} from '../lib/results';
 import {Link, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
@@ -29,37 +29,10 @@ export default function Learn({test}: {test?: string}) {
   return test ? <TestSolutions id={test} /> : <Hub />;
 }
 
-// The problems a student has marked «Ойлголоо», on this device: batnab.learn.{uid}.{test} = [n…].
-const doneKey = (uid: string, test: string) => `batnab.learn.${uid}.${test}`;
-function readDone(uid: string | undefined, test: string): Set<number> {
-  if (!uid) return new Set();
-  try {
-    const v = JSON.parse(localStorage.getItem(doneKey(uid, test)) ?? '[]') as unknown;
-    return new Set(Array.isArray(v) ? v.filter((n): n is number => Number.isInteger(n)) : []);
-  } catch {
-    return new Set();
-  }
-}
-function useDone(uid: string | undefined, test: string) {
-  const [done, setDone] = useState(() => readDone(uid, test));
-  useEffect(() => setDone(readDone(uid, test)), [uid, test]);
-  const toggle = (n: number) => {
-    const next = new Set(done);
-    if (next.has(n)) next.delete(n);
-    else next.add(n);
-    setDone(next);
-    try {
-      if (uid) localStorage.setItem(doneKey(uid, test), JSON.stringify([...next].sort((a, b) => a - b)));
-    } catch {
-      // A private window: kept for this visit only.
-    }
-  };
-  return [done, toggle] as const;
-}
-
 function Hub() {
   const session = useSession();
   const index = useLearnIndex();
+  const learnt = useLearnDone(session.admin ? undefined : session.user?.uid);
   if (!index) return <Loading />;
   const tests = TESTS.filter((t) => index[t.id]);
   const uid = session.admin ? undefined : session.user?.uid;
@@ -77,7 +50,7 @@ function Hub() {
       {tests.length ? (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {tests.map((t) => {
-            const done = readDone(uid, t.id).size;
+            const done = learnt?.[t.id]?.size ?? 0;
             return (
               <li key={t.id}>
                 <Link href={`/learn/${t.id}`} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800/80" data-learn-test={t.id}>
@@ -118,7 +91,12 @@ function TestSolutions({id}: {id: string}) {
   // How far each problem's solution is open: 0 closed; then its rule, then a step at a time; partsOf = all of it.
   const [level, setLevel] = useState<Record<number, number>>({});
   const [filter, setFilter] = useState<Filter>('all');
-  const [done, toggleDone] = useDone(student ? uid : undefined, id);
+  // The problems they marked «Ойлголоо», kept on the account. A tap shows at once (Firebase's local event).
+  const learnt = useLearnDone(student ? uid : undefined);
+  const done = learnt?.[id] ?? new Set<number>();
+  const toggleDone = (n: number) => {
+    if (student && uid) setLearnDone(uid, id, n, !done.has(n)).catch(() => alert('Хадгалж чадсангүй. Дахин оролдоно уу.'));
+  };
   // The student's last go at the test this week, against the key: what they got, and the problems they missed.
   const results = useMyResults();
   const last = student ? results?.filter((r) => r.test === id).sort((a, b) => b.at - a.at)[0] : undefined;
@@ -138,6 +116,7 @@ function TestSolutions({id}: {id: string}) {
 
   if (!info) return <CenterNote title="Ийм тест алга" />;
   if (solutions === null || !test) return <Loading />;
+  if (student && learnt === null) return <Loading />;
   const back = (
     <Link href="/learn" className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200">
       <ArrowLeft size={16} /> Сурах

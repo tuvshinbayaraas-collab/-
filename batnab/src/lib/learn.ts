@@ -4,10 +4,12 @@
 //   learn/{test}/{n} = {a, rule?, steps: [...], check?, note?}   n = the problem's number (from 1); a = its right
 //                       choice (A–E); every text is a line or several, with $math$, and $$math$$ lines set apart.
 //   learnIndex/{test} = {n, at}   which tests have them and how many (for the menu and the pages), for everyone signed in.
+//   learnDone/{uid}/{test}/{n} = true   the problems a student has marked «Ойлголоо» (they write their own; the teacher reads).
 import {onValue, ref, serverTimestamp, update} from 'firebase/database';
 import {useEffect, useState} from 'react';
 import {db} from './firebase';
-import {sharedLive, useSignIns} from './live';
+import {sharedLive, useLive, useSignIns} from './live';
+import {sendKept} from './outbox';
 import {testInfo} from '../tests';
 import {CODES} from '../tests/types';
 
@@ -138,3 +140,92 @@ export const saveSolutions = (test: string, items: Solutions) =>
 
 /** The teacher takes a test's solutions away. */
 export const removeSolutions = (test: string) => update(ref(db), {[`learn/${test}`]: null, [`learnIndex/${test}`]: null});
+
+/** One student's marks as stored: test → problem numbers (only tests the site knows, numbers in the test). */
+function parseDone(v: unknown): Record<string, Set<number>> {
+  const out: Record<string, Set<number>> = {};
+  for (const [test, x] of Object.entries(v && typeof v === 'object' ? v : {})) {
+    const info = testInfo(test);
+    if (!info || !x || typeof x !== 'object') continue;
+    const set = new Set<number>();
+    for (const [k, on] of Object.entries(x)) {
+      const n = Number(k);
+      if (on === true && Number.isInteger(n) && n >= 1 && n <= info.count) set.add(n);
+    }
+    if (set.size) out[test] = set;
+  }
+  return out;
+}
+
+// The marks were kept on the device before (batnab.learn.{uid}.{test} = [n…]): moved into the account once per visit.
+const moved = new Set<string>();
+async function moveOldMarks(uid: string, have: Record<string, Set<number>>) {
+  const prefix = `batnab.learn.${uid}.`;
+  const keys: string[] = [];
+  const ops: Record<string, true> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix)) keys.push(k);
+    }
+    for (const k of keys) {
+      const info = testInfo(k.slice(prefix.length));
+      if (!info) continue;
+      let v: unknown;
+      try {
+        v = JSON.parse(localStorage.getItem(k) ?? '[]');
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(v)) continue;
+      for (const n of v) {
+        if (Number.isInteger(n) && n >= 1 && n <= info.count && !have[info.id]?.has(n)) ops[`learnDone/${uid}/${info.id}/${n}`] = true;
+      }
+    }
+  } catch {
+    // No storage (a private window): nothing to move.
+    return;
+  }
+  if (!keys.length) return;
+  try {
+    if (Object.keys(ops).length) await update(ref(db), ops);
+  } catch {
+    // Not saved: the marks stay on the device, to be moved on the next visit.
+    return;
+  }
+  try {
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // Left on the device: moving them again adds nothing.
+  }
+}
+
+/** The student's marks by test; null while loading. Also moves this device's old marks into the account, once. */
+export function useLearnDone(uid: string | undefined): Record<string, Set<number>> | null {
+  const done = useLive(uid ? `learnDone/${uid}` : null, parseDone);
+  useEffect(() => {
+    if (!uid || !done || moved.has(uid)) return;
+    moved.add(uid);
+    void moveOldMarks(uid, done);
+  }, [uid, done]);
+  return done;
+}
+
+/** Marks (on=true) or unmarks one problem; kept on the phone until the database has it (outbox). */
+export function setLearnDone(uid: string, test: string, n: number, on: boolean): Promise<void> {
+  return sendKept(uid, `l:${test}/${n}`, {[`learnDone/${uid}/${test}/${n}`]: on ? true : null});
+}
+
+/** Teacher: every student's marks, uid → test → problem numbers; null while loading. */
+export function useAllLearnDone(): Record<string, Record<string, Set<number>>> | null {
+  return useLive('learnDone', (v) =>
+    Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {}).map(([uid, x]) => [uid, parseDone(x)])),
+  );
+}
+
+/** How many students marked each problem of a test: n → count. */
+export function countLearnDone(all: Record<string, Record<string, Set<number>>>, test: string): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (const marks of Object.values(all)) marks[test]?.forEach((n) => (out[n] = (out[n] ?? 0) + 1));
+  return out;
+}
