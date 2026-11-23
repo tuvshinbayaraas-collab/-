@@ -161,17 +161,19 @@ export const useGameStats = (uid: string | undefined, game: GameId) =>
     return {lv: Number(x.lv) || 1, best: Number(x.best) || 0};
   });
 
-/** The student's best ever on this phone (games played while the week's board was elsewhere count too). */
-export function bestHere(game: GameId) {
+/** This account's best on this phone (games played while the week's board was elsewhere count too). */
+export function bestHere(uid: string | undefined, game: GameId) {
+  if (!uid) return 0;
   try {
-    return Number(localStorage.getItem(`batnab.game.${game}`) || 0);
+    return Number(localStorage.getItem(`batnab.game.${uid}.${game}`) || 0);
   } catch {
     return 0;
   }
 }
-function keepBest(game: GameId, s: number) {
+function keepBest(uid: string | undefined, game: GameId, s: number) {
+  if (!uid) return;
   try {
-    if (s > bestHere(game)) localStorage.setItem(`batnab.game.${game}`, String(s));
+    if (s > bestHere(uid, game)) localStorage.setItem(`batnab.game.${uid}.${game}`, String(s));
   } catch {
     // no storage: only the database keeps it
   }
@@ -183,8 +185,8 @@ function keepBest(game: GameId, s: number) {
  * scores off boards. Resolves whether it is the round's new best.
  */
 export async function saveScore(game: GameId, s: number, profile: Profile, roundBest: number, next: GameStats) {
-  keepBest(game, s);
   const uid = auth.currentUser?.uid;
+  keepBest(uid, game, s);
   if (!uid) return false;
   const writes: Record<string, unknown> = {[`stats/${uid}/games/${game}`]: {lv: next.lv, best: Math.max(next.best, s)}};
   const onBoard = !profile.prefs?.lbOff && s >= 1 && s >= roundBest;
