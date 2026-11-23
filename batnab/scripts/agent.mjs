@@ -62,6 +62,12 @@ function request(t) {
   return [String(t.text ?? ''), ...notes.map((n, i) => `Нэмэлт ${i + 1}: ${n.text}`)].join('\n\n');
 }
 
+/** Moves a request's status from `from` to `to` only if it is still `from` (the teacher may have turned it down since). */
+async function claim(id, from, to) {
+  const {committed, snapshot} = await tasks.child(`${id}/status`).transaction((s) => (s === null ? null : s === from ? to : undefined));
+  return committed && snapshot.val() === to;
+}
+
 async function plan() {
   await db.ref('agentRunner').set({lastSeen: ServerValue.TIMESTAMP, claude: process.env.CLAUDE === 'true'});
   const now = Date.now();
@@ -73,8 +79,8 @@ async function plan() {
       t.status = 'failed';
     }
   const approved = all.filter(([, t]) => t.status === 'approved').sort((a, b) => (a[1].decidedAt ?? 0) - (b[1].decidedAt ?? 0))[0];
-  if (approved) {
-    await tasks.child(approved[0]).update({status: 'pushing', startedAt: ServerValue.TIMESTAMP});
+  if (approved && (await claim(approved[0], 'approved', 'pushing'))) {
+    await tasks.child(approved[0]).update({startedAt: ServerValue.TIMESTAMP});
     await log(approved[0], 'Сайтын салбартай нэгтгэж байна.');
     output('merge', approved[0]);
     output('merge_team', Object.hasOwn(TEAMS, approved[1].route?.team ?? '') ? approved[1].route.team : 'general');
@@ -84,8 +90,10 @@ async function plan() {
   if (process.env.CLAUDE !== 'true' || all.some(([, t]) => t.status === 'working')) return;
   const next = all.filter(([, t]) => t.status === 'new').sort((a, b) => (a[1].at ?? 0) - (b[1].at ?? 0))[0];
   if (!next) return;
-  const [id, t] = next;
-  await tasks.child(id).update({status: 'working', startedAt: ServerValue.TIMESTAMP, error: null});
+  const [id] = next;
+  if (!(await claim(id, 'new', 'working'))) return;
+  await tasks.child(id).update({startedAt: ServerValue.TIMESTAMP, error: null});
+  const t = (await tasks.child(id).get()).val() ?? {};
   await log(id, 'Удирдах agent даалгаврыг уншиж байна.');
   writeTo('ROUTE_FILE', `${read('manager.md')}\n\n## Багшийн даалгавар\n\n${request(t)}`);
   output('task', id);
