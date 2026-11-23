@@ -1,5 +1,6 @@
-import {BookOpen, CircleHelp, Download, Flame, Gamepad2, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
+import {BookOpen, BookOpenCheck, CircleHelp, Download, Flame, Gamepad2, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
 import {lazy, Suspense, useState, type ReactNode} from 'react';
+import {useLearnIndex} from '../lib/learn';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
 import {useSettings} from '../lib/settings';
@@ -21,6 +22,9 @@ export default function Header() {
   const app = useGetApp();
   const guideRole = useGuideRole();
   const settings = useSettings();
+  // «Сурах» once a test has its solutions.
+  const learnIndex = useLearnIndex();
+  const learn = !!learnIndex && Object.keys(learnIndex).length > 0;
   const name = shownName(profile);
   // What's on the page now ("Төхөөрөмжийн" included): the menu offers the other one.
   const {light, setTheme} = useTheme();
@@ -52,6 +56,7 @@ export default function Header() {
       ? [
           ['/', 'Нүүр'],
           ['/topics', 'Сэдвүүд'],
+          ...(learn ? ([['/learn', 'Сурах']] as [string, string][]) : []),
           ['/daily', 'Өдрийн дасгал'],
           ['/results', 'Миний дүн'],
           ...(settings?.leaderboard ? ([['/leaderboard', 'Leaderboard']] as [string, string][]) : []),
@@ -113,6 +118,7 @@ export default function Header() {
                         <>
                           {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
                           {item('/topics', <BookOpen size={20} />, 'Сэдвүүд')}
+                          {learn && item('/learn', <BookOpenCheck size={20} />, 'Сурах')}
                           {item('/live', <Zap size={20} />, 'Шууд тэмцээн')}
                           {!admin && item('/daily', <Flame size={20} />, 'Өдрийн дасгал')}
                           {!admin && item('/mistakes', <NotebookPen size={20} />, 'Алдааны дэвтэр')}
