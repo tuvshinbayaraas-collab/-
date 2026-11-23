@@ -1,0 +1,446 @@
+# The teacher's agents («Agent» in the teacher's dashboard). Every 10 minutes:
+#   plan     reads the requests (agentTasks in the database), pushes the work the teacher approved (merged into the
+#            site's branch, then deployed), cleans up what was turned down, and takes the oldest new request: the
+#            managing agent picks the team whose lead will do it.
+#   work     the team's lead does the work (Claude Code). This job has no database key and a read-only GitHub token,
+#            so nothing run in it can push or reach users' data.
+#   publish  checks the work, pushes it to the branch agent/<id>, puts up a preview, and asks the teacher.
+# The repository and these logs are public: the teacher's words go between the jobs only sealed (with the
+# ANTHROPIC_API_KEY secret), and never into a step's inputs or environment, which the logs show.
+# The schedule runs from the default branch (main), so this file must be there too; the code and the agents'
+# instructions always come from the site's branch.
+# Repository secrets: ANTHROPIC_API_KEY, and FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F (as in batnab-deploy.yml).
+# Repository variables (optional): AGENT_MODEL and AGENT_ROUTER_MODEL (Claude Code's "opus", the newest Opus, when not
+# set; "sonnet" costs less), AGENT_MAX_TURNS (120 when not set).
+name: Batnab agents
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SITE_BRANCH: claude/youtube-site-batnab-jfgjry
+  # What the agents may not change: the workflows, Claude's own settings, the agents' instructions and their runner.
+  PROTECTED: '^(\.github/|batnab/agents/|batnab/scripts/agent\.mjs$)|(^|/)(\.claude/|CLAUDE\.md$|\.mcp\.json$)'
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: batnab-agent-plan
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      task: ${{ steps.plan.outputs.task }}
+      team: ${{ steps.routed.outputs.team }}
+      earlier: ${{ steps.routed.outputs.earlier }}
+      sealed: ${{ steps.seal.outputs.sealed }}
+    steps:
+      - name: Check the keys are set
+        id: keys
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "db=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::Agents off: the repository secret FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F is not set."
+            echo "db=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$CLAUDE_KEY" ]; then echo "claude=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::No new work is taken: the repository secret ANTHROPIC_API_KEY is not set (batnab/README.md, Agent)."
+            echo "claude=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.keys.outputs.db == 'true'
+        with:
+          ref: ${{ env.SITE_BRANCH }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        if: steps.keys.outputs.db == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/package-lock.json
+
+      - if: steps.keys.outputs.db == 'true'
+        working-directory: batnab
+        run: npm ci --no-audit --no-fund
+
+      - name: Plan
+        id: plan
+        if: steps.keys.outputs.db == 'true'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          CLAUDE: ${{ steps.keys.outputs.claude }}
+          ROUTE_FILE: ${{ github.workspace }}/.agent/route.md
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" node batnab/scripts/agent.mjs plan
+
+      - name: Push the work the teacher approved
+        id: merge
+        if: steps.plan.outputs.merge != ''
+        continue-on-error: true
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ID: ${{ steps.plan.outputs.merge }}
+          TEAM: ${{ steps.plan.outputs.merge_team }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          agent() { node batnab/scripts/agent.mjs "$@"; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          commit=''
+          for _ in 1 2 3; do
+            if ! git fetch -q origin "+refs/heads/$SITE_BRANCH:refs/remotes/origin/$SITE_BRANCH" "+refs/heads/agent/$ID:refs/remotes/origin/agent/$ID"; then
+              agent fail "$ID" "Энэ ажлын салбар олдсонгүй. «Дахин оролдох» дарвал agent ажлыг дахин хийнэ."
+              exit 0
+            fi
+            git checkout -q -B agent-merge "origin/$SITE_BRANCH"
+            if ! git merge -q --no-ff -m "Agent: $TEAM, даалгавар $ID" "origin/agent/$ID"; then
+              git merge --abort
+              agent fail "$ID" "Энэ ажил сайтын сүүлийн өөрчлөлттэй зөрчилдөж байна. «Дахин оролдох» дарвал agent сайтын одоогийн хувилбар дээр дахин хийнэ."
+              exit 0
+            fi
+            if git diff --name-only "origin/$SITE_BRANCH" HEAD | grep -qE "$PROTECTED"; then
+              agent fail "$ID" "Энэ ажил agent-ийн өөрчлөх эрхгүй файлд хүрсэн тул push хийсэнгүй."
+              exit 0
+            fi
+            if git push -q origin "HEAD:refs/heads/$SITE_BRANCH"; then commit=$(git rev-parse HEAD); break; fi
+            sleep 15
+          done
+          if [ -z "$commit" ]; then
+            agent fail "$ID" "Сайтын салбар руу push хийж чадсангүй. Дахин оролдоно уу."
+            exit 0
+          fi
+          # A push made with this job's token starts no workflow: the deploy is started by hand.
+          gh workflow run batnab-deploy.yml -R "$GITHUB_REPOSITORY" --ref "$SITE_BRANCH" || echo "::warning::The deploy did not start: the next push to the site's branch deploys this too."
+          git push -q origin --delete "agent/$ID" || true
+          (cd batnab && npx --yes firebase-tools@15 hosting:channel:delete "agent-$ID" --site batnab --project rgtbn-bb94f --force) || true
+          agent pushed "$ID" "$commit"
+
+      # Went wrong in a way the step above does not say itself: the teacher may try again.
+      - name: Say the push went wrong
+        if: steps.merge.outcome == 'failure'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ID: ${{ steps.plan.outputs.merge }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" node batnab/scripts/agent.mjs fail "$ID" "Push хийх үед алдаа гарлаа. «Дахин оролдох» дарвал agent ажлыг шалгаад дахин асууна."
+
+      - name: Clean up what the teacher turned down
+        if: steps.plan.outputs.clean != ''
+        continue-on-error: true
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          CLEAN: ${{ steps.plan.outputs.clean }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          for ID in $CLEAN; do
+            if git ls-remote --exit-code --heads origin "agent/$ID" > /dev/null; then
+              git push -q origin --delete "agent/$ID" || true
+              (cd batnab && npx --yes firebase-tools@15 hosting:channel:delete "agent-$ID" --site batnab --project rgtbn-bb94f --force) || true
+            fi
+            node batnab/scripts/agent.mjs cleaned "$ID"
+          done
+
+      - name: The managing agent picks a team
+        id: route
+        if: steps.plan.outputs.task != ''
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          allowed_bots: claude,github-actions
+          prompt: Read the file .agent/route.md and do what it says. It holds your instructions and the teacher's request.
+          settings: |
+            {"permissions": {"allow": ["Read", "Glob", "Grep"], "deny": ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "WebFetch", "WebSearch"]}}
+          claude_args: |
+            --model ${{ vars.AGENT_ROUTER_MODEL || 'opus' }}
+            --max-turns 10
+            --permission-mode default
+            --json-schema '{"type":"object","properties":{"team":{"type":"string","enum":["tests","games","design","data","general"]},"why":{"type":"string"}},"required":["team","why"],"additionalProperties":false}'
+
+      # The managing agent's answer is read from its run's file: the step output would show in the logs.
+      - name: Hand the request to the team's lead
+        id: routed
+        if: steps.plan.outputs.task != ''
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ID: ${{ steps.plan.outputs.task }}
+          EXEC: ${{ runner.temp }}/claude-execution-output.json
+          LEAD_FILE: ${{ runner.temp }}/lead.md
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json" "$EXEC"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" node batnab/scripts/agent.mjs routed "$ID"
+
+      - name: Seal the lead's instructions for the next job
+        id: seal
+        if: steps.routed.outcome == 'success'
+        env:
+          SEAL: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "sealed=$(openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:SEAL -a -A -in "$RUNNER_TEMP/lead.md")" >> "$GITHUB_OUTPUT"
+          rm -rf "$RUNNER_TEMP/lead.md" .agent
+
+  work:
+    needs: plan
+    if: needs.plan.outputs.sealed != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SITE_BRANCH }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/package-lock.json
+
+      - working-directory: batnab
+        run: npm ci --no-audit --no-fund
+
+      - name: The request's branch
+        id: branch
+        env:
+          ID: ${{ needs.plan.outputs.task }}
+          EARLIER: ${{ needs.plan.outputs.earlier }}
+          SEALED: ${{ needs.plan.outputs.sealed }}
+          SEAL: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # The work so far on this request goes on, with the site's newest changes in; if they clash, it starts again.
+          state=new
+          if git fetch -q origin "+refs/heads/agent/$ID:refs/remotes/origin/agent/$ID" 2> /dev/null; then
+            git checkout -q -B work "origin/agent/$ID"
+            if git merge -q --no-edit "origin/$SITE_BRANCH"; then state=continued; else
+              git merge --abort
+              git checkout -q -B work "origin/$SITE_BRANCH"
+              state=fresh
+            fi
+          else
+            git checkout -q -B work "origin/$SITE_BRANCH"
+          fi
+          mkdir -p .agent
+          printf '%s' "$SEALED" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:SEAL -a -A -out .agent/task.md
+          if [ "$state" != continued ] && [ "$EARLIER" = true ]; then
+            printf '\n%s\n' 'Note: the earlier work on this request could not be carried over to the current site, so it is not on this branch. Do the whole request again, with what the teacher added.' >> .agent/task.md
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: The team's lead does the work
+        id: lead
+        continue-on-error: true
+        timeout-minutes: 50
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          allowed_bots: claude,github-actions
+          prompt: Read the file .agent/task.md first and do what it says. It holds your instructions and the teacher's request.
+          settings: |
+            {"permissions": {"allow": ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "TodoWrite", "Task", "Agent", "Bash(npm --prefix batnab run lint)", "Bash(npm --prefix batnab run build)", "Bash(node:*)", "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(ls:*)", "Bash(head:*)", "Bash(tail:*)"], "deny": ["WebFetch", "WebSearch", "Bash(git push:*)", "Bash(git commit:*)"]}}
+          claude_args: |
+            --model ${{ vars.AGENT_MODEL || 'opus' }}
+            --max-turns ${{ vars.AGENT_MAX_TURNS || '120' }}
+            --permission-mode default
+
+      - name: Check the work
+        id: check
+        if: always() && steps.branch.outcome == 'success'
+        env:
+          ID: ${{ needs.plan.outputs.task }}
+          TEAM: ${{ needs.plan.outputs.team }}
+          BASE: ${{ steps.branch.outputs.base }}
+          STATE: ${{ steps.branch.outputs.state }}
+          LEAD: ${{ steps.lead.outcome }}
+          SEAL: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          OUT="$RUNNER_TEMP/out"
+          rm -rf "$OUT" && mkdir -p "$OUT"
+          [ -f .agent/report.json ] && cp .agent/report.json "$OUT/report.json"
+          rm -rf .agent
+          # What the agents may not change goes back to how it was.
+          git add -A
+          git diff --cached --name-only -z --no-renames "$BASE" | while IFS= read -r -d '' f; do
+            if printf '%s' "$f" | grep -qE "$PROTECTED"; then
+              if git cat-file -e "$BASE:$f" 2> /dev/null; then git checkout -q "$BASE" -- "$f"; else git rm -q -f --cached -- "$f"; rm -f -- "$f"; fi
+              printf '%s\n' "$f" >> "$OUT/restored.txt"
+            fi
+          done
+          ok=false
+          if [ "$LEAD" = success ] && npm --prefix batnab run lint > "$OUT/check.log" 2>&1 && npm --prefix batnab run build >> "$OUT/check.log" 2>&1; then
+            ok=true
+            cp -r batnab/dist "$OUT/dist"
+          fi
+          if ! git diff --cached --quiet "$BASE" && ! git commit -q -m "Agent: $TEAM, даалгавар $ID"; then
+            ok=false
+            echo 'The commit failed.' >> "$OUT/check.log"
+          fi
+          # The new commits, for the publish job to push.
+          since=("^origin/$SITE_BRANCH")
+          git rev-parse -q --verify "refs/remotes/origin/agent/$ID" > /dev/null && since+=("^origin/agent/$ID")
+          if [ -n "$(git rev-list -n 1 work "${since[@]}")" ]; then git bundle create -q "$OUT/agent.bundle" work "${since[@]}"; fi
+          # How the lead's run ended, how long and what it cost (its execution file's last message).
+          run=$(jq -c '[.[] | select(.type == "result")] | last // {}' "$RUNNER_TEMP/claude-execution-output.json" 2> /dev/null)
+          [ -n "$run" ] || run='{}'
+          jq -n --arg lead "$LEAD" --argjson ok "$ok" --arg state "$STATE" --argjson run "$run" \
+            '{lead: $lead, ok: $ok, state: $state, subtype: ($run.subtype // ""), turns: ($run.num_turns // 0), cost: ($run.total_cost_usd // 0)}' > "$OUT/meta.json"
+          # Sealed: anyone can download a public repository's artifacts.
+          tar -C "$OUT" -czf - . | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:SEAL -out "$RUNNER_TEMP/agent-out.bin"
+
+      - name: Keep the work for the next job
+        id: upload
+        if: always() && steps.check.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-out
+          path: ${{ runner.temp }}/agent-out.bin
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, work]
+    if: always() && needs.plan.outputs.task != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SITE_BRANCH }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/package-lock.json
+
+      - working-directory: batnab
+        run: npm ci --no-audit --no-fund
+
+      - name: Fetch the work
+        if: needs.work.outputs.artifact != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-out
+          path: ${{ runner.temp }}/in
+
+      - name: Push the work and ask the teacher
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          SEAL: ${{ secrets.ANTHROPIC_API_KEY }}
+          ID: ${{ needs.plan.outputs.task }}
+          ARTIFACT: ${{ needs.work.outputs.artifact }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          agent() { node batnab/scripts/agent.mjs "$@"; }
+          OUT="$RUNNER_TEMP/out"
+          mkdir -p "$OUT"
+          if [ -f "$RUNNER_TEMP/in/agent-out.bin" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:SEAL -in "$RUNNER_TEMP/in/agent-out.bin" | tar -C "$OUT" -xzf - || true
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT" > /dev/null || true
+            # Only plain files and folders: a link could point at this job's own files (the database key).
+            find "$OUT" -mindepth 1 ! -type f ! -type d -delete
+          fi
+          if [ ! -f "$OUT/meta.json" ]; then
+            agent fail "$ID" "Agent ажлаа дуусгаж чадсангүй. Дахин оролдоно уу."
+            exit 0
+          fi
+          COST=$(jq -r '.cost // 0' "$OUT/meta.json")
+          export COST
+          if [ "$(jq -r .lead "$OUT/meta.json")" != success ]; then
+            if [ "$(jq -r .subtype "$OUT/meta.json")" = error_max_turns ]; then
+              agent fail "$ID" "Agent алхмын хязгаартаа хүрээд зогслоо. Даалгавар том байж магадгүй. Хэсэг хэсгээр нь өгөөд үзээрэй."
+            else
+              agent fail "$ID" "Agent ажлаа дуусгаж чадсангүй. Дахин оролдоно уу. Дахиад бүтэхгүй бол Claude-ийн түлхүүр (ANTHROPIC_API_KEY) зөв, данс нь цэнэгтэй эсэхийг шалгана уу."
+            fi
+            exit 0
+          fi
+          if [ "$(jq -r .ok "$OUT/meta.json")" != true ]; then
+            agent fail "$ID" "$(printf 'Agent-ийн хийсэн өөрчлөлт шалгалтад тэнцсэнгүй. Дахин оролдоно уу.\n\n%s' "$(tail -c 1200 "$OUT/check.log" 2> /dev/null)")"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          BR="agent/$ID"
+          git fetch -q origin "+refs/heads/$BR:refs/remotes/origin/$BR" 2> /dev/null || true
+          tip=''
+          if [ -f "$OUT/agent.bundle" ]; then
+            if ! git fetch -q "$OUT/agent.bundle" "+refs/heads/work:refs/agent/work"; then
+              agent fail "$ID" "Agent-ийн ажлыг хадгалж чадсангүй. Дахин оролдоно уу."
+              exit 0
+            fi
+            # Checked again here: this job's checkout, not the work job's, decides.
+            if git diff --name-only "origin/$SITE_BRANCH...refs/agent/work" | grep -qE "$PROTECTED"; then
+              agent fail "$ID" "Энэ ажил agent-ийн өөрчлөх эрхгүй файлд хүрсэн тул хадгалсангүй."
+              exit 0
+            fi
+            git push -q --force origin "refs/agent/work:refs/heads/$BR"
+            tip=refs/agent/work
+          elif git rev-parse -q --verify "refs/remotes/origin/$BR" > /dev/null; then
+            tip="refs/remotes/origin/$BR"
+          fi
+          files=''
+          commit=''
+          if [ -n "$tip" ]; then
+            files=$(git diff --name-status --no-renames "origin/$SITE_BRANCH...$tip")
+            commit=$(git rev-parse "$tip")
+          fi
+          preview=''
+          if [ -n "$files" ] && [ -d "$OUT/dist" ]; then
+            rm -rf batnab/dist && cp -r "$OUT/dist" batnab/dist
+            if (cd batnab && npx --yes firebase-tools@15 hosting:channel:deploy "agent-$ID" --only batnab --expires 7d --project rgtbn-bb94f --json > "$RUNNER_TEMP/channel.json"); then
+              preview=$(jq -r '.result | to_entries[0].value.url // empty' "$RUNNER_TEMP/channel.json" 2> /dev/null)
+            else
+              echo "::warning::The preview could not be put up."
+            fi
+          fi
+          REPORT="$OUT/report.json" FILES="$files" BRANCH="$BR" COMMIT="$commit" PREVIEW="$preview" RESTORED="$(cat "$OUT/restored.txt" 2> /dev/null)" agent report "$ID"
+
+      - name: Say what went wrong
+        if: failure()
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          ID: ${{ needs.plan.outputs.task }}
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" node batnab/scripts/agent.mjs fail "$ID" "Ажлыг хадгалах үед алдаа гарлаа. Дахин оролдоно уу."

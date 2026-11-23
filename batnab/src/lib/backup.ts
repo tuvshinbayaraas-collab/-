@@ -55,6 +55,8 @@ const NODES: [string, number][] = [
   ['gameTries', 0],
   ['gameDaily', 0],
   ['pub', 0],
+  // The teacher's requests to the agents: saved, not put back (their state is the runner's, with branches on GitHub).
+  ['agentTasks', 0],
 ];
 
 /** What can be put back, in the parts the teacher picks from. */

@@ -411,7 +411,39 @@ Actions → **Deploy Batnab** → **Run workflow** → «reset_admin_password»-
 [Firebase → Authentication → Sign-in method](https://console.firebase.google.com/project/rgtbn-bb94f/authentication/providers)
 дээр **Email/Password**-ийг гараар асаана.
 
+## Agent (багшийн самбар → Agent)
+
+Багш сайтад юу хийлгэхээ текстээр бичнэ (`agentTasks`). `.github/workflows/batnab-agent.yml` 10 минут тутам
+(`scripts/agent.mjs`-ээр):
+1. **plan** — багш «Push хийх» дарсан ажлыг сайтын branch-д нэгтгэж push хийгээд Deploy Batnab-ийг ажиллуулна;
+   татгалзсаны branch, урьдчилан харах хуудсыг устгана; дараалалд байгаа хамгийн эртний даалгаврыг аваад удирдах
+   agent (`agents/manager.md`) аль багийн ахлахад өгөхийг сонгоно: тест (`tests.md`), тоглоом (`games.md`), дизайн
+   (`design.md`), өгөгдөл (`data.md`), ерөнхий (`general.md`). Нэг удаад нэг даалгавар.
+2. **work** — багийн ахлах (`common.md` + багийнх нь заавар) `agent/<id>` branch дээр ажиллаж, `.agent/report.json`-д
+   тайлангаа бичнэ. Энэ job-д өгөгдлийн сангийн түлхүүр байхгүй, GitHub token нь зөвхөн уншина: agent push хийж,
+   хэрэглэгчдийн өгөгдөлд хүрч чадахгүй.
+3. **publish** — `.github/`, `.claude/`, `agents/`, `scripts/agent.mjs`-ийг өөрчилсөн бол буцаана, TypeScript ба
+   build шалгана, `agent/<id>` руу push хийж, `agent-<id>` урьдчилан харах хуудас (7 хоног) гаргаад багшаас асууна.
+
+Багш «Засвар хэлэх» бичвэл ахлах тэр branch дээрээ үргэлжлүүлнэ. Репо нээлттэй тул багшийн бичсэн текст log-д
+гарахгүй: job хооронд түгжээтэй (ANTHROPIC_API_KEY-ээр) дамжина. Commit-д текст биш, баг ба дугаар нь орно.
+
+Тохиргоо (нэг удаа):
+- Repository secret `ANTHROPIC_API_KEY` (console.anthropic.com дээрх API түлхүүр); `FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F`
+  дээрхтэй ижил.
+- Schedule зөвхөн default branch (`main`) дээрх workflow-оор ажилладаг тул `batnab-agent.yml` `main`-д ч байх ёстой.
+  Код, agent-уудын заавар үргэлж сайтын branch-аас уншигдана.
+- Repository variables (заавал биш): `AGENT_MODEL`, `AGENT_ROUTER_MODEL` (анхдагч нь Claude Code-ийн `opus`, хамгийн
+  шинэ Opus; хямд нь `sonnet`), `AGENT_MAX_TURNS` (анхдагч 120).
+- GitHub нээлттэй репогийн schedule-ийг 60 хоног идэвхгүй бол зогсоодог. Тэгвэл Actions → Batnab agents → Enable.
+
 ## Аюулгүй байдлын дүрмүүд (`database.rules.json`)
+
+- `agentTasks/<id>` (`id` = 6–24 жижиг үсэг, цифр) = `{text ≤4000, at, status, notes?: {<id>: {text ≤2000, at}},
+  decidedAt?}` ба agent-ийн бичдэг `route`, `log`, `result`, `error`, `spent`…: зөвхөн багш уншиж бичнэ. Багш текстийг
+  засахгүй, төлөвийг зөвхөн `new` (шинэ; `review`/`failed`-аас нэмэлт эсвэл дахин оролдох), `approved` (`review`-ээс,
+  өөрчлөлттэй бол), `rejected` (`new`/`review`/`failed`-аас) болгоно. `agentRunner` = `{lastSeen, claude}`: багш
+  уншина, workflow (Admin SDK) бичнэ.
 
 - `polls/<id>` = `{q, options?, multi?, comment?, classes?, closed?, at}`: идэвхтэй хэрэглэгч уншина, багш бичнэ.
   `pollVotes/<id>/<uid>` = `{c?: {<сонголт>: true}, t?, at}`: сурагч зөвхөн өөрийнхийг, асуулга нээлттэй, өөрийн ангид
