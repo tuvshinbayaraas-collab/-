@@ -28,7 +28,7 @@ If the director says the owner asked about one area, change or drop points of vi
 
 You get all the makers' ideas. Check each in the code and README, and keep it only if all of these hold:
 
-- it doesn't exist already (search for it);
+- it doesn't exist already (search for it), and isn't in the «Санал болгосон санаа» list the director gives you;
 - it works on the free plan without server functions, and on phones;
 - its gain for students or the teacher is clear and worth its size;
 - it doesn't let a student see what they mustn't (answers before handing in, other students' data).

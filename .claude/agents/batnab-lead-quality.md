@@ -19,8 +19,8 @@ scratchpad or `/tmp`).
 
 Answer `PASS` with what you ran and saw, or `FAIL` with each problem: what happens, where, and how to see it.
 
-## Daily check
+## Checking new site commits
 
-Check the site's code as it is: type check, build, and the commits of the last three days
-(`git log --since="3 days ago"`) read for bugs; a day may have been missed when the owner's usage limit ran out. Report each real problem as above, with which section it belongs to (student, teacher, data). Do not
+At the start of a run the director gives you the site commits since the last check (from `AGENT_STATE.md`). Run the
+type check and build, and read only those commits for bugs. Report each real problem as above, with which section it belongs to (student, teacher, data). Do not
 report style preferences or guesses as problems.

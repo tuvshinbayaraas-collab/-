@@ -43,15 +43,15 @@ On Mondays in the daily check, or when the owner asks for ideas:
 1. Ask `batnab-lead-ideas` for its points of view (tell it if the owner asked about one area).
 2. Start one `batnab-idea-maker` per point of view, all at once, each with its task text unchanged.
 3. Send all their ideas back to the same lead to filter.
-4. Only the ideas the lead kept go to the owner, in the report under «Санаа». Nothing is built until the owner agrees;
-   then the idea goes to its section's lead like any other work.
+4. Only the ideas the lead kept go to the owner, in the report under «Санаа», and into «Санал болгосон санаа» in
+   `AGENT_STATE.md`. Nothing is built until the owner agrees; then it goes into «Дараалал».
 
 ## Rules
 
 - Students use the live site. **Never deploy**: no `npm run deploy`, no `firebase deploy`, no workflow runs that deploy,
   no writes to the real database. Use the emulators for anything that needs a database.
-- Never push to `main` or to the site's branch `claude/youtube-site-batnab-jfgjry`. Commit to the session's own branch,
-  push it, and leave merging and deploying to the owner.
+- Never push to `main` or to the site's branch `claude/youtube-site-batnab-jfgjry`. Agent work goes to the agents'
+  branch `claude/friendly-thompson-0k41b5`; merging it into the site and deploying are the owner's.
 - Keep each change small and on topic. Follow the style of the file being changed, and the site's Mongolian wording:
   plain, short sentences.
 - Never put secrets in code, commits or reports.
@@ -73,21 +73,33 @@ paths unless asked):
 
 If nothing needed doing, one line is enough: «Бүх зүйл хэвийн.»
 
-## Daily check
+## Each run (every 5 hours)
 
-Started by the owner's scheduled task once a day:
+The owner's scheduled task starts a new session every 5 hours on the agents' branch `claude/friendly-thompson-0k41b5`.
+It holds the site's code, the team's files and `AGENT_STATE.md` (queue, work done, decisions waiting, ideas already
+proposed, last check). One run:
 
-1. The quality lead checks the site's code as it is now: type check, build, and the commits of the last three days read
-   for bugs (so a day missed for the usage limit is still covered). Emulator tests only where a change needs them.
-2. Each problem found goes to its section's lead, then workers, review and the quality lead, as above. Before that, look
-   at the agent branches already pushed (`git branch -r --list 'origin/claude/*'` and their recent commits): a problem
-   already fixed there and waiting for the owner is not fixed again, only listed under «Таны шийдэх зүйл».
-3. On Mondays the ideas flow above also runs. The kept ideas go into the report; nothing is built.
-4. Report as above.
+1. Read `AGENT_STATE.md`. Take in the newest site code: `git fetch origin claude/youtube-site-batnab-jfgjry && git merge
+   --no-edit FETCH_HEAD`. On a conflict, stop and report it.
+2. **Stop early when there is nothing to do:** no site commits since «Шалгасан сайтын commit», no queue item left, and
+   no ideas due. Then send the one-line report and end, so the owner's usage limit goes to real work.
+3. **Check:** if the site has new commits, the quality lead reads only those, with the type check and build. Each real
+   problem goes to its section's lead, workers, review and the quality lead, as above.
+4. **Build:** take the first queue item («хийгдэж байна» before «хүлээгдэж буй»), mark it «хийгдэж байна», and run it
+   through its leads, workers, review and the quality lead. One item per run. A lead may split a big item over runs;
+   write what is left under the item.
+5. **Ideas:** on the first run of a week (Monday or later) whose «Санаа гаргасан» date is before that Monday. Give the
+   ideas lead the «Санал болгосон санаа» list so nothing comes back.
+6. After each piece the quality lead passes: update `AGENT_STATE.md` (item status, «Хийгдсэн» with the commit,
+   «Эзний шийдвэр хүлээж буй», «Шалгасан сайтын commit», «Санаа гаргасан»), commit, and push to
+   `claude/friendly-thompson-0k41b5`.
+7. Report as above, and send the report with PushNotification (load it with ToolSearch).
 
-A scheduled run starts without the repository attached for pushing. Before the first push, attach it with `add_repo`
-(owner `tuvshinbayaraas-collab`, repo `-`, access `push`); if that is refused, say in the report that pushing is
-blocked.
+Working efficiently:
+- Give leads and workers the paths and line numbers you already know, so nobody searches twice.
+- Emulator and browser tests only when a change affects what a page does; otherwise the type check and build.
+- Idea makers run on the smaller model; everything else on the default one.
+- Stop the dev server and emulators when done.
 
 ## When work is cut off
 
@@ -95,7 +107,8 @@ The owner's usage limit can run out in the middle of work; nothing runs until it
 
 - In a session the owner talks to: when the owner writes again, first finish what was cut off (see `git status`,
   `git log` and the conversation), then go on with anything new.
-- Daily check: the schedule keeps going, and the next run covers the missed days as described above.
+- Scheduled runs: the schedule keeps going. The next run first finishes an item still marked «хийгдэж байна», from
+  what was pushed, and checks every site commit since the last check, however long ago.
 
 ## Working on the site
 
