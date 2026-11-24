@@ -98,8 +98,24 @@ function Num({value, onChange}: {value: number; onChange: (n: number) => void}) 
  * own picture cut from the page, so formulas and figures stay exactly as printed (the read text only when picked).
  * The boxes can be fixed by hand on the page, the numbers corrected, and the right answers picked before adding.
  */
-export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}: {files: File[]; tid: string; onAdd: (ps: Problem[], keys: Record<string, string>) => void; onUploaded: (iid: string) => void; onClose: () => void}) {
-  const [at, setAt] = useState(0);
+export default function ProblemsDialog({
+  files,
+  agent,
+  tid,
+  onAdd,
+  onUploaded,
+  onClose,
+}: {
+  files: File[];
+  /** The pages the agent read instead of photos read here: how many, each page as cut, where to start, and each page done. */
+  agent?: {pages: number; load: (at: number) => Promise<Page>; start: number; onPage: (at: number) => void};
+  tid: string;
+  onAdd: (ps: Problem[], keys: Record<string, string>) => void;
+  onUploaded: (iid: string) => void;
+  onClose: () => void;
+}) {
+  const [at, setAt] = useState(agent?.start ?? 0);
+  const count = agent ? agent.pages : files.length;
   const [page, setPage] = useState<Page | null>(null);
   const [pageUrl, setPageUrl] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -119,7 +135,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
     setItems([]);
     setSel(null);
     setError('');
-    readPage(files[at], (p, stage) => live() && setProgress({p, stage}), stop.signal)
+    (agent ? agent.load(at) : readPage(files[at], (p, stage) => live() && setProgress({p, stage}), stop.signal))
       .then((pg) => {
         if (!live()) return releasePage(pg);
         setPage(pg);
@@ -128,6 +144,8 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
       })
       .catch((e) => live() && setError(/fetch|network|load/i.test(String(e?.message ?? e)) ? 'Интернэт холболтоо шалгаад дахин оролдоно уу.' : `Уншиж чадсангүй: ${e?.message ?? e}`));
     return () => stop.abort();
+    // `agent` is the same while the dialog is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, at, attempt]);
   // Done with a page (the next one, or closed): its memory back for the next.
   useEffect(
@@ -240,7 +258,8 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
         setAdding({done: out.length, total: chosen.length});
       }
       onAdd(out, keys);
-      if (at + 1 < files.length) setAt(at + 1);
+      agent?.onPage(at);
+      if (at + 1 < count) setAt(at + 1);
       else onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -252,11 +271,20 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
   // Not closed halfway through adding (what was added so far would come in after all), nor by a stray tap once the page
   // is read (reading it again takes a while).
   const close = () => !adding && (!items.length || confirm('Энэ хуудасны бодлогуудыг нэмэлгүй хаах уу?')) && onClose();
-  const many = files.length > 1 ? ` · ${at + 1}/${files.length}-р хуудас` : '';
+  const many = count > 1 ? ` · ${at + 1}/${count}-р хуудас` : '';
   const answered = chosen.filter((it) => it.key).length;
 
   return (
-    <Sheet title={`Зургаас бодлогууд${many}`} sub="Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ. Томьёо, дүрс нь яг хэвээрээ үлдэнэ." onClose={close} wide>
+    <Sheet
+      title={`${agent ? 'Agent хуваасан бодлогууд' : 'Зургаас бодлогууд'}${many}`}
+      sub={
+        agent
+          ? 'Agent хуудсыг уншаад бодлого бүрийг тусад нь хайрцагласан. Хайрцгийг шалгаж, хэрэгтэй бол засаад нэмнэ. Бичвэрийг нь хүсвэл «Бичвэр» гэж сонгоно.'
+          : 'Номын хуудсан дээрх дугаартай бодлого бүрийг тусад нь зураг болгон тасдаж нэмнэ. Томьёо, дүрс нь яг хэвээрээ үлдэнэ.'
+      }
+      onClose={close}
+      wide
+    >
       {error ? (
         <div className="rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
           {error}
@@ -265,7 +293,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
               <button onClick={() => setAttempt((n) => n + 1)} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
                 Дахин оролдох
               </button>
-              {at + 1 < files.length && (
+              {at + 1 < count && (
                 <button onClick={() => setAt(at + 1)} className="rounded-full bg-neutral-800 px-4 py-1.5 font-medium text-neutral-100 hover:bg-neutral-700">
                   Энэ хуудсыг алгасах
                 </button>
@@ -282,7 +310,7 @@ export default function ProblemsDialog({files, tid, onAdd, onUploaded, onClose}:
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-800">
             <div className="h-full rounded-full bg-violet-400 transition-[width]" style={{width: `${Math.round(progress.p * 100)}%`}} />
           </div>
-          <p className="mt-3 text-xs text-neutral-500">Зургийг тэгшилж, цайруулаад багана бүрийг уншина. Хуудас бүрт 10–30 секунд болно. Анх удаа 4 MB орчим өгөгдөл татна.</p>
+          {!agent && <p className="mt-3 text-xs text-neutral-500">Зургийг тэгшилж, цайруулаад багана бүрийг уншина. Хуудас бүрт 10–30 секунд болно. Анх удаа 4 MB орчим өгөгдөл татна.</p>}
         </div>
       )}
 

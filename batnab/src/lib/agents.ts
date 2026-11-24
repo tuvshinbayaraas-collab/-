@@ -1,65 +1,44 @@
-// The teacher's agents («Agent» in the teacher's dashboard). The teacher writes what to change on the site; on GitHub
-// (.github/workflows/batnab-agent.yml with scripts/agent.mjs), every 10 minutes, the managing agent hands it to the team
-// whose lead does the work, on a branch of its own. The site changes only when the teacher pushes it.
-//   agentTasks/{id} = {text, at, status, notes?: {nid: {text, at}}, decidedAt?, error?, and the runner's own:
-//                      route?: {team, why}, log?: {lid: {text, at}}, startedAt?, spent? (dollars, all rounds),
-//                      result?: {summary, files: ["M\tpath"…], restored?: [path…], branch, commit, preview?, at},
-//                      pushedAt?, pushedCommit?, cleaned?}
-//   status: new → working → review → approved → pushing → pushed. From review the teacher adds a word (back to new:
-//           the lead goes on from its work) or turns it down (rejected, then cleaned up); failed is tried again (new) or
-//           dropped (rejected).
+// The agent («Agent» in the teacher's dashboard) does one job: it reads photographed book pages and splits them into
+// problems. The topic editor sends the pages («Agent-аар хуваах»); every 5 minutes .github/workflows/batnab-agent.yml
+// (scripts/agent.mjs) takes the oldest, and Claude reads each page: each problem's number, its part of the page, its
+// text and choices. The teacher checks them in the cutting dialog and adds them to the topic.
+//   agentTasks/{id} = {kind: 'split', topic, title, pages, at, status, added? (pages added so far), decidedAt?,
+//                      and the runner's: startedAt?, error?, spent? (dollars), log?, result?: {problems: [...], at}}
+//   status: new → working → review → done (added); new, review or failed → rejected (dropped); failed → new (again).
+//   agentPages/{id}/{n} = page n as sent (a JPEG data URL), deleted once the request is done or dropped.
 //   agentRunner = {lastSeen, claude}: when the workflow last ran, and whether it has Claude's key.
 // Only the teacher reads and writes these; the runner uses the Admin SDK.
-import {push, ref, remove, serverTimestamp, set, update} from 'firebase/database';
+import {get, ref, serverTimestamp, set, update} from 'firebase/database';
 import {db} from './firebase';
 import {useLive} from './live';
+import type {AgentFound} from './pageSplit';
 
-export type AgentStatus = 'new' | 'working' | 'review' | 'approved' | 'pushing' | 'pushed' | 'rejected' | 'failed';
-const STATUSES: AgentStatus[] = ['new', 'working', 'review', 'approved', 'pushing', 'pushed', 'rejected', 'failed'];
-
-/** The teams the managing agent hands work to, as batnab/agents/<team>.md has them. */
-export const TEAMS: Record<string, string> = {tests: 'Тест, бодлого', games: 'Тоглоом', design: 'Дизайн, текст', data: 'Өгөгдөл, аюулгүй байдал', general: 'Ерөнхий'};
+export type AgentStatus = 'new' | 'working' | 'review' | 'done' | 'rejected' | 'failed';
+const STATUSES: AgentStatus[] = ['new', 'working', 'review', 'done', 'rejected', 'failed'];
 
 export const REPO = 'https://github.com/tuvshinbayaraas-collab/-';
-export const SITE_BRANCH = 'claude/youtube-site-batnab-jfgjry';
-/** As the database rules allow. */
-export const MAX_TEXT = 4000;
-export const MAX_NOTE = 2000;
+/** Pages in one request, at most (the rules allow as many). */
+export const MAX_PAGES = 10;
 
-export interface AgentNote {
-  text: string;
-  at: number;
-}
-
-export interface AgentResult {
-  summary: string;
-  /** "M\tbatnab/src/…" as git lists them: A added, M changed, D deleted. */
-  files: string[];
-  /** Files the agent changed but may not: put back as they were. */
-  restored: string[];
-  branch: string;
-  commit: string;
-  preview?: string;
-  at: number;
+export interface AgentProblem extends AgentFound {
+  /** Its page, from 0. */
+  page: number;
 }
 
 export interface AgentTask {
   id: string;
-  text: string;
+  topic: string;
+  title: string;
+  pages: number;
   at: number;
   status: AgentStatus;
-  notes: AgentNote[];
-  route?: {team: string; why: string};
-  log: AgentNote[];
-  result?: AgentResult;
+  added: number;
   error?: string;
   startedAt?: number;
-  decidedAt?: number;
-  pushedAt?: number;
-  pushedCommit?: string;
-  cleaned: boolean;
-  /** What the agents cost on it, in dollars. */
+  /** What the agent used on it, in dollars at the API's prices. */
   spent: number;
+  log: {text: string; at: number}[];
+  problems: AgentProblem[];
 }
 
 export interface AgentRunner {
@@ -67,38 +46,42 @@ export interface AgentRunner {
   claude: boolean;
 }
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-const list = (v: unknown) => (Array.isArray(v) ? v : Object.values((v ?? {}) as object)).filter((x): x is string => typeof x === 'string');
-const notes = (v: unknown) =>
-  Object.values((v ?? {}) as Record<string, {text?: unknown; at?: unknown}>)
-    .flatMap((n) => (n && typeof n.text === 'string' ? [{text: n.text, at: num(n.at)}] : []))
-    .sort((a, b) => a.at - b.at);
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const list = <T,>(v: unknown) => (Array.isArray(v) ? v : Object.values((v ?? {}) as object)) as T[];
+
+function parseProblem(v: unknown): AgentProblem | null {
+  const p = v as Record<string, unknown> | null;
+  if (!p || typeof p !== 'object') return null;
+  const boxes = list<Record<string, unknown>>(p.boxes)
+    .filter((b) => b && typeof b === 'object')
+    .map((b) => ({x0: num(b.x0), y0: num(b.y0), x1: num(b.x1), y1: num(b.y1)}))
+    .filter((b) => b.x1 > b.x0 && b.y1 > b.y0);
+  if (!boxes.length) return null;
+  const c = (p.choices ?? {}) as Record<string, unknown>;
+  const choices = Object.fromEntries((['A', 'B', 'C', 'D', 'E'] as const).filter((k) => typeof c[k] === 'string' && c[k]).map((k) => [k, c[k] as string]));
+  return {page: num(p.page), num: num(p.num) || 1, boxes, text: str(p.text), ...(Object.keys(choices).length ? {choices} : {})};
+}
 
 export function parseTask(id: string, v: unknown): AgentTask | null {
   const t = v as Record<string, unknown> | null;
-  if (!t || typeof t !== 'object' || typeof t.text !== 'string' || !STATUSES.includes(t.status as AgentStatus)) return null;
-  const r = t.result as Record<string, unknown> | undefined;
-  const route = t.route as {team?: unknown; why?: unknown} | undefined;
+  if (!t || typeof t !== 'object' || t.kind !== 'split' || !STATUSES.includes(t.status as AgentStatus)) return null;
+  const result = (t.result ?? {}) as {problems?: unknown};
   return {
     id,
-    text: t.text,
+    topic: str(t.topic),
+    title: str(t.title),
+    pages: num(t.pages),
     at: num(t.at),
     status: t.status as AgentStatus,
-    notes: notes(t.notes),
-    route: route && typeof route.team === 'string' ? {team: route.team, why: str(route.why)} : undefined,
-    log: notes(t.log),
-    result:
-      r && typeof r === 'object'
-        ? {summary: str(r.summary), files: list(r.files), restored: list(r.restored), branch: str(r.branch), commit: str(r.commit), preview: str(r.preview) || undefined, at: num(r.at)}
-        : undefined,
+    added: num(t.added),
     error: str(t.error) || undefined,
     startedAt: num(t.startedAt) || undefined,
-    decidedAt: num(t.decidedAt) || undefined,
-    pushedAt: num(t.pushedAt) || undefined,
-    pushedCommit: str(t.pushedCommit) || undefined,
-    cleaned: t.cleaned === true,
     spent: num(t.spent),
+    log: list<{text?: unknown; at?: unknown}>(t.log)
+      .flatMap((l) => (l && typeof l.text === 'string' ? [{text: l.text, at: num(l.at)}] : []))
+      .sort((a, b) => a.at - b.at),
+    problems: list(result.problems).flatMap((p) => parseProblem(p) ?? []),
   };
 }
 
@@ -117,28 +100,41 @@ export const useAgentRunner = () =>
     return r && typeof r.lastSeen === 'number' ? {lastSeen: r.lastSeen, claude: r.claude === true} : false;
   });
 
-/** A new request's id: also its branch (agent/<id>) and preview (agent-<id>), so lowercase letters and digits only. */
+/** A page as sent: a JPEG small enough for the database and for Claude to read. */
+export function pageData(c: HTMLCanvasElement) {
+  for (const q of [0.82, 0.7, 0.55]) {
+    const url = c.toDataURL('image/jpeg', q);
+    if (url.length < 1_500_000) return url;
+  }
+  return c.toDataURL('image/jpeg', 0.45);
+}
+
+/** A request's id: lowercase letters and digits only (the rules check it). */
 export function newTaskId() {
   const bytes = crypto.getRandomValues(new Uint8Array(4));
   return Date.now().toString(36) + Array.from(bytes, (b) => (b % 36).toString(36)).join('');
 }
 
-const task = (id: string) => ref(db, `agentTasks/${id}`);
-
-export async function addAgentTask(text: string) {
+/** Sends a topic's photographed pages to the agent: the pages first, then the request that points at them. */
+export async function sendPages(topic: {id: string; title: string}, pages: string[]) {
   const id = newTaskId();
-  await set(task(id), {text: text.trim(), at: serverTimestamp(), status: 'new'});
+  await set(ref(db, `agentPages/${id}`), Object.fromEntries(pages.map((p, n) => [n, p])));
+  await set(ref(db, `agentTasks/${id}`), {kind: 'split', topic: topic.id, title: topic.title.slice(0, 200), pages: pages.length, at: serverTimestamp(), status: 'new'});
   return id;
 }
 
-/** A word added to a request (from review or after it failed): the lead takes it up again with all the words so far. */
-export function addAgentNote(id: string, text: string) {
-  const nid = push(ref(db, `agentTasks/${id}/notes`)).key!;
-  return update(task(id), {[`notes/${nid}`]: {text: text.trim(), at: serverTimestamp()}, status: 'new', error: null});
+/** A request's pages as sent, in order. */
+export async function loadPages(id: string) {
+  const v = (await get(ref(db, `agentPages/${id}`))).val();
+  return list<unknown>(v).filter((x): x is string => typeof x === 'string');
 }
 
-/** The teacher's say: push it to the site, turn it down (or drop it), or try again. */
-export const approveAgentTask = (id: string) => update(task(id), {status: 'approved', decidedAt: serverTimestamp()});
-export const rejectAgentTask = (id: string) => update(task(id), {status: 'rejected', decidedAt: serverTimestamp()});
-export const retryAgentTask = (id: string) => update(task(id), {status: 'new', error: null});
-export const removeAgentTask = (id: string) => remove(task(id));
+const task = (id: string) => ref(db, `agentTasks/${id}`);
+/** One page's problems added to the topic: a request opened again goes on from the next. */
+export const pageAdded = (id: string, n: number) => update(task(id), {added: n});
+/** All added: done, and its pages no longer kept. */
+export const finishTask = (id: string) => update(ref(db), {[`agentTasks/${id}/status`]: 'done', [`agentTasks/${id}/decidedAt`]: serverTimestamp(), [`agentPages/${id}`]: null});
+/** Dropped (or stopped before it was read): its pages are not kept either. */
+export const dropTask = (id: string) => update(ref(db), {[`agentTasks/${id}/status`]: 'rejected', [`agentTasks/${id}/decidedAt`]: serverTimestamp(), [`agentPages/${id}`]: null});
+export const retryTask = (id: string) => update(task(id), {status: 'new', error: null});
+export const removeTask = (id: string) => update(ref(db), {[`agentTasks/${id}`]: null, [`agentPages/${id}`]: null});

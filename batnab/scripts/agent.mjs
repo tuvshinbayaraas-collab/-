@@ -1,23 +1,15 @@
-// The teacher's agents («Agent» in the teacher's dashboard), run by .github/workflows/batnab-agent.yml every 10 minutes.
-// The workflow's steps call this script for everything that touches the database (agentTasks, agentRunner):
-//   plan                  the runner was here; one request the teacher approved, to push; the ones turned down, to
-//                         clean up; and, when nothing else is being done, the oldest new request (marked as being done),
-//                         with the managing agent's instructions written to ROUTE_FILE
-//   routed <id>           the managing agent's choice of team, from its run's file (EXEC); the team lead's
-//                         instructions go to LEAD_FILE
-//   report <id>           the lead's work for the teacher to check: the summary from REPORT (a JSON file), FILES,
-//                         BRANCH, COMMIT, PREVIEW, RESTORED and COST from the environment; the teacher then pushes it
-//                         or not
-//   fail <id> <message>   it could not be done (the teacher may try again); COST as above
-//   pushed <id> <commit>  merged into the site's branch and sent to deploy
-//   cleaned <id>          a turned-down request's branch and preview are gone
-// The repository is public, and so are the workflow's logs: the teacher's words only ever go to files, never to the
-// outputs printed in the logs. Against the emulators (FIREBASE_DATABASE_EMULATOR_HOST) it needs no credentials.
-// Outputs go to $GITHUB_OUTPUT (printed when it isn't set).
+// The agent («Agent» in the teacher's dashboard) splits photographed book pages into problems. Run by
+// .github/workflows/batnab-agent.yml every 5 minutes; this script does everything that touches the database:
+//   plan            the runner was here; a request left behind is marked failed; the oldest new one is taken (one at a
+//                   time): its pages go to PAGES_DIR (1.jpg, 2.jpg, …) and Claude's instructions to PROMPT_FILE
+//   saved <id>      Claude's answer, read from its run's file (EXEC), checked and kept for the teacher to look at
+//   fail <id> <msg> it could not be done (the teacher may try again)
+// The repository and the workflow's logs are public: nothing read from the pages is printed. Against the emulators
+// (FIREBASE_DATABASE_EMULATOR_HOST) it needs no credentials. Outputs go to $GITHUB_OUTPUT (printed when it isn't set).
 import {applicationDefault, initializeApp} from 'firebase-admin/app';
 import {getDatabase, ServerValue} from 'firebase-admin/database';
 import {appendFileSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {dirname} from 'node:path';
+import {dirname, join} from 'node:path';
 
 const PROJECT = 'rgtbn-bb94f';
 const emulated = !!process.env.FIREBASE_DATABASE_EMULATOR_HOST;
@@ -28,15 +20,16 @@ initializeApp({
 });
 const db = getDatabase();
 const tasks = db.ref('agentTasks');
-const AGENTS = new URL('../agents/', import.meta.url);
-const read = (name) => readFileSync(new URL(name, AGENTS), 'utf8').trim();
+const PROMPT = new URL('../agents/split.md', import.meta.url);
 
-/** The teams the managing agent may hand a request to (batnab/agents/<team>.md), by their names in the dashboard. */
-const TEAMS = {tests: 'Тест, бодлого', games: 'Тоглоом', design: 'Дизайн, текст', data: 'Өгөгдөл, аюулгүй байдал', general: 'Ерөнхий'};
-/** A request's id is also its branch (agent/<id>) and preview channel (agent-<id>): only these are taken. */
+/** A request's id (the rules take only these). */
 const ID = /^[a-z0-9]{6,24}$/;
-/** The workflow's jobs stop after 15 + 60 + 20 minutes: a request still marked as being done after this was left behind. */
-const STUCK = 100 * 60_000;
+/** The job stops after 20 minutes: a request still being read after this was left behind. */
+const STUCK = 30 * 60_000;
+/** What one answer may hold, at most. */
+const MAX_PROBLEMS = 80;
+const MAX_TEXT = 3000;
+const MAX_CHOICE = 500;
 
 function output(name, value) {
   const text = String(value ?? '');
@@ -45,49 +38,40 @@ function output(name, value) {
   appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${text}\n`);
 }
 
-function writeTo(env, text) {
-  const file = process.env[env];
-  if (!file) return console.log(`----- ${env}\n${text}\n-----`);
-  mkdirSync(dirname(file), {recursive: true});
-  writeFileSync(file, `${text}\n`);
-}
-
 const log = (id, text) => tasks.child(`${id}/log`).push({text, at: ServerValue.TIMESTAMP});
-
-/** The request as the agents read it: the teacher's words, then each word added later, in order. */
-function request(t) {
-  const notes = Object.values(t.notes ?? {})
-    .filter((n) => n && typeof n.text === 'string')
-    .sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
-  return [String(t.text ?? ''), ...notes.map((n, i) => `Нэмэлт ${i + 1}: ${n.text}`)].join('\n\n');
-}
 
 async function plan() {
   await db.ref('agentRunner').set({lastSeen: ServerValue.TIMESTAMP, claude: process.env.CLAUDE === 'true'});
   const now = Date.now();
-  const all = Object.entries((await tasks.get()).val() ?? {}).filter(([id, t]) => ID.test(id) && t && typeof t === 'object');
+  const all = Object.entries((await tasks.get()).val() ?? {}).filter(([id, t]) => ID.test(id) && t && typeof t === 'object' && t.kind === 'split');
   for (const [id, t] of all)
-    if ((t.status === 'working' || t.status === 'pushing') && (t.startedAt ?? 0) < now - STUCK) {
+    if (t.status === 'working' && (t.startedAt ?? 0) < now - STUCK) {
       await tasks.child(id).update({status: 'failed', error: 'Хугацаа хэтэрч зогссон. Дахин оролдоно уу.'});
-      await log(id, 'Хугацаа хэтэрсэн тул зогслоо.');
       t.status = 'failed';
     }
-  const approved = all.filter(([, t]) => t.status === 'approved').sort((a, b) => (a[1].decidedAt ?? 0) - (b[1].decidedAt ?? 0))[0];
-  if (approved) {
-    await tasks.child(approved[0]).update({status: 'pushing', startedAt: ServerValue.TIMESTAMP});
-    await log(approved[0], 'Сайтын салбартай нэгтгэж байна.');
-    output('merge', approved[0]);
-    output('merge_team', Object.hasOwn(TEAMS, approved[1].route?.team ?? '') ? approved[1].route.team : 'general');
-  }
-  output('clean', all.filter(([, t]) => t.status === 'rejected' && !t.cleaned).map(([id]) => id).join(' '));
-  // One request at a time: the next waits until this one is done.
+  // One at a time: the next waits until this one is read.
   if (process.env.CLAUDE !== 'true' || all.some(([, t]) => t.status === 'working')) return;
   const next = all.filter(([, t]) => t.status === 'new').sort((a, b) => (a[1].at ?? 0) - (b[1].at ?? 0))[0];
   if (!next) return;
   const [id, t] = next;
+  const pages = Object.values((await db.ref(`agentPages/${id}`).get()).val() ?? {}).filter((p) => typeof p === 'string' && p.startsWith('data:image/jpeg;base64,'));
+  if (!pages.length || pages.length !== t.pages) {
+    await tasks.child(id).update({status: 'failed', error: 'Хуудасны зураг дутуу байна. Дахин илгээнэ үү.'});
+    return;
+  }
   await tasks.child(id).update({status: 'working', startedAt: ServerValue.TIMESTAMP, error: null});
-  await log(id, 'Удирдах agent даалгаврыг уншиж байна.');
-  writeTo('ROUTE_FILE', `${read('manager.md')}\n\n## Багшийн даалгавар\n\n${request(t)}`);
+  await log(id, 'Agent хуудсыг уншиж байна.');
+  const dir = process.env.PAGES_DIR ?? '.agent/pages';
+  mkdirSync(dir, {recursive: true});
+  const files = pages.map((p, n) => {
+    const file = join(dir, `${n + 1}.jpg`);
+    writeFileSync(file, Buffer.from(p.slice(p.indexOf(',') + 1), 'base64'));
+    return file;
+  });
+  const prompt = `${readFileSync(PROMPT, 'utf8').trim()}\n\n## The pages\n\n${files.map((f, n) => `- Page ${n + 1}: \`${f}\``).join('\n')}\n`;
+  const out = process.env.PROMPT_FILE ?? '.agent/split.md';
+  mkdirSync(dirname(out), {recursive: true});
+  writeFileSync(out, prompt);
   output('task', id);
 }
 
@@ -101,81 +85,49 @@ function resultOf(file) {
   }
 }
 
-/** What the agents cost on this request, in dollars, all rounds together. */
-async function spend(id, usd) {
-  const n = Number(usd);
-  if (!(n > 0 && n < 1000)) return;
-  await tasks.child(`${id}/spent`).transaction((v) => Math.round(((Number(v) || 0) + n) * 10000) / 10000);
+const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+/** One problem as kept: its page from 0, a number, 1–3 boxes in thousandths of the page, its text and choices. */
+function problemOf(p, pages) {
+  if (!p || typeof p !== 'object') return null;
+  const page = int(p.page, 1, pages);
+  if (page === null) return null;
+  const boxes = (Array.isArray(p.boxes) ? p.boxes : [])
+    .slice(0, 3)
+    .map((b) => ({x0: int(b?.x0, 0, 1000), y0: int(b?.y0, 0, 1000), x1: int(b?.x1, 0, 1000), y1: int(b?.y1, 0, 1000)}))
+    .filter((b) => b.x0 !== null && b.y0 !== null && b.x1 !== null && b.y1 !== null && b.x1 - b.x0 >= 5 && b.y1 - b.y0 >= 5);
+  if (!boxes.length) return null;
+  const choices = Object.fromEntries(['A', 'B', 'C', 'D', 'E'].flatMap((k) => (text(p.choices?.[k], MAX_CHOICE) ? [[k, text(p.choices[k], MAX_CHOICE)]] : [])));
+  return {page: page - 1, num: int(p.num, 1, 9999) ?? 1, boxes, text: text(p.text, MAX_TEXT), ...(Object.keys(choices).length ? {choices} : {})};
 }
 
-async function routed(id) {
-  // The managing agent's answer is read from its run's file, not from the workflow, so it never shows in the logs.
+async function saved(id) {
+  const t = (await tasks.child(id).get()).val();
+  if (!t) return;
   const run = resultOf(process.env.EXEC ?? '');
-  const answer = run?.structured_output && typeof run.structured_output === 'object' ? run.structured_output : {};
-  const team = Object.hasOwn(TEAMS, answer.team ?? '') ? answer.team : 'general';
-  const why = typeof answer.why === 'string' ? answer.why.trim().slice(0, 500) : '';
-  await tasks.child(id).update({route: {team, why}});
-  await spend(id, run?.total_cost_usd);
-  await log(id, run?.structured_output ? `Удирдах agent «${TEAMS[team]}» багийн ахлахад өглөө.` : `Удирдах agent хариу өгсөнгүй. «${TEAMS[team]}» багийн ахлахад өглөө.`);
-  const t = (await tasks.child(id).get()).val() ?? {};
-  const before = t.result?.summary
-    ? `\n\n## Өмнө нь хийсэн ажил\n\nThis branch already has the earlier work on this request. Its report was:\n\n${t.result.summary}\n\nBuild on it: do what the teacher added.`
-    : '';
-  writeTo('LEAD_FILE', `${read('common.md')}\n\n${read(`${team}.md`)}\n\n## Багшийн даалгавар\n\n${request(t)}${before}`);
-  output('team', team);
-  output('earlier', before ? 'true' : 'false');
-}
-
-const lines = (text, max) =>
-  String(text ?? '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(0, max);
-
-async function report(id) {
-  let summary = '';
-  try {
-    summary = String(JSON.parse(readFileSync(process.env.REPORT ?? '', 'utf8')).summary ?? '').trim();
-  } catch {
-    // No report: said below.
+  const answer = run?.structured_output;
+  const problems = (Array.isArray(answer?.problems) ? answer.problems : []).map((p) => problemOf(p, t.pages)).filter(Boolean).slice(0, MAX_PROBLEMS);
+  const cost = Number(run?.total_cost_usd);
+  const spent = cost > 0 && cost < 100 ? Math.round(((Number(t.spent) || 0) + cost) * 10000) / 10000 : (t.spent ?? null);
+  if (!problems.length) {
+    await tasks.child(id).update({status: 'failed', spent, error: run?.structured_output ? 'Хуудаснаас дугаартай бодлого олдсонгүй. Зураг тод, бүтэн эсэхийг шалгаад дахин илгээнэ үү.' : 'Agent хуудсыг уншиж чадсангүй. Дахин оролдоно уу.'});
+    await log(id, 'Амжилтгүй боллоо.');
+    return;
   }
-  const files = lines(process.env.FILES, 300).map((l) => l.slice(0, 300));
-  const restored = lines(process.env.RESTORED, 50).map((l) => l.slice(0, 300));
-  await tasks.child(id).update({
-    status: 'review',
-    error: null,
-    result: {
-      summary: (summary || 'Agent тайлан бичээгүй. Өөрчлөлтийг урьдчилан харах холбоосоор шалгана уу.').slice(0, 8000),
-      files,
-      ...(restored.length ? {restored} : {}),
-      branch: process.env.BRANCH || `agent/${id}`,
-      commit: process.env.COMMIT ?? '',
-      ...(process.env.PREVIEW ? {preview: process.env.PREVIEW} : {}),
-      at: ServerValue.TIMESTAMP,
-    },
-  });
-  await spend(id, process.env.COST);
-  await log(id, files.length ? 'Ажил дууслаа. Таны шийдвэрийг хүлээж байна.' : 'Ажил дууслаа. Сайтад өөрчлөлт хийгдээгүй.');
+  await tasks.child(id).update({status: 'review', spent, error: null, result: {problems, at: ServerValue.TIMESTAMP}});
+  await log(id, `${problems.length} бодлого хуваалаа. Таны шалгахыг хүлээж байна.`);
 }
 
 async function fail(id, message) {
   await tasks.child(id).update({status: 'failed', error: String(message || 'Алдаа гарлаа.').slice(0, 1500)});
-  await spend(id, process.env.COST);
   await log(id, 'Амжилтгүй боллоо.');
 }
 
-async function pushed(id, commit) {
-  await tasks.child(id).update({status: 'pushed', pushedCommit: commit ?? '', pushedAt: ServerValue.TIMESTAMP, error: null});
-  await log(id, 'Сайтад гаргахаар илгээлээ. Хэдэн минутын дараа шинэчлэгдэнэ.');
-}
-
-const cleaned = (id) => tasks.child(id).update({cleaned: true});
-
 const [cmd, id, arg] = process.argv.slice(2);
-const job = {plan, routed, report, fail, pushed, cleaned}[cmd];
+const job = {plan, saved, fail}[cmd];
 if (!job || (cmd !== 'plan' && !ID.test(id ?? ''))) {
-  console.error(`usage: agent.mjs plan | routed <id> | report <id> | fail <id> <message> | pushed <id> <commit> | cleaned <id>`);
+  console.error('usage: agent.mjs plan | saved <id> | fail <id> <message>');
   process.exit(2);
 }
 try {

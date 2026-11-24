@@ -138,13 +138,12 @@ export function releasePage(page: Page) {
   for (const c of [page.canvas, ...page.cols]) c.width = c.height = 0;
 }
 
-/** Reads the page; `signal` stops it between steps (the dialog was closed, or went on to another page). */
-export async function readPage(file: File, onProgress: (progress: number, stage: string) => void, signal?: AbortSignal): Promise<Page> {
+/** The photo as a page to read: no larger than reading needs, turned straight, its paper made white. */
+export async function preparePage(file: File, signal?: AbortSignal) {
   const step = async () => {
     await breathe();
     if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
   };
-  onProgress(0, 'Зургийг тэгшилж байна');
   const img = await loadImage(file);
   let page: HTMLCanvasElement;
   try {
@@ -167,6 +166,17 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
   }
   await step();
   whiten(page);
+  return page;
+}
+
+/** Reads the page; `signal` stops it between steps (the dialog was closed, or went on to another page). */
+export async function readPage(file: File, onProgress: (progress: number, stage: string) => void, signal?: AbortSignal): Promise<Page> {
+  const step = async () => {
+    await breathe();
+    if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
+  };
+  onProgress(0, 'Зургийг тэгшилж байна');
+  const page = await preparePage(file, signal);
   onProgress(0.04, 'Багануудыг хайж байна');
   await step();
 
@@ -264,3 +274,54 @@ export function cropProblem(page: Page, regions: Region[]) {
 
 export const canvasFile = (c: HTMLCanvasElement, name: string) =>
   new Promise<File>((resolve, reject) => c.toBlob((b) => (b ? resolve(new File([b], name, {type: 'image/png'})) : reject(new Error('Зургийг хадгалж чадсангүй.'))), 'image/png'));
+
+/** A problem as the agent read it: its number, its part(s) of the page in thousandths of the page's width and height,
+ * its text with $math$, and its choices А–Д (A–E) when it has them. */
+export interface AgentFound {
+  num: number;
+  boxes: {x0: number; y0: number; x1: number; y1: number}[];
+  text: string;
+  choices?: Partial<Record<'A' | 'B' | 'C' | 'D' | 'E', string>>;
+}
+const MARK_OF = {A: 'А', B: 'Б', C: 'В', D: 'Г', E: 'Д'} as const;
+
+/**
+ * A page the agent read (the page as sent, so its boxes fit), as the cutting dialog takes it: the problems it found,
+ * each box's top and bottom moved out to the nearest blank row (a little at most) so no line is cut in half. The
+ * choices go after the text as printed («А) …»), where the dialog reads them from.
+ */
+export async function agentPage(url: string, found: AgentFound[]): Promise<Page> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const {c, g} = make(img.naturalWidth, img.naturalHeight);
+  g.drawImage(img, 0, 0);
+  const W = c.width;
+  const H = c.height;
+  const d = g.getImageData(0, 0, W, H).data;
+  const level = inkLevel(d);
+  const rows: number[] = new Array(H).fill(0);
+  for (let p = 0; p < d.length; p += 4) if (lum(d, p) < level) rows[Math.floor(p / 4 / W)]++;
+  const inked = (y: number, x0: number, x1: number) => {
+    for (let x = x0; x < x1; x += 2) if (lum(d, (y * W + x) * 4) < level) return true;
+    return false;
+  };
+  const reach = Math.round(H * 0.02);
+  const out = (y: number, x0: number, x1: number, dir: -1 | 1) => {
+    let k = y;
+    for (let n = 0; n < reach && k > 0 && k < H - 1 && inked(k, x0, x1); n++) k += dir;
+    return k;
+  };
+  const problems: FoundProblem[] = found.map((f) => {
+    const regions = f.boxes.map((b) => {
+      const x0 = Math.max(0, Math.min(W - 1, Math.round((b.x0 / 1000) * W)));
+      const x1 = Math.max(x0 + 1, Math.min(W, Math.round((b.x1 / 1000) * W)));
+      const y0 = Math.max(0, Math.min(H - 1, Math.round((b.y0 / 1000) * H)));
+      const y1 = Math.max(y0 + 1, Math.min(H, Math.round((b.y1 / 1000) * H)));
+      return {col: 0, x0, x1, y0: out(y0, x0, x1, -1), y1: out(Math.min(H - 1, y1), x0, x1, 1)};
+    });
+    const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => f.choices?.[k]).map((k) => `${MARK_OF[k]}) ${f.choices![k]}`);
+    return {num: f.num, text: [f.text, choices.join('  ')].filter(Boolean).join('\n'), regions};
+  });
+  return {canvas: c, cols: [c], rowInk: [rows], lines: [], problems};
+}

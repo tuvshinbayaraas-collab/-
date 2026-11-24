@@ -1542,35 +1542,43 @@
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$id": {
-        ".validate": "$id.matches(/^[a-z0-9]{6,24}$/) && newData.hasChildren(['text', 'at', 'status'])",
-        "text": {
-          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 4000 && (!data.exists() || newData.val() === data.val())"
+        ".validate": "$id.matches(/^[a-z0-9]{6,24}$/) && newData.hasChildren(['kind', 'topic', 'pages', 'at', 'status'])",
+        "kind": {
+          ".validate": "newData.val() === 'split'"
+        },
+        "topic": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40 && (!data.exists() || newData.val() === data.val())"
+        },
+        "title": {
+          ".validate": "newData.isString() && newData.val().length <= 200 && (!data.exists() || newData.val() === data.val())"
+        },
+        "pages": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10 && newData.val() % 1 === 0 && (!data.exists() || newData.val() === data.val())"
         },
         "at": {
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
         },
         "status": {
-          ".validate": "newData.isString() && ((newData.val() === 'new' && (!data.exists() || data.val() === 'new' || data.val() === 'review' || data.val() === 'failed')) || (newData.val() === 'approved' && data.val() === 'review' && data.parent().child('result/files').exists()) || (newData.val() === 'rejected' && (data.val() === 'new' || data.val() === 'review' || data.val() === 'failed')))"
+          ".validate": "newData.isString() && ((newData.val() === 'new' && (!data.exists() || data.val() === 'new' || data.val() === 'failed')) || (newData.val() === 'done' && data.val() === 'review') || (newData.val() === 'rejected' && (data.val() === 'new' || data.val() === 'review' || data.val() === 'failed')))"
         },
-        "notes": {
-          "$nid": {
-            ".validate": "!data.exists() && newData.hasChildren(['text', 'at'])",
-            "text": {
-              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 2000"
-            },
-            "at": {
-              ".validate": "newData.isNumber()"
-            },
-            "$other": {
-              ".validate": false
-            }
-          }
+        "added": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10 && newData.val() % 1 === 0"
         },
         "decidedAt": {
           ".validate": "newData.isNumber()"
         },
         "$other": {
           ".validate": false
+        }
+      }
+    },
+    "agentPages": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".validate": "$id.matches(/^[a-z0-9]{6,24}$/)",
+        "$n": {
+          ".validate": "$n.matches(/^[0-9]$/) && newData.isString() && newData.val().beginsWith('data:image/jpeg;base64,') && newData.val().length <= 3000000"
         }
       }
     },

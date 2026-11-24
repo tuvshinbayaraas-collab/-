@@ -41,6 +41,9 @@ import BulkAnswers from './BulkAnswers';
 import {field, MathArea} from './MathField';
 import OcrDialog, {type OcrAction} from './OcrDialog';
 import ProblemsDialog from './ProblemsDialog';
+import {AgentSplitButton, AgentSplits} from './AgentSplit';
+import {finishTask, loadPages, pageAdded, type AgentTask} from '../../lib/agents';
+import {agentPage} from '../../lib/pageSplit';
 import TextProblems, {applyText} from './TextProblems';
 import ProblemStats, {problemStats} from './ProblemStats';
 import TopicCheck, {waitingIn} from './TopicCheck';
@@ -93,6 +96,8 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   const [pages, setPages] = useState<File[] | null>(null);
   const [bulk, setBulk] = useState(false);
   const [typed, setTyped] = useState(false);
+  // A page split by the agent, open to check and add.
+  const [agentOpen, setAgentOpen] = useState<{task: AgentTask; pages: Promise<string[]>} | null>(null);
   const pagesRef = useRef<HTMLInputElement>(null);
   // Problems open for editing; the rest show as their picture and the А–Д row. Empty ones start open.
   const [opened, setOpened] = useState(() => new Set(topic.problems.filter((p) => !p.text && !p.img).map((p) => p.id)));
@@ -380,7 +385,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 }}
               />
             ))}
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <button
                 onClick={() => {
                   const id = newId();
@@ -397,10 +402,13 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               <button onClick={() => setTyped(true)} className={addButton}>
                 <Type size={18} /> Текстээр оруулах
               </button>
+              <AgentSplitButton topic={{id: draft.id, title: draft.title}} className={addButton} />
             </div>
+            <AgentSplits topic={draft.id} onOpen={(task) => setAgentOpen({task, pages: loadPages(task.id)})} />
             <p className="text-xs text-neutral-500">
               «Зургаас бодлогууд» нь номын хуудасны зургаас дугаартай бодлого бүрийг тасдаж нэмнэ. Хэд хэдэн зураг зэрэг оруулж болно.
               «Текстээр оруулах» нь бодлогуудыг бичвэрээр нэг дор оруулна. Ийм бодлого утсан дээр тод уншигддаг.
+              «Agent-аар хуваах» нь хуудасны зургийг Claude-аар уншуулж бодлого бүрээр хуваана. Хэдэн минутын дараа энд гарахад шалгаад нэмнэ.
             </p>
             <input
               ref={pagesRef}
@@ -424,6 +432,28 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                   setAnswers((k) => ({...k, ...ks}));
                 }}
                 onClose={() => setPages(null)}
+              />
+            )}
+            {agentOpen && (
+              <ProblemsDialog
+                files={[]}
+                agent={{
+                  pages: agentOpen.task.pages,
+                  start: Math.min(agentOpen.task.added, agentOpen.task.pages - 1),
+                  load: async (at) => {
+                    const pages = await agentOpen.pages;
+                    if (!pages[at]) throw new Error('Энэ хуудасны зураг олдсонгүй.');
+                    return agentPage(pages[at], agentOpen.task.problems.filter((p) => p.page === at));
+                  },
+                  onPage: (at) => void (at + 1 >= agentOpen.task.pages ? finishTask(agentOpen.task.id) : pageAdded(agentOpen.task.id, at + 1)).catch(() => {}),
+                }}
+                tid={draft.id}
+                onUploaded={uploaded}
+                onAdd={(ps, ks) => {
+                  change((t) => ({...t, problems: [...t.problems, ...ps]}));
+                  setAnswers((k) => ({...k, ...ks}));
+                }}
+                onClose={() => setAgentOpen(null)}
               />
             )}
             {typed && <TextProblems problems={draft.problems} onApply={(x) => change((t) => ({...t, problems: applyText(t.problems, x, newId)}))} onClose={() => setTyped(false)} />}
