@@ -1,11 +1,13 @@
-import {Check, CheckCheck, NotebookPen, Shuffle, X} from 'lucide-react';
+import {BookOpenCheck, Check, CheckCheck, NotebookPen, Shuffle, X} from 'lucide-react';
 import {useEffect, useState, type ReactNode} from 'react';
 import {auth} from '../lib/firebase';
 import {choiceAt, useKeys} from '../lib/keys';
+import {useLearnIndex} from '../lib/learn';
 import {addMistakes, isDue, LAST_BOX, mistakeId, NOTE_MAX, reviewed, setNote, setWhy, useMistakes, WHYS, type Mistake} from '../lib/mistakes';
 import {useMyResults} from '../lib/results';
 import {learnedOne, type Stats} from '../lib/stats';
 import {dayLabel} from '../lib/time';
+import {Link} from '../lib/router';
 import {problemNo, useProgress, type Problem, type Topic} from '../lib/topics';
 import {loadTest, testInfo} from '../tests';
 import {hintOf} from '../tests/hints';
@@ -175,7 +177,7 @@ export function MistakeItem({
   };
   const label = mistakeLabel(m, topics);
   const boxes = (
-    <span className="flex gap-0.5" title={`${m.box}/${LAST_BOX + 1} шат`} aria-label={`${m.box} шат давсан`}>
+    <span role="img" className="flex gap-0.5" title={`${m.box}/${LAST_BOX + 1} шат`} aria-label={`${m.box} шат давсан`}>
       {Array.from({length: LAST_BOX + 1}, (_, i) => (
         <span key={i} className={`h-1.5 w-4 rounded-full ${i < m.box ? 'bg-violet-400' : 'bg-neutral-700'}`} />
       ))}
@@ -251,7 +253,8 @@ function TopicProblem({
 
 /**
  * A test question in the notebook: pick, check (the first check counts); wrong, a hint, then the steps, and a try
- * again (practice). Tests never show their right answers, so neither does this.
+ * again (practice). Tests never show their right answers, so neither does this card: after the steps, when the test has
+ * solutions in «Сурах», a link opens the whole solution there.
  */
 function TestQuestion({
   test: tid,
@@ -276,6 +279,7 @@ function TestQuestion({
   // The first check is what counts; later tries are practice.
   const [counted, setCounted] = useState(false);
   const [help, setHelp] = useState(0);
+  const learn = useLearnIndex();
   if (test === undefined || testKey === undefined) return <div className="h-40 animate-pulse rounded-2xl bg-neutral-900" />;
   const q = test?.questions[qi];
   if (!q) return null;
@@ -346,7 +350,25 @@ function TestQuestion({
                   <AskButton ctx={{s: 't', t: tid, q: String(qi), label}} />
                 </span>
               </div>
-              {checked && !ok && <HelpLadder hint={hint?.hint} steps={hint?.steps} help={help} setHelp={setHelp} onRetry={retry} />}
+              {checked && !ok && (
+                <HelpLadder
+                  hint={hint?.hint}
+                  steps={hint?.steps}
+                  help={help}
+                  setHelp={setHelp}
+                  onRetry={retry}
+                  last={
+                    learn?.[tid] ? (
+                      <Link
+                        href={`/learn/${tid}?n=${qi + 1}`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-3.5 py-1.5 text-sm font-medium text-blue-300 hover:bg-blue-500/25"
+                      >
+                        <BookOpenCheck size={15} /> Бүтэн бодолт «Сурах»-д
+                      </Link>
+                    ) : undefined
+                  }
+                />
+              )}
             </div>
           }
         />

@@ -14,6 +14,8 @@ export interface Attempt {
   /** How often the page was left during the attempt, and for how long (ms). */
   leaves?: number;
   away?: number;
+  /** Questions (by original index) marked «Дараа эргэх» to come back to; kept on this device only. */
+  flags?: number[];
 }
 
 // One attempt per test and per account (or guest) on this browser, so classmates sharing a computer don't mix answers.

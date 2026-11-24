@@ -1,4 +1,4 @@
-import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
+import {Clock, Eye, Flag, FlaskConical, RotateCcw} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import Loading from '../components/Loading';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
@@ -272,6 +272,15 @@ function Runner(props: {
   const correctOf = (qi: number) => (g ? choiceAt(key, qi) : null);
   const missed = attempt.order.filter((qi) => correctOf(qi) !== null && attempt.answers[qi] !== correctOf(qi));
 
+  // «Дараа эргэх»: questions the student wants to come back to, marked in the number bar until the test is handed in.
+  const flags = new Set(finished ? [] : (attempt.flags ?? []));
+  const flag = (qi: number) => {
+    if (finished) return;
+    const next = new Set(flags);
+    if (!next.delete(qi)) next.add(qi);
+    update({...attempt, flags: [...next]});
+  };
+
   const choose = (qi: number, ci: number) => {
     if (finished) return;
     const answers = [...attempt.answers];
@@ -284,7 +293,8 @@ function Runner(props: {
 
   const finish = () => {
     const left = total - answered;
-    if (left && !ask(`${left} бодлого хариулаагүй байна. Тестээ дуусгах уу?`)) return;
+    const notes = [left ? `${left} бодлого хариулаагүй байна.` : '', flags.size ? `${flags.size} бодлогыг дараа эргэхээр тэмдэглэсэн.` : ''].filter(Boolean);
+    if (notes.length && !ask(`${notes.join(' ')} Тестээ дуусгах уу?`)) return;
     update({...attempt, finished: Date.now()});
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
@@ -311,6 +321,11 @@ function Runner(props: {
           <span className="text-sm text-neutral-400">
             {answered}/{total} хариулсан
           </span>
+          {flags.size > 0 && (
+            <span className="flex items-center gap-1 text-sm text-amber-300" title="Дараа эргэх">
+              <Flag size={14} aria-hidden /> {flags.size} дараа эргэх
+            </span>
+          )}
           {!prefs.hideTimer && (
             <span className="flex items-center gap-1 text-sm tabular-nums text-neutral-400">
               <Clock size={14} /> {formatTime(elapsed)}
@@ -342,9 +357,16 @@ function Runner(props: {
                 : chosen !== null
                   ? 'bg-blue-500 text-black'
                   : 'bg-neutral-800 text-neutral-300';
+            const marked = flags.has(qi);
             return (
-              <button key={qi} onClick={() => jump(pos)} className={`h-7 min-w-7 shrink-0 rounded-md px-1 text-xs font-semibold ${style}`} aria-label={`${pos + 1}-р бодлого`}>
+              <button
+                key={qi}
+                onClick={() => jump(pos)}
+                className={`relative h-7 min-w-7 shrink-0 rounded-md px-1 text-xs font-semibold ${style} ${marked ? 'ring-2 ring-inset ring-amber-400' : ''}`}
+                aria-label={`${pos + 1}-р бодлого${marked ? ', дараа эргэх' : ''}`}
+              >
                 {pos + 1}
+                {marked && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400" />}
               </button>
             );
           })}
@@ -463,6 +485,18 @@ function Runner(props: {
               reveal={mode === 'preview'}
               perm={attempt.perms?.[qi] ?? undefined}
               onChoose={finished ? undefined : (ci) => choose(qi, ci)}
+              footer={
+                finished ? undefined : (
+                  <button
+                    type="button"
+                    onClick={() => flag(qi)}
+                    aria-pressed={flags.has(qi)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${flags.has(qi) ? 'bg-amber-500/15 text-amber-200' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}`}
+                  >
+                    <Flag size={13} aria-hidden /> {flags.has(qi) ? 'Дараа эргэнэ' : 'Дараа эргэх'}
+                  </button>
+                )
+              }
             />
           ),
         )}
