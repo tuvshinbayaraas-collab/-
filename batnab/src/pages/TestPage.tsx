@@ -1,4 +1,4 @@
-import {Clock, Eye, FlaskConical, RotateCcw} from 'lucide-react';
+import {Clock, Eye, FlaskConical, Flag, RotateCcw} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import Loading from '../components/Loading';
 import {CenterNote, InactiveNote, LockedNote, LoginButton} from '../components/Notices';
@@ -282,9 +282,20 @@ function Runner(props: {
     if (prefs.autoNext && answers[qi] !== null && pos + 1 < total) setTimeout(() => jump(pos + 1), 250);
   };
 
+  // «Дараа эргэх»: a mark the student puts on a question to come back to it. Kept on this device only.
+  const flag = (qi: number) =>
+    !finished &&
+    bump((a) => {
+      const f = a.flagged ?? [];
+      return {...a, flagged: f.includes(qi) ? f.filter((x) => x !== qi) : [...f, qi]};
+    });
+  const flagged = (qi: number) => !finished && !!attempt.flagged?.includes(qi);
+
   const finish = () => {
     const left = total - answered;
-    if (left && !ask(`${left} бодлого хариулаагүй байна. Тестээ дуусгах уу?`)) return;
+    const marked = attempt.flagged?.length ?? 0;
+    const notes = [left ? `${left} бодлого хариулаагүй байна.` : '', marked ? `${marked} бодлогыг дараа эргэхээр тэмдэглэсэн.` : ''].filter(Boolean);
+    if (notes.length && !ask(`${notes.join(' ')} Тестээ дуусгах уу?`)) return;
     update({...attempt, finished: Date.now()});
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
@@ -343,7 +354,12 @@ function Runner(props: {
                   ? 'bg-blue-500 text-black'
                   : 'bg-neutral-800 text-neutral-300';
             return (
-              <button key={qi} onClick={() => jump(pos)} className={`h-7 min-w-7 shrink-0 rounded-md px-1 text-xs font-semibold ${style}`} aria-label={`${pos + 1}-р бодлого`}>
+              <button
+                key={qi}
+                onClick={() => jump(pos)}
+                className={`h-7 min-w-7 shrink-0 rounded-md px-1 text-xs font-semibold ${style} ${flagged(qi) ? 'ring-2 ring-inset ring-amber-400' : ''}`}
+                aria-label={flagged(qi) ? `${pos + 1}-р бодлого, дараа эргэх` : `${pos + 1}-р бодлого`}
+              >
                 {pos + 1}
               </button>
             );
@@ -463,6 +479,18 @@ function Runner(props: {
               reveal={mode === 'preview'}
               perm={attempt.perms?.[qi] ?? undefined}
               onChoose={finished ? undefined : (ci) => choose(qi, ci)}
+              footer={
+                finished ? undefined : (
+                  <button
+                    type="button"
+                    onClick={() => flag(qi)}
+                    aria-pressed={flagged(qi)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${flagged(qi) ? 'bg-amber-500/10 text-amber-300' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'}`}
+                  >
+                    <Flag size={15} /> {flagged(qi) ? 'Тэмдэглэсэн' : 'Дараа эргэх'}
+                  </button>
+                )
+              }
             />
           ),
         )}
