@@ -17,6 +17,8 @@ export type AgentStatus = 'new' | 'working' | 'review' | 'done' | 'rejected' | '
 const STATUSES: AgentStatus[] = ['new', 'working', 'review', 'done', 'rejected', 'failed'];
 
 export const REPO = 'https://github.com/tuvshinbayaraas-collab/-';
+/** The agent's page on GitHub, where «Run workflow» starts it now (GitHub's every-5-minutes schedule is often late). */
+export const RUN_NOW = `${REPO}/actions/workflows/batnab-agent.yml`;
 /** Pages in one request, at most (the rules allow as many). */
 export const MAX_PAGES = 10;
 

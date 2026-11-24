@@ -1,6 +1,6 @@
 import {Bot, ChevronDown, Loader2, ScanSearch, Trash2} from 'lucide-react';
 import {useState} from 'react';
-import {dropTask, REPO, removeTask, retryTask, useAgentRunner, useAgentTasks, type AgentRunner, type AgentStatus, type AgentTask} from '../../lib/agents';
+import {dropTask, REPO, removeTask, retryTask, RUN_NOW, useAgentRunner, useAgentTasks, type AgentRunner, type AgentStatus, type AgentTask} from '../../lib/agents';
 import {Link} from '../../lib/router';
 import {clock, dayLabel, useNow} from '../../lib/time';
 import Loading from '../../components/Loading';
@@ -57,8 +57,8 @@ export default function AgentTab() {
           <Bot size={18} className="text-blue-300" /> Agent
         </h2>
         <p className="mt-1 text-sm text-neutral-400">
-          Agent нь номын хуудасны зураг эсвэл PDF-ийг уншаад бодлого бүрээр хуваана. Сэдэв эсвэл «Бодлого» хэсгийн хавтсанд «Agent-аар хуваах» дарж илгээнэ. 5–15
-          минутын дараа тэнд «Шалгаж нэмэх» гарна. Хуваасныг шалгаж, засаад нэмнэ. Таныг нэмэхээс өмнө юу ч нэмэгдэхгүй.
+          Agent нь номын хуудасны зураг эсвэл PDF-ийг уншаад бодлого бүрээр хуваана. Сэдэв эсвэл «Бодлого» хэсгийн хавтсанд «Agent-аар хуваах» дарж илгээнэ. Agent уншсаны
+          дараа тэнд «Шалгаж нэмэх» гарна. Хуваасныг шалгаж, засаад нэмнэ. Таныг нэмэхээс өмнө юу ч нэмэгдэхгүй.
         </p>
         <RunnerState runner={runner} now={now} />
       </section>
@@ -98,7 +98,12 @@ function RunnerState({runner, now}: {runner: AgentRunner | false; now: number}) 
   if (now - runner.lastSeen > QUIET)
     return (
       <p className={`${box} bg-amber-500/10 text-amber-200`} data-runner="quiet">
-        Agent сүүлд {seen} ажилласан. GitHub дээр зогссон байж магадгүй.
+        <span>
+          Agent сүүлд {seen} ажилласан. GitHub хоцорч эсвэл зогссон байж магадгүй.{' '}
+          <a href={RUN_NOW} target="_blank" rel="noreferrer" className="font-medium underline">
+            Одоо эхлүүлэх
+          </a>
+        </span>
       </p>
     );
   if (!runner.claude)
@@ -144,13 +149,23 @@ function TaskCard({task: t}: {task: AgentTask}) {
           <Loader2 size={15} className="animate-spin" /> Уншиж байна. Хэдэн минут болно.
         </p>
       )}
-      {t.status === 'new' && <p className="mt-2 text-sm text-neutral-400">5–15 минутын дотор эхэлнэ.</p>}
+      {t.status === 'new' && (
+        <p className="mt-2 text-sm text-neutral-400">
+          Agent эхлэхийг хүлээж байна. GitHub 5 минут тутам эхлүүлэх ёстой ч заримдаа удаан хоцордог. Удвал «Одоо эхлүүлэх» дараад GitHub дээр «Run
+          workflow», дараа нь ногоон «Run workflow» дарна.
+        </p>
+      )}
       {t.status === 'failed' && t.error && <p className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-200">{t.error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         {t.status === 'review' && (
           <Link href={t.folder ? `/admin?tab=bank&folder=${encodeURIComponent(t.folder)}` : `/admin/topic/${t.topic}`} className={`${btn} bg-blue-500 font-semibold text-black hover:bg-blue-400`}>
             <ScanSearch size={15} /> {t.folder ? 'Хавтас руу очиж шалгах' : 'Сэдэв рүү очиж шалгах'}
           </Link>
+        )}
+        {t.status === 'new' && (
+          <a href={RUN_NOW} target="_blank" rel="noreferrer" className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`} data-run-now>
+            Одоо эхлүүлэх
+          </a>
         )}
         {t.status === 'failed' && (
           <button type="button" onClick={() => run(() => retryTask(t.id))} className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}>

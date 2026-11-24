@@ -1,7 +1,7 @@
 import {AlertTriangle, Bot, Loader2, RotateCcw, ScanSearch, X} from 'lucide-react';
 import {useRef, useState} from 'react';
 import type {PDFDocumentProxy} from 'pdfjs-dist/legacy/build/pdf.mjs';
-import {dropTask, MAX_PAGES, pageData, retryTask, sendPages, useAgentRunner, useAgentTasks, type AgentTarget, type AgentTask} from '../../lib/agents';
+import {dropTask, MAX_PAGES, pageData, retryTask, RUN_NOW, sendPages, useAgentRunner, useAgentTasks, type AgentTarget, type AgentTask} from '../../lib/agents';
 import {preparePage} from '../../lib/pageSplit';
 import {eachPage, isPdf} from '../../lib/pdf';
 import {Link} from '../../lib/router';
@@ -54,7 +54,7 @@ export function AgentSplitButton({target, className}: {target: AgentTarget; clas
       await flush();
       const off = !runner || !runner.claude;
       const what = requests > 1 ? `${pages} хуудсыг ${requests} хэсэг болгож илгээлээ.` : `${pages} хуудас илгээлээ.`;
-      setNote({ok: true, text: `${what} ${off ? 'Agent тохируулагдсаны дараа хуваагдана («Agent» хэсэг).' : '5–15 минутын дотор хуваагдаад энд гарна.'}`});
+      setNote({ok: true, text: `${what} ${off ? 'Agent тохируулагдсаны дараа хуваагдана («Agent» хэсэг).' : 'Agent уншаад энд гаргана. Удвал «Одоо эхлүүлэх» дарна.'}`});
     } catch (e) {
       setNote({ok: false, text: `${pages ? `${pages} хуудас илгээгдсэн. ` : ''}Үлдсэнийг илгээж чадсангүй: ${(e as Error).message}`});
     } finally {
@@ -146,18 +146,24 @@ export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder
             <>
               <span className="flex min-w-0 flex-1 items-center gap-2 text-neutral-300">
                 <Loader2 size={14} className="animate-spin" />
-                {t.status === 'working' ? `Agent ${t.pages} хуудсыг уншиж байна.` : `${t.pages} хуудас дараалалд байна. 5–15 минутын дотор хуваагдана.`}
+                {t.status === 'working' ? `Agent ${t.pages} хуудсыг уншиж байна.` : `${t.pages} хуудас Agent-ийг хүлээж байна.`}
               </span>
               {t.status === 'new' && (
-                <button type="button" onClick={() => void dropTask(t.id)} className="rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800">
-                  Болих
-                </button>
+                <>
+                  <a href={RUN_NOW} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-800 px-3 py-1.5 font-medium hover:bg-neutral-700" data-run-now>
+                    Одоо эхлүүлэх
+                  </a>
+                  <button type="button" onClick={() => void dropTask(t.id)} className="rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800">
+                    Болих
+                  </button>
+                </>
               )}
             </>
           )}
         </li>
       ))}
       <li className="px-1 text-xs text-neutral-500">
+        {tasks.some((t) => t.status === 'new') && 'GitHub Agent-ийг 5 минут тутам эхлүүлэх ёстой ч заримдаа удаан хоцордог. «Одоо эхлүүлэх» нь GitHub-ийг нээнэ: тэнд «Run workflow», дараа нь ногоон «Run workflow» дарна. '}
         Agent-ийн ажлыг{' '}
         <Link href="/admin?tab=agent" className="text-blue-400 underline">
           «Agent» хэсгээс
