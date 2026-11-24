@@ -3,7 +3,7 @@
 // placed (splitProblems.ts), and each problem's part of the page cut out, so formulas and figures stay as printed.
 import {readLines} from './ocr';
 import {loadImage} from './photo';
-import {findGutter, findSkew, splitProblems, type FoundProblem, type OcrLine, type Region} from './splitProblems';
+import {findGutter, findSkew, gutterNear, splitProblems, type FoundProblem, type OcrLine, type Region} from './splitProblems';
 
 /** As sharp as reading needs and a phone handles. */
 const MAX = 2000;
@@ -169,22 +169,17 @@ export async function preparePage(file: File, signal?: AbortSignal) {
   return page;
 }
 
-/** Reads the page; `signal` stops it between steps (the dialog was closed, or went on to another page). */
-export async function readPage(file: File, onProgress: (progress: number, stage: string) => void, signal?: AbortSignal): Promise<Page> {
-  const step = async () => {
-    await breathe();
-    if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
-  };
-  onProgress(0, 'Зургийг тэгшилж байна');
-  const page = await preparePage(file, signal);
-  onProgress(0.04, 'Багануудыг хайж байна');
-  await step();
-
-  // Two columns: each read on its own (the other one painted out), split along the gutter, a little slanted if need be.
+/**
+ * The page's columns: two when there is a gutter (a little slanted if the photo is), each alone with the other painted
+ * white, and where the gutter is at each row (`at`, null for one column). With `hint` (where the agent's boxes put the
+ * columns apart), a gutter is looked for there when none is found or the one found is elsewhere.
+ */
+function columns(page: HTMLCanvasElement, hint?: number | null) {
   const W = page.width;
   const H = page.height;
   const map = darkMap(page);
-  const gutter = findGutter(map.dark, map.w, map.h);
+  let gutter = findGutter(map.dark, map.w, map.h);
+  if (hint != null && (!gutter || Math.abs(gutter.x - hint * map.k) > map.w * 0.08)) gutter = gutterNear(map.dark, map.w, map.h, hint * map.k);
   const at = (y: number) => (gutter ? (gutter.x + gutter.slope * (y * map.k - map.h / 2)) / map.k : 0);
   const ranges = gutter
     ? [
@@ -208,6 +203,24 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
     }
     return c;
   });
+  return {ranges, cols, at: gutter ? at : null};
+}
+
+/** Reads the page; `signal` stops it between steps (the dialog was closed, or went on to another page). */
+export async function readPage(file: File, onProgress: (progress: number, stage: string) => void, signal?: AbortSignal): Promise<Page> {
+  const step = async () => {
+    await breathe();
+    if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
+  };
+  onProgress(0, 'Зургийг тэгшилж байна');
+  const page = await preparePage(file, signal);
+  onProgress(0.04, 'Багануудыг хайж байна');
+  await step();
+
+  // Two columns: each read on its own (the other one painted out), split along the gutter, a little slanted if need be.
+  const W = page.width;
+  const H = page.height;
+  const {ranges, cols} = columns(page);
 
   const lines: OcrLine[] = [];
   for (let i = 0; i < cols.length; i++) {
@@ -286,8 +299,11 @@ export interface AgentFound {
 const MARK_OF = {A: 'А', B: 'Б', C: 'В', D: 'Г', E: 'Д'} as const;
 
 /**
- * A page the agent read (the page as sent, so its boxes fit), as the cutting dialog takes it: the problems it found,
- * each box's top and bottom moved out to the nearest blank row (a little at most) so no line is cut in half. The
+ * A page the agent read (the page as sent, so its boxes fit), as the cutting dialog takes it. The agent knows which
+ * problem is where, but its boxes are only roughly placed (often cutting the last line of choices or a column's right
+ * edge), so each box is fitted to the print here: it takes its whole column's width, starts at the line nearest its
+ * top, and goes down to where the next problem in that column starts (the last one in a column: through the lines
+ * that follow on closely). A box across both columns keeps its place, its top and bottom moved out to blank rows. The
  * choices go after the text as printed («А) …»), where the dialog reads them from.
  */
 export async function agentPage(url: string, found: AgentFound[]): Promise<Page> {
@@ -298,12 +314,163 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
   g.drawImage(img, 0, 0);
   const W = c.width;
   const H = c.height;
-  const d = g.getImageData(0, 0, W, H).data;
-  const level = inkLevel(d);
-  const rows: number[] = new Array(H).fill(0);
-  for (let p = 0; p < d.length; p += 4) if (lum(d, p) < level) rows[Math.floor(p / 4 / W)]++;
+  const level = inkLevel(g.getImageData(0, 0, W, H).data);
+  // Two columns when the agent's boxes stand in two: the gutter is looked for between them.
+  const px = found.flatMap((f) => f.boxes).map((b) => ({x0: (b.x0 / 1000) * W, x1: (b.x1 / 1000) * W})).filter((b) => !(b.x0 < W * 0.35 && b.x1 > W * 0.65));
+  const median = (xs: number[]) => xs.sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+  const left = px.filter((b) => (b.x0 + b.x1) / 2 < W / 2);
+  const right = px.filter((b) => (b.x0 + b.x1) / 2 >= W / 2);
+  const hint = left.length && right.length ? (median(left.map((b) => b.x1)) + median(right.map((b) => b.x0))) / 2 : null;
+  const {ranges, cols, at} = columns(c, hint);
+
+  // The print, without long upright strokes (the page's dark edge in a photo, a rule down the gutter, a graph's
+  // axis): with them every row would have ink and the lines could not be told apart.
+  const all = g.getImageData(0, 0, W, H).data;
+  const long = Math.max(8, Math.round(H * 0.03));
+  const print = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    for (let y = 0; y < H; ) {
+      if (!(lum(all, (y * W + x) * 4) < level)) {
+        y++;
+        continue;
+      }
+      let e = y;
+      while (e < H && lum(all, (e * W + x) * 4) < level) e++;
+      if (e - y <= long) for (let k = y; k < e; k++) print[k * W + x] = 1;
+      y = e;
+    }
+  }
+  const side = (x: number, y: number) => (!at ? 0 : x < at(y) ? 0 : 1);
+
+  // Each column's print: across (where its ink runs, not far outside the agent's boxes there) and, inside that, its
+  // ink per row, and its lines (rows with ink) with the usual gap and height.
+  const fit = cols.map((_, i) => {
+    const r = ranges[i];
+    const w = Math.max(1, r.x1 - r.x0);
+    const ink = new Array<number>(w).fill(0);
+    for (let y = 0; y < H; y++) for (let x = r.x0; x < r.x1; x++) if (print[y * W + x] && side(x, y) === i) ink[x - r.x0]++;
+    const total = ink.reduce((a, v) => a + v, 0);
+    let x0 = 0;
+    let x1 = w;
+    for (let x = 0, sum = 0; x < w; x++) if ((sum += ink[x]) >= total * 0.005) {
+      x0 = x;
+      break;
+    }
+    for (let x = w - 1, sum = 0; x >= 0; x--) if ((sum += ink[x]) >= total * 0.005) {
+      x1 = x + 1;
+      break;
+    }
+    const pad = Math.round(W * 0.012);
+    x0 = Math.max(r.x0, r.x0 + x0 - pad);
+    x1 = Math.min(r.x1, r.x0 + x1 + pad);
+    const theirs = found.flatMap((f) => f.boxes).map((b) => ({x0: (b.x0 / 1000) * W, x1: (b.x1 / 1000) * W})).filter((b) => side((b.x0 + b.x1) / 2, H / 2) === i);
+    if (theirs.length) {
+      x0 = Math.max(x0, Math.round(Math.min(...theirs.map((b) => b.x0)) - W * 0.03));
+      x1 = Math.min(x1, Math.round(Math.max(...theirs.map((b) => b.x1)) + W * 0.03));
+    }
+    const rows = new Array<number>(H).fill(0);
+    for (let y = 0; y < H; y++) for (let x = x0; x < x1; x++) if (print[y * W + x] && side(x, y) === i) rows[y]++;
+    const lines: {s: number; e: number; left: number}[] = [];
+    for (let y = 0, start = -1; y <= H; y++) {
+      const on = y < H && rows[y] > 1;
+      if (on && start < 0) start = y;
+      if (!on && start >= 0) {
+        const last = lines[lines.length - 1];
+        if (last && start - last.e <= 2) last.e = y;
+        else lines.push({s: start, e: y, left: x1});
+        start = -1;
+      }
+    }
+    // Where each line starts across: a problem's first line starts at the column's margin, with its number.
+    for (const l of lines)
+      for (let y = l.s; y < l.e; y++)
+        for (let x = x0; x < l.left; x++)
+          if (print[y * W + x] && side(x, y) === i) {
+            l.left = x;
+            break;
+          }
+    const gaps = lines.slice(1).map((l, k) => l.s - lines[k].e).filter((v) => v < H * 0.05).sort((a, b) => a - b);
+    const gap = gaps[Math.floor(gaps.length / 2)] ?? Math.round(H * 0.006);
+    const near = Math.max(2 * gap, Math.round(H * 0.012));
+    const heights = lines.map((l) => l.e - l.s).filter((v) => v < H * 0.04).sort((a, b) => a - b);
+    const lineH = Math.max(4, heights[Math.floor(heights.length / 2)] ?? Math.round(H * 0.015));
+    const lefts = lines.filter((l) => l.e - l.s < H * 0.04).map((l) => l.left).sort((a, b) => a - b);
+    const margin = lefts[Math.floor(lefts.length * 0.1)] ?? x0;
+    return {x0, x1, rows, lines, gap, near, lineH, margin};
+  });
+
+  // Every box: its column (or both), in pixels.
+  const tops = Math.round(H * 0.04);
+  const boxes = found.flatMap((f, pi) =>
+    f.boxes.map((b, bi) => {
+      const x0 = Math.max(0, Math.min(W - 1, Math.round((b.x0 / 1000) * W)));
+      const x1 = Math.max(x0 + 1, Math.min(W, Math.round((b.x1 / 1000) * W)));
+      const y0 = Math.max(0, Math.min(H - 1, Math.round((b.y0 / 1000) * H)));
+      const y1 = Math.max(y0 + 1, Math.min(H, Math.round((b.y1 / 1000) * H)));
+      const mid = at ? at((y0 + y1) / 2) : 0;
+      const col = !at ? 0 : x0 < mid - W * 0.04 && x1 > mid + W * 0.04 ? -1 : (x0 + x1) / 2 < mid ? 0 : 1;
+      return {pi, bi, col, x0, x1, y0, y1, top: y0};
+    }),
+  );
+  const regions = new Map<string, Region>();
+  for (let ci = 0; ci < cols.length; ci++) {
+    const {x0, x1, rows, lines, gap, near, lineH, margin} = fit[ci];
+    const mine = boxes.filter((b) => b.col === ci).sort((a, b) => a.y0 - b.y0);
+    // The problem's first line: near the box's top, best at the column's margin (not an indented line of choices) and
+    // after more room than between a problem's own lines; with what sits just above it (a fraction's numerator). When the top is well inside something tall (a drawing above touching the problem's first
+    // line), the emptiest row a line or so above the agent's top instead.
+    for (const b of mine) {
+      const inside = lines.find((l) => l.s <= b.y0 && b.y0 < l.e);
+      if (inside && b.y0 - inside.s > lineH * 1.5) {
+        let min = Infinity;
+        for (let y = Math.max(inside.s, b.y0 - Math.round(lineH * 1.5)); y <= b.y0; y++) if (rows[y] < min) {
+          min = rows[y];
+          b.top = y;
+        }
+        continue;
+      }
+      const indented = (l: {left: number}) => l.left - margin > Math.max(W * 0.03, lineH * 2);
+      const brk = Math.max(gap * 1.8, lineH * 0.8);
+      let best = -1;
+      let score = Infinity;
+      lines.forEach((l, j) => {
+        const off = Math.abs(l.s - b.y0);
+        if (off > tops) return;
+        const room = j > 0 ? l.s - lines[j - 1].e : lineH * 3;
+        const v = off + (indented(l) ? lineH * 3 : 0) - (room > brk ? lineH * 2 : 0);
+        if (v < score) {
+          score = v;
+          best = j;
+        }
+      });
+      while (best > 0 && lines[best].s - lines[best - 1].e <= Math.max(3, gap * 0.6) && indented(lines[best - 1]) && lines[best - 1].e - lines[best - 1].s < lineH) best--;
+      b.top = best >= 0 ? lines[best].s : b.y0;
+    }
+    mine.forEach((b, k) => {
+      const next = mine[k + 1];
+      let end: number;
+      if (next && next.top > b.top) {
+        // Down to the next problem: every line starting before it.
+        const own = lines.filter((l) => l.s >= b.top && l.s < next.top);
+        end = own.length ? own[own.length - 1].e : b.y1;
+      } else {
+        // The column's last: the lines the agent's box reaches into, and those that follow on closely.
+        let li = -1;
+        lines.forEach((l, j) => {
+          if (l.s >= b.top && l.s < b.y1) li = j;
+        });
+        while (li >= 0 && li + 1 < lines.length && lines[li + 1].s - lines[li].e <= near) li++;
+        end = li >= 0 ? lines[li].e : b.y1;
+      }
+      const pad = Math.round(H * 0.005);
+      const above = k > 0 ? mine[k - 1] : null;
+      regions.set(`${b.pi}/${b.bi}`, {col: ci, x0, x1, y0: Math.max(0, b.top - pad, above ? above.top : 0), y1: Math.min(H, end + pad, next && next.top > b.top ? next.top : H)});
+    });
+  }
+
+  // A box across both columns: kept where the agent put it, its top and bottom moved out to blank rows (a little).
   const inked = (y: number, x0: number, x1: number) => {
-    for (let x = x0; x < x1; x += 2) if (lum(d, (y * W + x) * 4) < level) return true;
+    for (let x = x0; x < x1; x += 2) if (print[y * W + x]) return true;
     return false;
   };
   const reach = Math.round(H * 0.02);
@@ -312,16 +479,11 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
     for (let n = 0; n < reach && k > 0 && k < H - 1 && inked(k, x0, x1); n++) k += dir;
     return k;
   };
-  const problems: FoundProblem[] = found.map((f) => {
-    const regions = f.boxes.map((b) => {
-      const x0 = Math.max(0, Math.min(W - 1, Math.round((b.x0 / 1000) * W)));
-      const x1 = Math.max(x0 + 1, Math.min(W, Math.round((b.x1 / 1000) * W)));
-      const y0 = Math.max(0, Math.min(H - 1, Math.round((b.y0 / 1000) * H)));
-      const y1 = Math.max(y0 + 1, Math.min(H, Math.round((b.y1 / 1000) * H)));
-      return {col: 0, x0, x1, y0: out(y0, x0, x1, -1), y1: out(Math.min(H - 1, y1), x0, x1, 1)};
-    });
+  for (const b of boxes) if (b.col < 0) regions.set(`${b.pi}/${b.bi}`, {col: -1, x0: b.x0, x1: b.x1, y0: out(b.y0, b.x0, b.x1, -1), y1: out(Math.min(H - 1, b.y1), b.x0, b.x1, 1)});
+
+  const problems: FoundProblem[] = found.map((f, pi) => {
     const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => f.choices?.[k]).map((k) => `${MARK_OF[k]}) ${f.choices![k]}`);
-    return {num: f.num, text: [f.text, choices.join('  ')].filter(Boolean).join('\n'), regions};
+    return {num: f.num, text: [f.text, choices.join('  ')].filter(Boolean).join('\n'), regions: f.boxes.map((_, bi) => regions.get(`${pi}/${bi}`)!)};
   });
-  return {canvas: c, cols: [c], rowInk: [rows], lines: [], problems};
+  return {canvas: c, cols, rowInk: fit.map((f) => f.rows), lines: [], problems};
 }

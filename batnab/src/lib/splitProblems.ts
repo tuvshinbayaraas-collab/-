@@ -343,6 +343,49 @@ export function findGutter(dark: Uint8Array, w: number, h: number): {x: number; 
   return left >= total * 0.25 && left <= total * 0.75 ? {x: best.x, slope: best.slope} : null;
 }
 
+/**
+ * The gutter near `hx` (where another reading of the page, the agent's, puts the columns apart), for when
+ * `findGutter` finds none: often a rule printed down it, thick in a photo. The straightest band with the least ink
+ * within 5% of the width either side, a long upright stroke (that rule) not counted as ink.
+ */
+export function gutterNear(dark: Uint8Array, w: number, h: number, hx: number): {x: number; slope: number} {
+  const reach = Math.ceil(h * 0.015) + 2;
+  const lo = Math.max(0, Math.round(hx - w * 0.05));
+  const hi = Math.min(w - 1, Math.round(hx + w * 0.05));
+  const long = Math.max(8, Math.round(h * 0.03));
+  // Each dark pixel near the gutter, unless it is part of an upright run longer than `long`.
+  const ink = new Uint8Array(dark.length);
+  for (let x = Math.max(0, lo - reach); x <= Math.min(w - 1, hi + reach); x++) {
+    for (let y = 0; y < h; ) {
+      if (!dark[y * w + x]) {
+        y++;
+        continue;
+      }
+      let e = y;
+      while (e < h && dark[e * w + x]) e++;
+      if (e - y <= long) for (let k = y; k < e; k++) ink[k * w + x] = 1;
+      y = e;
+    }
+  }
+  const win = Math.max(4, Math.round(w / 150));
+  let best = {x: Math.round(hx), slope: 0, sum: Infinity};
+  for (let k = -6; k <= 6; k++) {
+    const slope = k * 0.005;
+    const raw = new Array<number>(w).fill(0);
+    for (let y = 0; y < h; y += 2) {
+      const dx = Math.round(slope * (y - h / 2));
+      for (let x = lo; x <= hi; x++) if (x + dx >= 0 && x + dx < w && ink[y * w + x + dx]) raw[x]++;
+    }
+    for (let x = lo; x + win <= hi; x++) {
+      let sum = 0;
+      for (let j = 0; j < win; j++) sum += raw[x + j];
+      // The same emptiness: the one nearer where it was thought to be.
+      if (sum < best.sum || (sum === best.sum && Math.abs(x + win / 2 - hx) < Math.abs(best.x - hx))) best = {x: x + Math.round(win / 2), slope, sum};
+    }
+  }
+  return {x: best.x, slope: best.slope};
+}
+
 /** The widest run of blank rows inside y0…y1 (where to split a box holding two problems), from each row's ink. */
 export function widestGap(rowInk: number[], y0: number, y1: number) {
   let best = {at: Math.round((y0 + y1) / 2), len: 0};

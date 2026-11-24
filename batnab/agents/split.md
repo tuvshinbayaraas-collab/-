@@ -11,9 +11,11 @@ first column, then down the second; page by page):
 - `num`: the number printed before it.
 - `boxes`: where it is on the page, in thousandths of the page's width and height (0 is the left or top edge, 1000 the
   right or bottom edge): `x0`, `y0` the top left corner, `x1`, `y1` the bottom right. One box holds everything of that
-  problem: its number, its text, its drawing and its choices, and nothing of the next problem. Leave a small margin
-  (about 5) around the ink, but do not reach into the problem above or below. A problem that goes on at the top of the
-  next column has two boxes, the first part first.
+  problem: its number, its text, its drawing and its choices. What matters most is `y0`: the top of the problem's
+  first line, the one with its number (or of its drawing, when that starts higher). `x0` and `x1` are the left and
+  right edges of the column it is in (the whole page's width for one column). `y1` is below its last line, usually its
+  choices: rather a little too low than cutting a line off. A problem that goes on at the top of the next column has
+  two boxes, the first part first.
 - `text`: what the problem asks, as printed, in Mongolian, without its number and without its choices. Write every
   formula in LaTeX between `$…$` (for example `$\frac{x+1}{2}$`, `$\sqrt{3}$`, `$x^2$`). If it has a drawing, write only
   the words around it.
