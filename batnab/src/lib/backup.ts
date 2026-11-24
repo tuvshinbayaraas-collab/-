@@ -16,6 +16,9 @@ const NODES: [string, number][] = [
   ['learnIndex', 1],
   ['topics', 1],
   ['topicImages', 2],
+  ['bankFolders', 1],
+  ['bankProblems', 2],
+  ['bankImages', 1],
   ['topicKeys', 2],
   ['topicProgress', 3],
   ['topicMarks', 3],
@@ -62,6 +65,7 @@ const NODES: [string, number][] = [
 /** What can be put back, in the parts the teacher picks from. */
 export const PARTS = [
   {id: 'topics', label: 'Сэдвүүд', sub: 'хичээл, бодлого, зураг, зөв хариулт', nodes: ['topics', 'topicImages', 'topicKeys']},
+  {id: 'bank', label: 'Бодлогын сан', sub: 'хавтас, бодлого, зураг', nodes: ['bankFolders', 'bankProblems', 'bankImages']},
   {id: 'classes', label: 'Ангиуд', sub: '', nodes: ['classes']},
   {id: 'users', label: 'Сурагчдын бүртгэл', sub: 'нэр, анги (нэвтрэх нууц үг биш)', nodes: ['users']},
   {id: 'work', label: 'Сурагчдын хариулт, дүн', sub: 'тест, сэдэв, багшийн шалгалт, түүх, медаль', nodes: ['results', 'history', 'topicProgress', 'topicMarks', 'topicWork', 'topicRounds', 'medals', 'gameMedals', 'gameRounds']},

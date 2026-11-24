@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import {createHash} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {readdirSync, readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {defineConfig, type Plugin} from 'vite';
 
@@ -52,6 +52,34 @@ function ocrFiles(): Plugin {
     },
     generateBundle() {
       for (const [name, file] of Object.entries(files)) this.emitFile({type: 'asset', fileName: `ocr/${name}`, source: readFileSync(file())});
+    },
+  };
+}
+
+/**
+ * Serves what pdf.js needs besides its code at /pdfjs/: its worker (as .js, so any host gives it a script's type), the
+ * standard fonts a PDF may name without carrying them, the decoders for scanned pages (JBIG2, JPEG 2000) and its colour
+ * profile, straight from node_modules. They are only fetched when the teacher opens a PDF (src/lib/pdf.ts).
+ */
+function pdfFiles(): Plugin {
+  const need = createRequire(import.meta.url);
+  const root = need.resolve('pdfjs-dist/package.json').replace(/package\.json$/, '');
+  const files: Record<string, string> = {'pdf.worker.min.js': `${root}legacy/build/pdf.worker.min.mjs`};
+  for (const d of ['standard_fonts', 'wasm', 'iccs']) for (const f of readdirSync(root + d)) if (!f.startsWith('LICENSE')) files[`${d}/${f}`] = `${root}${d}/${f}`;
+  const type = (f: string) => (f.endsWith('.js') ? 'text/javascript' : f.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream');
+  return {
+    name: 'batnab-pdf-files',
+    configureServer(server) {
+      server.middlewares.use('/pdfjs/', (req, res, next) => {
+        const name = (req.url ?? '').replace(/^\//, '').split('?')[0];
+        const file = files[name];
+        if (!file) return next();
+        res.setHeader('Content-Type', type(name));
+        res.end(readFileSync(file));
+      });
+    },
+    generateBundle() {
+      for (const [name, file] of Object.entries(files)) this.emitFile({type: 'asset', fileName: `pdfjs/${name}`, source: readFileSync(file)});
     },
   };
 }
@@ -159,7 +187,7 @@ function oklchFallback(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), serviceWorker(), ocrFiles(), oklchFallback(), webClip()],
+  plugins: [react(), tailwindcss(), serviceWorker(), ocrFiles(), pdfFiles(), oklchFallback(), webClip()],
   build: {
     rolldownOptions: {
       output: {

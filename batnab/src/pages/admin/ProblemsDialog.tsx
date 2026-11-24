@@ -102,6 +102,7 @@ export default function ProblemsDialog({
   files,
   agent,
   tid,
+  upload,
   onAdd,
   onUploaded,
   onClose,
@@ -110,6 +111,8 @@ export default function ProblemsDialog({
   /** The pages the agent read instead of photos read here: how many, each page as cut, where to start, and each page done. */
   agent?: {pages: number; load: (at: number) => Promise<Page>; start: number; onPage: (at: number) => void};
   tid: string;
+  /** Where the problems' pictures go (a topic's pictures by default; the problem bank's for a folder). */
+  upload?: (file: File) => Promise<string>;
   onAdd: (ps: Problem[], keys: Record<string, string>) => void;
   onUploaded: (iid: string) => void;
   onClose: () => void;
@@ -242,7 +245,7 @@ export default function ProblemsDialog({
         if (it.use !== 'text') {
           const c = cropProblem(page, it.regions);
           const file = await canvasFile(c, `bodlogo-${it.num}.png`).finally(() => (c.width = c.height = 0));
-          img = await uploadTopicImage(tid, file);
+          img = await (upload ? upload(file) : uploadTopicImage(tid, file));
           onUploaded(img);
         }
         let text = it.use === 'img' ? '' : it.text.trim();

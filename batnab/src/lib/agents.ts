@@ -1,8 +1,8 @@
-// The agent («Agent» in the teacher's dashboard) does one job: it reads photographed book pages and splits them into
-// problems. The topic editor sends the pages («Agent-аар хуваах»); every 5 minutes .github/workflows/batnab-agent.yml
+// The agent («Agent» in the teacher's dashboard) does one job: it reads photographed book pages (or a PDF's) and splits
+// them into problems. A topic or a folder of the problem bank sends the pages («Agent-аар хуваах»); every 5 minutes .github/workflows/batnab-agent.yml
 // (scripts/agent.mjs) takes the oldest, and Claude reads each page: each problem's number, its part of the page, its
-// text and choices. The teacher checks them in the cutting dialog and adds them to the topic.
-//   agentTasks/{id} = {kind: 'split', topic, title, pages, at, status, added? (pages added so far), decidedAt?,
+// text and choices. The teacher checks them in the cutting dialog and adds them to the topic or the folder.
+//   agentTasks/{id} = {kind: 'split', topic or folder, title, pages, at, status, added? (pages added so far), decidedAt?,
 //                      and the runner's: startedAt?, error?, spent? (dollars), log?, result?: {problems: [...], at}}
 //   status: new → working → review → done (added); new, review or failed → rejected (dropped); failed → new (again).
 //   agentPages/{id}/{n} = page n as sent (a JPEG data URL), deleted once the request is done or dropped.
@@ -25,9 +25,13 @@ export interface AgentProblem extends AgentFound {
   page: number;
 }
 
+/** Where a request's problems go: a topic, or a folder of the problem bank (with its name for the lists). */
+export type AgentTarget = {topic: string; title: string} | {folder: string; title: string};
+
 export interface AgentTask {
   id: string;
   topic: string;
+  folder: string;
   title: string;
   pages: number;
   at: number;
@@ -70,6 +74,7 @@ export function parseTask(id: string, v: unknown): AgentTask | null {
   return {
     id,
     topic: str(t.topic),
+    folder: str(t.folder),
     title: str(t.title),
     pages: num(t.pages),
     at: num(t.at),
@@ -115,11 +120,15 @@ export function newTaskId() {
   return Date.now().toString(36) + Array.from(bytes, (b) => (b % 36).toString(36)).join('');
 }
 
-/** Sends a topic's photographed pages to the agent: the pages first, then the request that points at them. */
-export async function sendPages(topic: {id: string; title: string}, pages: string[]) {
+/**
+ * Sends pages to the agent: the pages first, one write each (a page can be over a megabyte), then the request that
+ * points at them, so the runner never sees a request whose pages are still on their way.
+ */
+export async function sendPages(target: AgentTarget, pages: string[]) {
   const id = newTaskId();
-  await set(ref(db, `agentPages/${id}`), Object.fromEntries(pages.map((p, n) => [n, p])));
-  await set(ref(db, `agentTasks/${id}`), {kind: 'split', topic: topic.id, title: topic.title.slice(0, 200), pages: pages.length, at: serverTimestamp(), status: 'new'});
+  for (const [n, p] of pages.entries()) await set(ref(db, `agentPages/${id}/${n}`), p);
+  const where = 'topic' in target ? {topic: target.topic} : {folder: target.folder};
+  await set(ref(db, `agentTasks/${id}`), {kind: 'split', ...where, title: target.title.slice(0, 200), pages: pages.length, at: serverTimestamp(), status: 'new'});
   return id;
 }
 

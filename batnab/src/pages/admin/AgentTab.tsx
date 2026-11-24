@@ -57,8 +57,8 @@ export default function AgentTab() {
           <Bot size={18} className="text-blue-300" /> Agent
         </h2>
         <p className="mt-1 text-sm text-neutral-400">
-          Agent нь номын хуудасны зургийг уншаад бодлого бүрээр хуваана. Сэдэв засах хуудасны «Agent-аар хуваах» товчоор зургаа илгээнэ. 5–15 минутын дараа тэр
-          сэдэв дээр «Шалгаж нэмэх» гарна. Хуваасныг шалгаж, засаад нэмнэ. Таныг нэмэхээс өмнө сэдэвт юу ч орохгүй.
+          Agent нь номын хуудасны зураг эсвэл PDF-ийг уншаад бодлого бүрээр хуваана. Сэдэв эсвэл «Бодлого» хэсгийн хавтсанд «Agent-аар хуваах» дарж илгээнэ. 5–15
+          минутын дараа тэнд «Шалгаж нэмэх» гарна. Хуваасныг шалгаж, засаад нэмнэ. Таныг нэмэхээс өмнө юу ч нэмэгдэхгүй.
         </p>
         <RunnerState runner={runner} now={now} />
       </section>
@@ -130,7 +130,10 @@ function TaskCard({task: t}: {task: AgentTask}) {
           </span>
         )}
       </div>
-      <p className="mt-2 font-medium">{t.title || 'Сэдэв'}</p>
+      <p className="mt-2 font-medium">
+        {t.folder ? 'Сан · ' : ''}
+        {t.title || (t.folder ? 'Хавтас' : 'Сэдэв')}
+      </p>
       <p className="mt-0.5 text-sm text-neutral-400">
         {t.pages} хуудас
         {t.status === 'review' || t.status === 'done' ? ` · ${t.problems.length} бодлого хуваасан` : ''}
@@ -145,8 +148,8 @@ function TaskCard({task: t}: {task: AgentTask}) {
       {t.status === 'failed' && t.error && <p className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-200">{t.error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         {t.status === 'review' && (
-          <Link href={`/admin/topic/${t.topic}`} className={`${btn} bg-blue-500 font-semibold text-black hover:bg-blue-400`}>
-            <ScanSearch size={15} /> Сэдэв рүү очиж шалгах
+          <Link href={t.folder ? `/admin?tab=bank&folder=${encodeURIComponent(t.folder)}` : `/admin/topic/${t.topic}`} className={`${btn} bg-blue-500 font-semibold text-black hover:bg-blue-400`}>
+            <ScanSearch size={15} /> {t.folder ? 'Хавтас руу очиж шалгах' : 'Сэдэв рүү очиж шалгах'}
           </Link>
         )}
         {t.status === 'failed' && (

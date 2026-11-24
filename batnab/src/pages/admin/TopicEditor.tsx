@@ -1,4 +1,4 @@
-import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, ListChecks, Pencil, Plus, RotateCcw, ScanText, Printer, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check, ChevronsDownUp, ChevronsUpDown, ChevronUp, ClipboardCheck, Copy, Eye, ImagePlus, Images, Library, ListChecks, Pencil, Plus, RotateCcw, ScanText, Printer, School, Trash2, Type, Video, X, Zap} from 'lucide-react';
 import {useEffect, useRef, useState, type DragEvent, type ReactNode} from 'react';
 import Switch, {SavedNote, useSavedNote} from '../../components/Switch';
 import {Rich, TopicPicture} from '../../components/TopicParts';
@@ -41,7 +41,9 @@ import BulkAnswers from './BulkAnswers';
 import {field, MathArea} from './MathField';
 import OcrDialog, {type OcrAction} from './OcrDialog';
 import ProblemsDialog from './ProblemsDialog';
-import {AgentSplitButton, AgentSplits} from './AgentSplit';
+import {AgentSplitButton, AgentSplits, PAGE_FILES} from './AgentSplit';
+import BankPicker from './BankPicker';
+import {usePageFiles} from './PdfRange';
 import {finishTask, loadPages, pageAdded, type AgentTask} from '../../lib/agents';
 import {agentPage} from '../../lib/pageSplit';
 import TextProblems, {applyText} from './TextProblems';
@@ -99,6 +101,9 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
   // A page split by the agent, open to check and add.
   const [agentOpen, setAgentOpen] = useState<{task: AgentTask; pages: Promise<string[]>} | null>(null);
   const pagesRef = useRef<HTMLInputElement>(null);
+  // Photos or a PDF's pages to cut here, and «Сангаас нэмэх».
+  const pageFiles = usePageFiles(setPages);
+  const [fromBank, setFromBank] = useState(false);
   // Problems open for editing; the rest show as their picture and the А–Д row. Empty ones start open.
   const [opened, setOpened] = useState(() => new Set(topic.problems.filter((p) => !p.text && !p.img).map((p) => p.id)));
   // Pictures the topic used when opened, and the ones added since: whatever of these the topic no longer uses is
@@ -396,32 +401,49 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
               >
                 <Plus size={18} /> Бодлого нэмэх
               </button>
-              <button onClick={() => pagesRef.current?.click()} className={addButton}>
-                <Images size={18} /> Зургаас бодлогууд
+              <button onClick={() => pagesRef.current?.click()} disabled={!!pageFiles.busy} className={`${addButton} disabled:opacity-60`}>
+                <Images size={18} /> {pageFiles.busy || 'Зургаас бодлогууд'}
               </button>
               <button onClick={() => setTyped(true)} className={addButton}>
                 <Type size={18} /> Текстээр оруулах
               </button>
-              <AgentSplitButton topic={{id: draft.id, title: draft.title}} className={addButton} />
+              <AgentSplitButton target={{topic: draft.id, title: draft.title}} className={addButton} />
+              <button onClick={() => setFromBank(true)} className={addButton}>
+                <Library size={18} /> Сангаас нэмэх
+              </button>
             </div>
-            <AgentSplits topic={draft.id} onOpen={(task) => setAgentOpen({task, pages: loadPages(task.id)})} />
+            {pageFiles.error && <p className="text-sm text-red-300">{pageFiles.error}</p>}
+            <AgentSplits target={{topic: draft.id}} onOpen={(task) => setAgentOpen({task, pages: loadPages(task.id)})} />
             <p className="text-xs text-neutral-500">
-              «Зургаас бодлогууд» нь номын хуудасны зургаас дугаартай бодлого бүрийг тасдаж нэмнэ. Хэд хэдэн зураг зэрэг оруулж болно.
+              «Зургаас бодлогууд» нь номын хуудасны зураг эсвэл PDF-ээс дугаартай бодлого бүрийг тасдаж нэмнэ. Хэд хэдэн зураг зэрэг оруулж болно.
               «Текстээр оруулах» нь бодлогуудыг бичвэрээр нэг дор оруулна. Ийм бодлого утсан дээр тод уншигддаг.
-              «Agent-аар хуваах» нь хуудасны зургийг Claude-аар уншуулж бодлого бүрээр хуваана. Хэдэн минутын дараа энд гарахад шалгаад нэмнэ.
+              «Agent-аар хуваах» нь хуудасны зураг эсвэл PDF-ийг Claude-аар уншуулж бодлого бүрээр хуваана. Хэдэн минутын дараа энд гарахад шалгаад нэмнэ.
+              «Сангаас нэмэх» нь «Бодлого» хэсгийн сангаас бодлого сонгож нэмнэ.
             </p>
             <input
               ref={pagesRef}
               type="file"
-              accept="image/*"
+              accept={PAGE_FILES}
               multiple
               hidden
+              data-pages-input
               onChange={(e) => {
-                const fs = [...(e.target.files ?? [])].filter((f) => f.type.startsWith('image/'));
-                if (fs.length) setPages(fs);
+                pageFiles.choose([...(e.target.files ?? [])]);
                 e.target.value = '';
               }}
             />
+            {pageFiles.sheet}
+            {fromBank && (
+              <BankPicker
+                tid={draft.id}
+                onUploaded={uploaded}
+                onAdd={(ps, ks) => {
+                  change((t) => ({...t, problems: [...t.problems, ...ps]}));
+                  setAnswers((k) => ({...k, ...ks}));
+                }}
+                onClose={() => setFromBank(false)}
+              />
+            )}
             {pages && (
               <ProblemsDialog
                 files={pages}

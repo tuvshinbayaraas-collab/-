@@ -1538,15 +1538,80 @@
         }
       }
     },
+    "bankFolders": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$fid": {
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['name', 'parent', 'at'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80"
+        },
+        "parent": {
+          ".validate": "newData.isString() && newData.val() !== $fid && (newData.val() === '' || root.child('bankFolders').child(newData.val()).exists() || newData.parent().parent().child(newData.val()).exists())"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "bankProblems": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$fid": {
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/) && (root.child('bankFolders').child($fid).exists() || newData.parent().parent().child('bankFolders').child($fid).exists())",
+        "$pid": {
+          ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['text', 'kind', 'at'])",
+          "text": {
+            ".validate": "newData.isString() && newData.val().length <= 2000"
+          },
+          "img": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+          },
+          "kind": {
+            ".validate": "newData.val() === 'choice' || newData.val() === 'answer'"
+          },
+          "choices": {
+            "$k": {
+              ".validate": "$k.matches(/^[A-E]$/) && newData.isString() && newData.val().length <= 200"
+            }
+          },
+          "key": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+          },
+          "no": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 9999"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "bankImages": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$iid": {
+        ".validate": "$iid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 500000"
+      }
+    },
     "agentTasks": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$id": {
-        ".validate": "$id.matches(/^[a-z0-9]{6,24}$/) && newData.hasChildren(['kind', 'topic', 'pages', 'at', 'status'])",
+        ".validate": "$id.matches(/^[a-z0-9]{6,24}$/) && newData.hasChildren(['kind', 'pages', 'at', 'status']) && (newData.hasChild('topic') !== newData.hasChild('folder'))",
         "kind": {
           ".validate": "newData.val() === 'split'"
         },
         "topic": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40 && (!data.exists() || newData.val() === data.val())"
+        },
+        "folder": {
           ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40 && (!data.exists() || newData.val() === data.val())"
         },
         "title": {
