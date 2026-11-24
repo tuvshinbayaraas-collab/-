@@ -2,6 +2,7 @@ import {Bot, ChevronDown, Loader2, ScanSearch, Trash2} from 'lucide-react';
 import {useState} from 'react';
 import {dropTask, REPO, removeTask, retryTask, RUN_NOW, useAgentRunner, useAgentTasks, type AgentRunner, type AgentStatus, type AgentTask} from '../../lib/agents';
 import {Link} from '../../lib/router';
+import {AgentFeedback, AgentNotes} from './AgentFeedback';
 import {clock, dayLabel, useNow} from '../../lib/time';
 import Loading from '../../components/Loading';
 
@@ -80,6 +81,8 @@ export default function AgentTab() {
           ))}
         </ul>
       )}
+
+      <AgentNotes />
 
       <SetupHelp open={!runner || !runner.claude} />
     </div>
@@ -183,6 +186,11 @@ function TaskCard({task: t}: {task: AgentTask}) {
           </button>
         )}
       </div>
+      {(t.status === 'review' || t.status === 'done') && (
+        <div className="mt-2">
+          <AgentFeedback task={t} />
+        </div>
+      )}
       {error && <p className="mt-2 text-sm text-red-300">Болсонгүй: {error}</p>}
     </li>
   );

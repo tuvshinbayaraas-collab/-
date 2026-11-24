@@ -1624,13 +1624,32 @@
           ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
         },
         "status": {
-          ".validate": "newData.isString() && ((newData.val() === 'new' && (!data.exists() || data.val() === 'new' || data.val() === 'failed')) || (newData.val() === 'done' && data.val() === 'review') || (newData.val() === 'rejected' && (data.val() === 'new' || data.val() === 'review' || data.val() === 'failed')))"
+          ".validate": "newData.isString() && ((newData.val() === 'new' && (!data.exists() || data.val() === 'new' || data.val() === 'failed' || (data.val() === 'review' && (!data.parent().child('added').exists() || data.parent().child('added').val() === 0)))) || (newData.val() === 'done' && data.val() === 'review') || (newData.val() === 'rejected' && (data.val() === 'new' || data.val() === 'review' || data.val() === 'failed')))"
         },
         "added": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10 && newData.val() % 1 === 0"
         },
         "decidedAt": {
           ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "agentNotes": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".validate": "$id.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['text', 'at'])",
+        "text": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 300"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "from": {
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{6,24}$/)"
         },
         "$other": {
           ".validate": false

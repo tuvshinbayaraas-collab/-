@@ -5,6 +5,7 @@ import {dropTask, MAX_PAGES, pageData, retryTask, RUN_NOW, sendPages, useAgentRu
 import {preparePage} from '../../lib/pageSplit';
 import {eachPage, isPdf} from '../../lib/pdf';
 import {Link} from '../../lib/router';
+import {AgentFeedback} from './AgentFeedback';
 import PdfRange from './PdfRange';
 
 /** What a file picker for pages to cut takes: photos and PDFs. */
@@ -129,6 +130,7 @@ export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder
               <button type="button" onClick={() => confirm('Agent-ийн хуваасныг нэмэлгүй хаях уу?') && void dropTask(t.id)} className="rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-red-300">
                 Хаях
               </button>
+              <AgentFeedback task={t} />
             </>
           ) : t.status === 'failed' ? (
             <>

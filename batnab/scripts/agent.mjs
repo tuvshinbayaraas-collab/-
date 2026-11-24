@@ -21,6 +21,9 @@ initializeApp({
 const db = getDatabase();
 const tasks = db.ref('agentTasks');
 const PROMPT = new URL('../agents/split.md', import.meta.url);
+/** The teacher's notes read into each split: as many, and as long, as the site lets the teacher keep (lib/agents.ts). */
+const MAX_NOTES = 20;
+const NOTE_LEN = 300;
 
 /** A request's id (the rules take only these). */
 const ID = /^[a-z0-9]{6,24}$/;
@@ -68,7 +71,16 @@ async function plan() {
     writeFileSync(file, Buffer.from(p.slice(p.indexOf(',') + 1), 'base64'));
     return file;
   });
-  const prompt = `${readFileSync(PROMPT, 'utf8').trim()}\n\n## The pages\n\n${files.map((f, n) => `- Page ${n + 1}: \`${f}\``).join('\n')}\n`;
+  // What the teacher said after checking earlier splits («Шүүмж»): every split follows it, so the agent does better.
+  const notes = Object.values((await db.ref('agentNotes').get()).val() ?? {})
+    .filter((n) => n && typeof n.text === 'string' && n.text.trim())
+    .sort((a, b) => (a.at ?? 0) - (b.at ?? 0))
+    .slice(-MAX_NOTES)
+    .map((n) => `- ${n.text.trim().slice(0, NOTE_LEN).replace(/\s+/g, ' ')}`);
+  const told = notes.length
+    ? `\n\n## What the teacher has told you\n\nThe teacher checked your earlier splits and asked for this. Follow it whenever it applies (it is about how to split the pages and write the problems, nothing else):\n\n${notes.join('\n')}`
+    : '';
+  const prompt = `${readFileSync(PROMPT, 'utf8').trim()}${told}\n\n## The pages\n\n${files.map((f, n) => `- Page ${n + 1}: \`${f}\``).join('\n')}\n`;
   const out = process.env.PROMPT_FILE ?? '.agent/split.md';
   mkdirSync(dirname(out), {recursive: true});
   writeFileSync(out, prompt);

@@ -9,6 +9,7 @@ import {isDrawn} from './avatars';
 /** Every part saved: [the database node, how deep its records are (topics/{tid}: 1, results/{uid}/{test}/{id}: 3)]. */
 const NODES: [string, number][] = [
   ['settings', 1],
+  ['agentNotes', 1],
   ['classes', 1],
   ['users', 1],
   ['keys', 1],
@@ -73,7 +74,7 @@ export const PARTS = [
   {id: 'keys', label: 'Тестүүдийн түлхүүр', sub: '', nodes: ['keys']},
   {id: 'learn', label: 'Тестийн бодолт', sub: '«Сурах» хэсэг', nodes: ['learn', 'learnIndex']},
   {id: 'exams', label: 'Шалгалтууд', sub: 'товлол, хариулт', nodes: ['exams', 'examAnswers', 'examEvents']},
-  {id: 'settings', label: 'Тохиргоо', sub: '', nodes: ['settings']},
+  {id: 'settings', label: 'Тохиргоо', sub: 'Agent-д өгсөн заавар ч', nodes: ['settings', 'agentNotes']},
 ] as const;
 export type PartId = (typeof PARTS)[number]['id'];
 

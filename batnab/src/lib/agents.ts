@@ -4,11 +4,14 @@
 // text and choices. The teacher checks them in the cutting dialog and adds them to the topic or the folder.
 //   agentTasks/{id} = {kind: 'split', topic or folder, title, pages, at, status, added? (pages added so far), decidedAt?,
 //                      and the runner's: startedAt?, error?, spent? (dollars), log?, result?: {problems: [...], at}}
-//   status: new → working → review → done (added); new, review or failed → rejected (dropped); failed → new (again).
+//   status: new → working → review → done (added); new, review or failed → rejected (dropped); failed → new (again);
+//           review → new (split again, after the teacher said what to do better).
 //   agentPages/{id}/{n} = page n as sent (a JPEG data URL), deleted once the request is done or dropped.
 //   agentRunner = {lastSeen, claude}: when the workflow last ran, and whether it has Claude's key.
+//   agentNotes/{id} = {text, at, from? (the request it was said about)}: what the teacher told the agent after checking
+//                     its work («Шүүмж»). Every split reads them all, so the agent does better the next time.
 // Only the teacher reads and writes these; the runner uses the Admin SDK.
-import {get, ref, serverTimestamp, set, update} from 'firebase/database';
+import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {db} from './firebase';
 import {useLive} from './live';
 import type {AgentFound} from './pageSplit';
@@ -19,6 +22,10 @@ const STATUSES: AgentStatus[] = ['new', 'working', 'review', 'done', 'rejected',
 export const REPO = 'https://github.com/tuvshinbayaraas-collab/-';
 /** The agent's page on GitHub, where «Run workflow» starts it now (GitHub's every-5-minutes schedule is often late). */
 export const RUN_NOW = `${REPO}/actions/workflows/batnab-agent.yml`;
+/** The teacher's notes to the agent: how many, how long each (every split reads them all: kept short). */
+export const MAX_NOTES = 20;
+export const NOTE_LEN = 300;
+
 /** Pages in one request, at most (the rules allow as many). */
 export const MAX_PAGES = 10;
 
@@ -100,6 +107,24 @@ export const useAgentTasks = (on = true) =>
       .sort((a, b) => b.at - a.at),
   );
 
+export interface AgentNote {
+  id: string;
+  text: string;
+  at: number;
+  from: string;
+}
+
+/** The teacher's notes to the agent, oldest first; null while loading. */
+export const useAgentNotes = () =>
+  useLive('agentNotes', (v) =>
+    Object.entries((v ?? {}) as Record<string, {text?: unknown; at?: unknown; from?: unknown} | null>)
+      .flatMap(([id, n]) => (n && typeof n.text === 'string' ? [{id, text: n.text, at: num(n.at), from: str(n.from)}] : []))
+      .sort((a, b) => a.at - b.at),
+  );
+/** A note for every split from now on (`from`: the request it was said about). */
+export const addNote = (text: string, from?: string) => set(push(ref(db, 'agentNotes')), {text: text.trim().slice(0, NOTE_LEN), at: serverTimestamp(), ...(from ? {from} : {})});
+export const removeNote = (id: string) => set(ref(db, `agentNotes/${id}`), null);
+
 /** When the workflow last ran: null while loading, false if it never has. */
 export const useAgentRunner = () =>
   useLive('agentRunner', (v): AgentRunner | false => {
@@ -148,4 +173,6 @@ export const finishTask = (id: string) => update(ref(db), {[`agentTasks/${id}/st
 /** Dropped (or stopped before it was read): its pages are not kept either. */
 export const dropTask = (id: string) => update(ref(db), {[`agentTasks/${id}/status`]: 'rejected', [`agentTasks/${id}/decidedAt`]: serverTimestamp(), [`agentPages/${id}`]: null});
 export const retryTask = (id: string) => update(task(id), {status: 'new', error: null});
+/** Split again (nothing of it added yet), now with the teacher's notes: what it found before is dropped. */
+export const redoTask = (id: string) => update(task(id), {status: 'new', error: null, result: null, added: null, startedAt: null});
 export const removeTask = (id: string) => update(ref(db), {[`agentTasks/${id}`]: null, [`agentPages/${id}`]: null});
