@@ -449,8 +449,13 @@ Claude бодлого бүрийн дугаар, бичвэрийг сайн у�
   Код, заавар нь сайтын branch-аас уншигдана.
 - Repository variable (заавал биш): `AGENT_MODEL` (анхдагч `sonnet`).
 - GitHub нээлттэй репогийн schedule-ийг 60 хоног идэвхгүй бол зогсоодог. Тэгвэл Actions → Batnab agent → Enable.
-- GitHub-ийн schedule ихэвчлэн хоцордог (заримдаа хэдэн цагаар). Хүлээж буй хүсэлт дээрх «Одоо эхлүүлэх» Actions-ийн
-  хуудсыг нээнэ: «Run workflow» дарахад тэр даруй ажиллана.
+- GitHub-ийн schedule ихэвчлэн хоцордог (өдөрт хэдхэн удаа ч ажилласан). Тиймээс **автоматаар эхлүүлэх**: багш GitHub
+  дээр fine-grained түлхүүр (энэ репо, Repository permissions → Actions: Read and write, өөр эрхгүй) үүсгээд «Agent»
+  хэсэгт хадгална (`agentDispatch`, нөөцөд орохгүй). Хадгалахдаа түүгээр Agent-ийг нэг удаа эхлүүлж шалгана. Цаашид
+  хуудас илгээх, дахин хуваах, дахин оролдох бүрт сайт `batnab-agent.yml`-ийг (`main` дээр) workflow_dispatch-аар тэр
+  даруй эхлүүлнэ; `agent.mjs` нэг хүсэлтийг дуусгаад өөр хүлээж буй хүсэлт байвал дараагийн ажиллагааг мөн эхлүүлнэ
+  (түлхүүрийг хэзээ ч хэвлэхгүй). Түлхүүргүй эсвэл 10 минутаас удвал хүсэлт дээр «Одоо эхлүүлэх» гарна: Actions-ийн
+  хуудсыг нээж «Run workflow» дарна.
 
 ## Аюулгүй байдлын дүрмүүд (`database.rules.json`)
 
@@ -458,7 +463,8 @@ Claude бодлого бүрийн дугаар, бичвэрийг сайн у�
   (1–10), at, status, added?, decidedAt?}` ба agent-ийн бичдэг `startedAt`, `error`, `spent`, `log`, `result`: зөвхөн багш уншиж бичнэ. Анхны утгууд
   өөрчлөгдөхгүй. Төлвийг багш зөвхөн `new` (шинэ, эсвэл `failed`-аас дахин), `done` (`review`-ээс), `rejected`
   (`new`/`review`/`failed`-аас) болгоно; `review`-ээс `new` (дахин хуваах) зөвхөн нэг ч хуудсыг нь нэмээгүй бол.
-  `agentNotes/<id>` = `{text (1–300), at, from? (хүсэлтийн id)}`: зөвхөн багш.
+  `agentNotes/<id>` = `{text (1–300), at, from? (хүсэлтийн id)}`: зөвхөн багш. `agentDispatch` = `{token
+  (github_pat_…), at}`: зөвхөн багш (workflow Admin SDK-аар уншина).
   `agentPages/<id>/<0–9>` = JPEG data URL (≤3 MB): зөвхөн багш.
   `agentRunner` = `{lastSeen, claude}`: багш уншина, workflow (Admin SDK) бичнэ.
 - `polls/<id>` = `{q, options?, multi?, comment?, classes?, closed?, at}`: идэвхтэй хэрэглэгч уншина, багш бичнэ.

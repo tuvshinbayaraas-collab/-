@@ -1,6 +1,6 @@
 import {MessageSquarePlus, RotateCcw, Trash2} from 'lucide-react';
 import {useId, useState} from 'react';
-import {addNote, MAX_NOTES, NOTE_LEN, redoTask, removeNote, useAgentNotes, type AgentTask} from '../../lib/agents';
+import {addNote, MAX_NOTES, NOTE_LEN, redoTask, removeNote, startAgent, useAgentNotes, type AgentTask} from '../../lib/agents';
 import {dayLabel} from '../../lib/time';
 
 /** Examples of what helps the agent, shown in the empty box. */
@@ -47,7 +47,10 @@ export function AgentFeedback({task}: {task: AgentTask}) {
     setSaid(null);
     try {
       await addNote(text, task.id);
-      if (redo) await redoTask(task.id);
+      if (redo) {
+        await redoTask(task.id);
+        await startAgent();
+      }
       setText('');
       setOpen(false);
       setSaid({ok: true, text: redo ? 'Хадгаллаа. Энэ хуудсыг Agent дахин хуваана.' : 'Хадгаллаа. Agent цаашид үүнийг дагана.'});

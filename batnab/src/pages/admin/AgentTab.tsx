@@ -1,7 +1,8 @@
 import {Bot, ChevronDown, Loader2, ScanSearch, Trash2} from 'lucide-react';
 import {useState} from 'react';
-import {dropTask, REPO, removeTask, retryTask, RUN_NOW, useAgentRunner, useAgentTasks, type AgentRunner, type AgentStatus, type AgentTask} from '../../lib/agents';
+import {dropTask, REPO, removeTask, retryTask, RUN_NOW, startAgent, useAgentDispatch, useAgentRunner, useAgentTasks, type AgentRunner, type AgentStatus, type AgentTask} from '../../lib/agents';
 import {Link} from '../../lib/router';
+import AgentAutoStart from './AgentAutoStart';
 import {AgentFeedback, AgentNotes} from './AgentFeedback';
 import {clock, dayLabel, useNow} from '../../lib/time';
 import Loading from '../../components/Loading';
@@ -35,6 +36,7 @@ function ago(ms: number) {
 export default function AgentTab() {
   const tasks = useAgentTasks();
   const runner = useAgentRunner();
+  const auto = useAgentDispatch();
   const now = useNow(30_000);
   const [show, setShow] = useState<'active' | 'done'>('active');
   if (!tasks || runner === null) return <Loading small />;
@@ -77,10 +79,12 @@ export default function AgentTab() {
       ) : (
         <ul className="space-y-3">
           {shown.map((t) => (
-            <TaskCard key={t.id} task={t} />
+            <TaskCard key={t.id} task={t} now={now} auto={!!auto} />
           ))}
         </ul>
       )}
+
+      <AgentAutoStart />
 
       <AgentNotes />
 
@@ -123,7 +127,10 @@ function RunnerState({runner, now}: {runner: AgentRunner | false; now: number}) 
   );
 }
 
-function TaskCard({task: t}: {task: AgentTask}) {
+/** A request waiting this long while the agent starts by itself: something is off, so it can be started by hand. */
+const LATE = 10 * 60_000;
+
+function TaskCard({task: t, now, auto}: {task: AgentTask; now: number; auto: boolean}) {
   const [error, setError] = useState('');
   const run = (f: () => Promise<unknown>) => void f().catch((e) => setError((e as Error).message));
   const btn = 'flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium';
@@ -152,12 +159,17 @@ function TaskCard({task: t}: {task: AgentTask}) {
           <Loader2 size={15} className="animate-spin" /> Уншиж байна. Хэдэн минут болно.
         </p>
       )}
-      {t.status === 'new' && (
-        <p className="mt-2 text-sm text-neutral-400">
-          Agent эхлэхийг хүлээж байна. GitHub 5 минут тутам эхлүүлэх ёстой ч заримдаа удаан хоцордог. Удвал «Одоо эхлүүлэх» дараад GitHub дээр «Run
-          workflow», дараа нь ногоон «Run workflow» дарна.
-        </p>
-      )}
+      {t.status === 'new' &&
+        (auto && now - t.at < LATE ? (
+          <p className="mt-2 text-sm text-neutral-400">Agent удахгүй эхэлнэ.</p>
+        ) : (
+          <p className="mt-2 text-sm text-neutral-400">
+            Agent эхлэхийг хүлээж байна.{' '}
+            {auto
+              ? 'Удаж байна: «Одоо эхлүүлэх» дараад GitHub дээр «Run workflow», дараа нь ногоон «Run workflow» дарна.'
+              : 'GitHub-ийн хуваарь заримдаа хэдэн цагаар хоцордог. Доорх «Автоматаар эхлүүлэх»-ийг тохируулбал тэр даруй эхэлнэ. Эсвэл «Одоо эхлүүлэх» дараад GitHub дээр «Run workflow», дараа нь ногоон «Run workflow» дарна.'}
+          </p>
+        ))}
       {t.status === 'failed' && t.error && <p className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-200">{t.error}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         {t.status === 'review' && (
@@ -165,13 +177,13 @@ function TaskCard({task: t}: {task: AgentTask}) {
             <ScanSearch size={15} /> {t.folder ? 'Хавтас руу очиж шалгах' : 'Сэдэв рүү очиж шалгах'}
           </Link>
         )}
-        {t.status === 'new' && (
+        {t.status === 'new' && (!auto || now - t.at >= LATE) && (
           <a href={RUN_NOW} target="_blank" rel="noreferrer" className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`} data-run-now>
             Одоо эхлүүлэх
           </a>
         )}
         {t.status === 'failed' && (
-          <button type="button" onClick={() => run(() => retryTask(t.id))} className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}>
+          <button type="button" onClick={() => run(() => retryTask(t.id).then(startAgent))} className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}>
             Дахин оролдох
           </button>
         )}

@@ -1,10 +1,11 @@
 import {AlertTriangle, Bot, Loader2, RotateCcw, ScanSearch, X} from 'lucide-react';
 import {useRef, useState} from 'react';
 import type {PDFDocumentProxy} from 'pdfjs-dist/legacy/build/pdf.mjs';
-import {dropTask, MAX_PAGES, pageData, retryTask, RUN_NOW, sendPages, useAgentRunner, useAgentTasks, type AgentTarget, type AgentTask} from '../../lib/agents';
+import {dropTask, MAX_PAGES, pageData, retryTask, RUN_NOW, sendPages, startAgent, useAgentDispatch, useAgentRunner, useAgentTasks, type AgentTarget, type AgentTask} from '../../lib/agents';
 import {preparePage} from '../../lib/pageSplit';
 import {eachPage, isPdf} from '../../lib/pdf';
 import {Link} from '../../lib/router';
+import {useNow} from '../../lib/time';
 import {AgentFeedback} from './AgentFeedback';
 import PdfRange from './PdfRange';
 
@@ -18,7 +19,7 @@ export const PAGE_FILES = 'image/*,application/pdf,.pdf';
 export function AgentSplitButton({target, className}: {target: AgentTarget; className: string}) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState('');
-  const [note, setNote] = useState<{ok: boolean; text: string} | null>(null);
+  const [note, setNote] = useState<{ok: boolean; warn?: boolean; text: string} | null>(null);
   const [pdf, setPdf] = useState<{file: File; photos: File[]} | null>(null);
   const runner = useAgentRunner();
   const send = async (photos: File[], range?: {doc: PDFDocumentProxy; from: number; to: number}) => {
@@ -55,7 +56,18 @@ export function AgentSplitButton({target, className}: {target: AgentTarget; clas
       await flush();
       const off = !runner || !runner.claude;
       const what = requests > 1 ? `${pages} хуудсыг ${requests} хэсэг болгож илгээлээ.` : `${pages} хуудас илгээлээ.`;
-      setNote({ok: true, text: `${what} ${off ? 'Agent тохируулагдсаны дараа хуваагдана («Agent» хэсэг).' : 'Agent уншаад энд гаргана. Удвал «Одоо эхлүүлэх» дарна.'}`});
+      if (off) setNote({ok: true, text: `${what} Agent тохируулагдсаны дараа хуваагдана («Agent» хэсэг).`});
+      else {
+        setBusy('Agent-ийг эхлүүлж байна');
+        const start = await startAgent();
+        setNote(
+          !start.ok
+            ? {ok: true, warn: true, text: `${what} ${start.error}`}
+            : start.how === 'started'
+              ? {ok: true, text: `${what} Agent эхэллээ: хэдэн минутын дараа энд гарна.`}
+              : {ok: true, text: `${what} Agent уншаад энд гаргана. Удвал «Одоо эхлүүлэх» дарна («Agent» хэсэгт автоматаар эхлүүлэхийг тохируулж болно).`},
+        );
+      }
     } catch (e) {
       setNote({ok: false, text: `${pages ? `${pages} хуудас илгээгдсэн. ` : ''}Үлдсэнийг илгээж чадсангүй: ${(e as Error).message}`});
     } finally {
@@ -100,7 +112,7 @@ export function AgentSplitButton({target, className}: {target: AgentTarget; clas
         />
       )}
       {note && (
-        <p role="status" className={`col-span-full text-sm ${note.ok ? 'text-green-300' : 'text-red-300'}`}>
+        <p role="status" className={`col-span-full text-sm ${!note.ok ? 'text-red-300' : note.warn ? 'text-amber-200' : 'text-green-300'}`}>
           {note.text}
         </p>
       )}
@@ -112,6 +124,10 @@ export function AgentSplitButton({target, className}: {target: AgentTarget; clas
 export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder: string}; onOpen: (t: AgentTask) => void}) {
   const mine = (t: AgentTask) => ('topic' in target ? t.topic === target.topic : t.folder === target.folder);
   const tasks = (useAgentTasks() ?? []).filter((t) => mine(t) && ['new', 'working', 'review', 'failed'].includes(t.status)).sort((a, b) => a.at - b.at);
+  const auto = useAgentDispatch();
+  const now = useNow(30_000);
+  // «Одоо эхлүүлэх» when the agent does not start by itself, or has not for a while.
+  const byHand = (t: AgentTask) => t.status === 'new' && (!auto || now - t.at >= 10 * 60_000);
   if (!tasks.length) return null;
   return (
     <ul className="space-y-2" data-agent-splits>
@@ -137,7 +153,7 @@ export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder
               <span className="flex min-w-0 flex-1 items-start gap-1.5 text-red-200">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0" /> {t.error ?? 'Agent хувааж чадсангүй.'}
               </span>
-              <button type="button" onClick={() => void retryTask(t.id)} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 font-medium hover:bg-neutral-700">
+              <button type="button" onClick={() => void retryTask(t.id).then(startAgent)} className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 font-medium hover:bg-neutral-700">
                 <RotateCcw size={14} /> Дахин оролдох
               </button>
               <button type="button" onClick={() => void dropTask(t.id)} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800">
@@ -152,9 +168,11 @@ export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder
               </span>
               {t.status === 'new' && (
                 <>
-                  <a href={RUN_NOW} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-800 px-3 py-1.5 font-medium hover:bg-neutral-700" data-run-now>
-                    Одоо эхлүүлэх
-                  </a>
+                  {byHand(t) && (
+                    <a href={RUN_NOW} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-800 px-3 py-1.5 font-medium hover:bg-neutral-700" data-run-now>
+                      Одоо эхлүүлэх
+                    </a>
+                  )}
                   <button type="button" onClick={() => void dropTask(t.id)} className="rounded-full px-3 py-1.5 text-neutral-400 hover:bg-neutral-800">
                     Болих
                   </button>
@@ -165,7 +183,7 @@ export function AgentSplits({target, onOpen}: {target: {topic: string} | {folder
         </li>
       ))}
       <li className="px-1 text-xs text-neutral-500">
-        {tasks.some((t) => t.status === 'new') && 'GitHub Agent-ийг 5 минут тутам эхлүүлэх ёстой ч заримдаа удаан хоцордог. «Одоо эхлүүлэх» нь GitHub-ийг нээнэ: тэнд «Run workflow», дараа нь ногоон «Run workflow» дарна. '}
+        {tasks.some(byHand) && 'Agent өөрөө эхлээгүй байна. «Одоо эхлүүлэх» нь GitHub-ийг нээнэ: тэнд «Run workflow», дараа нь ногоон «Run workflow» дарна. '}
         Agent-ийн ажлыг{' '}
         <Link href="/admin?tab=agent" className="text-blue-400 underline">
           «Agent» хэсгээс

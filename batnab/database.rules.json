@@ -1656,6 +1656,20 @@
         }
       }
     },
+    "agentDispatch": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".validate": "newData.hasChildren(['token', 'at'])",
+      "token": {
+        ".validate": "newData.isString() && newData.val().matches(/^github_pat_[A-Za-z0-9_]{20,255}$/)"
+      },
+      "at": {
+        ".validate": "newData.isNumber()"
+      },
+      "$other": {
+        ".validate": false
+      }
+    },
     "agentPages": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",

@@ -10,6 +10,9 @@
 //   agentRunner = {lastSeen, claude}: when the workflow last ran, and whether it has Claude's key.
 //   agentNotes/{id} = {text, at, from? (the request it was said about)}: what the teacher told the agent after checking
 //                     its work («Шүүмж»). Every split reads them all, so the agent does better the next time.
+//   agentDispatch = {token, at}: a GitHub key the teacher made (fine-grained, this repository, Actions only), so the
+//                   site starts the agent the moment pages are sent (GitHub's schedule is often hours late), and the
+//                   runner starts the next run while requests wait. Not in the backup.
 // Only the teacher reads and writes these; the runner uses the Admin SDK.
 import {get, push, ref, serverTimestamp, set, update} from 'firebase/database';
 import {db} from './firebase';
@@ -22,6 +25,66 @@ const STATUSES: AgentStatus[] = ['new', 'working', 'review', 'done', 'rejected',
 export const REPO = 'https://github.com/tuvshinbayaraas-collab/-';
 /** The agent's page on GitHub, where «Run workflow» starts it now (GitHub's every-5-minutes schedule is often late). */
 export const RUN_NOW = `${REPO}/actions/workflows/batnab-agent.yml`;
+/** GitHub's API for the agent's workflow: started on the default branch, where its schedule is. */
+const WORKFLOW_API = 'https://api.github.com/repos/tuvshinbayaraas-collab/-/actions/workflows/batnab-agent.yml';
+/** Where the teacher makes the key: a fine-grained token, named, with Actions: write (the rest is chosen there). */
+export const NEW_KEY = 'https://github.com/settings/personal-access-tokens/new?name=Batnab%20agent&description=Starts%20the%20Batnab%20agent&actions=write';
+/** A fine-grained GitHub token (a classic one can do far more than start the agent). */
+export const isKey = (v: string) => /^github_pat_[A-Za-z0-9_]{20,255}$/.test(v);
+
+/** Whether the site can start the agent itself: null while loading. */
+export const useAgentDispatch = () =>
+  useLive('agentDispatch', (v): {at: number} | false => {
+    const d = v as {token?: unknown; at?: unknown} | null;
+    return d && typeof d.token === 'string' ? {at: num(d.at)} : false;
+  });
+
+async function dispatch(token: string) {
+  const r = await fetch(`${WORKFLOW_API}/dispatches`, {
+    method: 'POST',
+    // Only headers GitHub lets a web page send (its default API version, as the runner names).
+    headers: {Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+    body: JSON.stringify({ref: 'main'}),
+  });
+  return r.status;
+}
+const keyError = (status: number) =>
+  status === 401
+    ? 'GitHub түлхүүрийг хүлээж авсангүй (буруу, эсвэл хугацаа нь дууссан). «Agent» хэсэгт шинийг хадгална уу.'
+    : status === 403 || status === 404
+      ? 'Энэ түлхүүр Agent-ийг эхлүүлэх эрхгүй байна (сайтын репо, Actions: Read and write). «Agent» хэсгийг үзнэ үү.'
+      : `GitHub хариу өгсөнгүй (${status}). Удахгүй өөрөө эхэлнэ, эсвэл «Одоо эхлүүлэх» дарна.`;
+
+/**
+ * Starts the agent now, with the teacher's key: 'started', 'none' (no key: GitHub's schedule, or «Одоо эхлүүлэх»),
+ * or why it could not.
+ */
+export async function startAgent(): Promise<{ok: true; how: 'started' | 'none'} | {ok: false; error: string}> {
+  const token = (await get(ref(db, 'agentDispatch/token'))).val();
+  if (typeof token !== 'string' || !token) return {ok: true, how: 'none'};
+  try {
+    const status = await dispatch(token);
+    return status === 204 ? {ok: true, how: 'started'} : {ok: false, error: keyError(status)};
+  } catch {
+    return {ok: false, error: 'GitHub-д хүрч чадсангүй. Удахгүй өөрөө эхэлнэ, эсвэл «Одоо эхлүүлэх» дарна.'};
+  }
+}
+
+/** The teacher's key, kept once it has started the agent (so it is known to work). */
+export async function saveDispatchKey(key: string) {
+  const token = key.trim();
+  if (!isKey(token)) throw new Error('Энэ GitHub-ийн «fine-grained» түлхүүр биш байна: «github_pat_»-аар эхэлдэг.');
+  let status: number;
+  try {
+    status = await dispatch(token);
+  } catch {
+    throw new Error('GitHub-д хүрч чадсангүй. Интернэтээ шалгаад дахин оролдоно уу.');
+  }
+  if (status !== 204) throw new Error(keyError(status));
+  await set(ref(db, 'agentDispatch'), {token, at: serverTimestamp()});
+}
+export const removeDispatchKey = () => set(ref(db, 'agentDispatch'), null);
+
 /** The teacher's notes to the agent: how many, how long each (every split reads them all: kept short). */
 export const MAX_NOTES = 20;
 export const NOTE_LEN = 300;

@@ -4,6 +4,8 @@
 //                   time): its pages go to PAGES_DIR (1.jpg, 2.jpg, …) and Claude's instructions to PROMPT_FILE
 //   saved <id>      Claude's answer, read from its run's file (EXEC), checked and kept for the teacher to look at
 //   fail <id> <msg> it could not be done (the teacher may try again)
+// After one is done (read, failed or found without its pages) and more wait, the next run is started at once with the
+// teacher's GitHub key (agentDispatch), so they do not wait for GitHub's schedule, which is often hours late.
 // The repository and the workflow's logs are public: nothing read from the pages is printed. Against the emulators
 // (FIREBASE_DATABASE_EMULATOR_HOST) it needs no credentials. Outputs go to $GITHUB_OUTPUT (printed when it isn't set).
 import {applicationDefault, initializeApp} from 'firebase-admin/app';
@@ -60,7 +62,7 @@ async function plan() {
   const pages = Object.values((await db.ref(`agentPages/${id}`).get()).val() ?? {}).filter((p) => typeof p === 'string' && p.startsWith('data:image/jpeg;base64,'));
   if (!pages.length || pages.length !== t.pages) {
     await tasks.child(id).update({status: 'failed', error: 'Хуудасны зураг дутуу байна. Дахин илгээнэ үү.'});
-    return;
+    return 'dropped';
   }
   await tasks.child(id).update({status: 'working', startedAt: ServerValue.TIMESTAMP, error: null});
   await log(id, 'Agent хуудсыг уншиж байна.');
@@ -136,6 +138,28 @@ async function fail(id, message) {
   await log(id, 'Амжилтгүй боллоо.');
 }
 
+/**
+ * The next run, started now while requests wait (with the teacher's key; without one, GitHub's schedule takes them).
+ * The key is never printed: only whether GitHub took it.
+ */
+async function next() {
+  const waiting = Object.entries((await tasks.get()).val() ?? {}).some(([id, t]) => ID.test(id) && t && t.kind === 'split' && t.status === 'new');
+  const token = (await db.ref('agentDispatch/token').get()).val();
+  if (!waiting || typeof token !== 'string' || !token) return;
+  const api = process.env.GITHUB_API_URL ?? 'https://api.github.com';
+  const repo = process.env.GITHUB_REPOSITORY ?? 'tuvshinbayaraas-collab/-';
+  try {
+    const r = await fetch(`${api}/repos/${repo}/actions/workflows/batnab-agent.yml/dispatches`, {
+      method: 'POST',
+      headers: {Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'},
+      body: JSON.stringify({ref: 'main'}),
+    });
+    console.log(r.status === 204 ? 'next run: started' : `next run: not started (${r.status})`);
+  } catch {
+    console.log('next run: not started');
+  }
+}
+
 const [cmd, id, arg] = process.argv.slice(2);
 const job = {plan, saved, fail}[cmd];
 if (!job || (cmd !== 'plan' && !ID.test(id ?? ''))) {
@@ -143,7 +167,9 @@ if (!job || (cmd !== 'plan' && !ID.test(id ?? ''))) {
   process.exit(2);
 }
 try {
-  await (cmd === 'plan' ? plan() : job(id, arg));
+  const took = await (cmd === 'plan' ? plan() : job(id, arg));
+  // Done with one (or the one taken could not be read): the next, if any wait. Not while one is being read.
+  if (cmd !== 'plan' || took === 'dropped') await next();
   process.exit(0);
 } catch (e) {
   console.error(e);
