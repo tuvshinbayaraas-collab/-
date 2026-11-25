@@ -17,10 +17,11 @@ first column, then down the second; page by page):
   choices: rather a little too low than cutting a line off. A problem that goes on at the top of the next column has
   two boxes, the first part first.
 - `text`: what the problem asks, as printed, in Mongolian, without its number and without its choices. Write every
-  formula in LaTeX between `$…$` (for example `$\frac{x+1}{2}$`, `$\sqrt{3}$`, `$x^2$`). If it has a drawing, write only
-  the words around it.
+  formula in LaTeX between `$…$` (for example `$\frac{x+1}{2}$`, `$\sqrt{3}$`, `$x^2$`). If it has a drawing (a figure,
+  a graph, a table, a picture), write the words around it and put `[зураг]` where the drawing is: such a problem is
+  kept as a picture, every other one as your text, so do not leave the mark out.
 - `choices`: when it has choices А)–Д), their texts under the keys A (А), B (Б), C (В), D (Г), E (Д), formulas in `$…$`.
-  Leave it out when there are none.
+  Leave it out when there are none, and when the choices are drawings (then `[зураг]` in the text).
 
 Do not solve the problems or add anything that is not printed. A problem cut off at the page's edge is still listed,
 with the part that is there. Headings, page numbers and answers printed at the back of the book are not problems.

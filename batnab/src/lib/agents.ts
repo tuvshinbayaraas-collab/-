@@ -195,13 +195,36 @@ export const useAgentRunner = () =>
     return r && typeof r.lastSeen === 'number' ? {lastSeen: r.lastSeen, claude: r.claude === true} : false;
   });
 
-/** A page as sent: a JPEG small enough for the database and for Claude to read. */
+/** A sent page's longer side, at most: Claude reads a picture shrunk to about this anyway, so more is only stored. */
+export const SENT_SIDE = 1600;
+
+/**
+ * A page as sent: as sharp as Claude reads it, and grey (the page is made white, its print black: colour only takes
+ * room), as a JPEG kept small, since it waits in the database until the teacher has added its problems.
+ */
 export function pageData(c: HTMLCanvasElement) {
-  for (const q of [0.82, 0.7, 0.55]) {
-    const url = c.toDataURL('image/jpeg', q);
-    if (url.length < 1_500_000) return url;
+  const k = Math.min(1, SENT_SIDE / Math.max(c.width, c.height));
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(c.width * k));
+  out.height = Math.max(1, Math.round(c.height * k));
+  const g = out.getContext('2d', {willReadFrequently: true})!;
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, out.width, out.height);
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, out.width, out.height);
+  const px = g.getImageData(0, 0, out.width, out.height);
+  const d = px.data;
+  for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = Math.round(d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11);
+  g.putImageData(px, 0, 0);
+  try {
+    for (const q of [0.75, 0.62, 0.5]) {
+      const url = out.toDataURL('image/jpeg', q);
+      if (url.length < 450_000) return url;
+    }
+    return out.toDataURL('image/jpeg', 0.42);
+  } finally {
+    out.width = out.height = 0;
   }
-  return c.toDataURL('image/jpeg', 0.45);
 }
 
 /** A request's id: lowercase letters and digits only (the rules check it). */

@@ -18,6 +18,8 @@ export interface Page {
   /** What was read: each line, in its column. */
   lines: OcrLine[];
   problems: FoundProblem[];
+  /** Read by the agent: its text is good, so a problem with nothing drawn goes in as text (no picture to store). */
+  agent?: boolean;
 }
 
 const make = (w: number, h: number) => {
@@ -297,6 +299,9 @@ export interface AgentFound {
   choices?: Partial<Record<'A' | 'B' | 'C' | 'D' | 'E', string>>;
 }
 const MARK_OF = {A: 'А', B: 'Б', C: 'В', D: 'Г', E: 'Д'} as const;
+/** Where the agent marks something drawn in a problem («[зураг]»). */
+const DRAWING = /\[\s*зураг\s*\]/i;
+const DRAWINGS = /\s*\[\s*зураг\s*\]\s*/gi;
 
 /**
  * A page the agent read (the page as sent, so its boxes fit), as the cutting dialog takes it. The agent knows which
@@ -481,9 +486,71 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
   };
   for (const b of boxes) if (b.col < 0) regions.set(`${b.pi}/${b.bi}`, {col: -1, x0: b.x0, x1: b.x1, y0: out(b.y0, b.x0, b.x1, -1), y1: out(Math.min(H - 1, b.y1), b.x0, b.x1, 1)});
 
+  // Something drawn in a problem (a graph, a figure, a table): ink that hangs together over more than three lines'
+  // height, or two and wide as well. Letters, formulas, fraction bars, braces and integral signs are smaller.
+  const step = Math.max(1, Math.round(Math.max(W, H) / 1000));
+  const lineAll = fit.map((f) => f.lineH).sort((a, b) => a - b)[0] ?? Math.round(H * 0.015);
+  // A drawing's lines are often fainter than the print: lighter ink counts here.
+  const light = Math.max(level, 180);
+  const drawn = (r: Region) => {
+    const lineH = r.col >= 0 ? fit[r.col].lineH : lineAll;
+    const x0 = Math.max(0, Math.round(r.x0));
+    const y0 = Math.max(0, Math.round(r.y0));
+    const gw = Math.max(1, Math.ceil((Math.min(W, Math.round(r.x1)) - x0) / step));
+    const gh = Math.max(1, Math.ceil((Math.min(H, Math.round(r.y1)) - y0) / step));
+    const on = new Uint8Array(gw * gh);
+    for (let gy = 0; gy < gh; gy++)
+      for (let gx = 0; gx < gw; gx++)
+        for (let dy = 0; dy < step && !on[gy * gw + gx]; dy++)
+          for (let dx = 0; dx < step; dx++) {
+            const x = x0 + gx * step + dx;
+            const y = y0 + gy * step + dy;
+            if (x < W && y < H && (r.col < 0 || side(x, y) === r.col) && lum(all, (y * W + x) * 4) < light) {
+              on[gy * gw + gx] = 1;
+              break;
+            }
+          }
+    const seen = new Uint8Array(gw * gh);
+    const stack: number[] = [];
+    for (let i = 0; i < on.length; i++) {
+      if (!on[i] || seen[i]) continue;
+      let [ax, ay, bx, by] = [i % gw, Math.floor(i / gw), i % gw, Math.floor(i / gw)];
+      seen[i] = 1;
+      stack.push(i);
+      while (stack.length) {
+        const j = stack.pop()!;
+        const jx = j % gw;
+        const jy = Math.floor(j / gw);
+        ax = Math.min(ax, jx);
+        bx = Math.max(bx, jx);
+        ay = Math.min(ay, jy);
+        by = Math.max(by, jy);
+        for (let ny = jy - 1; ny <= jy + 1; ny++)
+          for (let nx = jx - 1; nx <= jx + 1; nx++) {
+            const k = ny * gw + nx;
+            if (nx >= 0 && ny >= 0 && nx < gw && ny < gh && on[k] && !seen[k]) {
+              seen[k] = 1;
+              stack.push(k);
+            }
+          }
+      }
+      const h = (by - ay + 1) * step;
+      const w = (bx - ax + 1) * step;
+      // A lone upright stroke is the rule between the columns (or a bar), not a drawing.
+      if (w <= step * 2) continue;
+      if (h > lineH * 3 || (h > lineH * 2 && w > lineH * 3)) return true;
+    }
+    return false;
+  };
+
+  // The agent marks a drawing «[зураг]» where it is (agents/split.md); seen here too, for what it may miss.
   const problems: FoundProblem[] = found.map((f, pi) => {
-    const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => f.choices?.[k]).map((k) => `${MARK_OF[k]}) ${f.choices![k]}`);
-    return {num: f.num, text: [f.text, choices.join('  ')].filter(Boolean).join('\n'), regions: f.boxes.map((_, bi) => regions.get(`${pi}/${bi}`)!)};
+    const plain = (v?: string) => (v ?? '').replace(DRAWINGS, ' ').replace(/[ \t]{2,}/g, ' ').trim();
+    const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => plain(f.choices?.[k])).map((k) => `${MARK_OF[k]}) ${plain(f.choices![k])}`);
+    const parts = f.boxes.map((_, bi) => regions.get(`${pi}/${bi}`)!);
+    const marked = DRAWING.test(f.text) || Object.values(f.choices ?? {}).some((c) => DRAWING.test(c ?? ''));
+    const text = [plain(f.text), choices.join('  ')].filter(Boolean).join('\n');
+    return {num: f.num, text, regions: parts, drawing: marked || parts.some(drawn)};
   });
-  return {canvas: c, cols, rowInk: fit.map((f) => f.rows), lines: [], problems};
+  return {canvas: c, cols, rowInk: fit.map((f) => f.rows), lines: [], problems, agent: true};
 }

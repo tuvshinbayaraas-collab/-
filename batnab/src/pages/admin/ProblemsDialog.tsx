@@ -49,8 +49,10 @@ function itemsOf(page: Page): Item[] {
   const choice = found.map((f) => hasChoices(f.text) || !!parseChoices(f.text));
   // A test's page: when most problems show А)–Д), so do the rest (choices written as formulas are not read).
   const test = choice.filter(Boolean).length >= found.length * 0.6;
-  // As the picture: read text comes out wrong too often (formulas above all) to be used unless picked by hand.
-  return found.map((f, i) => ({id: ids++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: 'img', kind: choice[i] || test ? 'choice' : 'answer', key: '', on: true, thumb: thumb(page, f.regions)}));
+  // As the picture: text read here comes out wrong too often (formulas above all) to be used unless picked by hand.
+  // The agent's text is good: a problem with nothing drawn goes in as text, so no picture is stored for it.
+  const use = (f: (typeof found)[number]): Use => (page.agent && !f.drawing && f.text.trim() ? 'text' : 'img');
+  return found.map((f, i) => ({id: ids++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: use(f), kind: choice[i] || test ? 'choice' : 'answer', key: '', on: true, thumb: thumb(page, f.regions)}));
 }
 
 /** Whether the numbers go 1 by 1 (n, n+1, …): when not, one was read or cut wrong. */
@@ -402,7 +404,11 @@ export default function ProblemsDialog({
                 </button>
               </div>
             )}
-            <p className="text-xs text-neutral-500">Бодлого бүр зураг хэлбэрээр нэмэгдэнэ. Бичвэр хэрэгтэй бол «Бичвэр» эсвэл «Хоёулаа»-г сонгоно. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.</p>
+            <p className="text-xs text-neutral-500">
+              {agent
+                ? 'Зураггүй бодлого бичвэрээр нэмэгдэнэ (сайтын сан хэмнэнэ), зурагтай нь зургаар. Бичвэрийг зурагтай нь тулгаж шалгаарай. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.'
+                : 'Бодлого бүр зураг хэлбэрээр нэмэгдэнэ. Бичвэр хэрэгтэй бол «Бичвэр» эсвэл «Хоёулаа»-г сонгоно. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.'}
+            </p>
             {items.map((it) => (
               <div key={it.id} className={`rounded-2xl border p-3 ${sel === it.id ? 'border-blue-500/70 bg-blue-500/5' : 'border-neutral-800 bg-neutral-900'} ${it.on ? '' : 'opacity-50'}`}>
                 <div className="flex flex-wrap items-center gap-2">
@@ -439,7 +445,10 @@ export default function ProblemsDialog({
                 {it.use !== 'img' && (
                   <div className="mt-2">
                     <MathArea value={it.text} onChange={(text) => edit(it.id, (x) => ({...x, text}))} max={2000} rows={4} label={`${it.num}-р бодлогын бичвэр`} placeholder="Бодлогын бичвэр (томьёо $…$ дотор)" />
-                    <p className="mt-1 text-xs text-amber-200/80">Уншсан бичвэрт алдаа их байдаг тул зурагтай нь тулгаж засна уу.{it.kind === 'choice' && ' А) … Д) сонголтуудыг бичвэрээс өөрөө салгана.'}</p>
+                    <p className="mt-1 text-xs text-amber-200/80">
+                      {agent ? 'Agent уншсан бичвэр. Зурагтай нь тулгаж шалгаарай.' : 'Уншсан бичвэрт алдаа их байдаг тул зурагтай нь тулгаж засна уу.'}
+                      {it.kind === 'choice' && ' А) … Д) сонголтуудыг бичвэрээс өөрөө салгана.'}
+                    </p>
                   </div>
                 )}
               </div>

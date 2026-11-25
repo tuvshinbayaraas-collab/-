@@ -25,6 +25,8 @@ export interface FoundProblem {
   text: string;
   /** The parts of the page it covers, in reading order (two when it goes on in the next column). */
   regions: Region[];
+  /** It has something drawn (a graph, a figure, a table): kept as a picture. Known only for the agent's pages. */
+  drawing?: boolean;
 }
 
 /** A "word" that is only marks: the page edge's shadow, the column rule, specks. */
