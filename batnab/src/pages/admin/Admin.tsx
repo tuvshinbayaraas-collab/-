@@ -1,4 +1,4 @@
-import {BarChart3, BookOpen, Bot, CalendarClock, ClipboardList, KeyRound, Library, MessageCircleQuestion, Printer, Settings2, Users} from 'lucide-react';
+import {BarChart3, BookOpen, Bot, CalendarClock, ClipboardList, KeyRound, Library, MessageCircleQuestion, PlayCircle, Printer, Settings2, Users} from 'lucide-react';
 import {useEffect, useMemo, useRef} from 'react';
 import {CenterNote, LockedNote} from '../../components/Notices';
 import {Link, useLocation} from '../../lib/router';
@@ -10,6 +10,7 @@ import {ClassBar, forClass} from './Classes';
 import {useAdminData} from './data';
 import AgentTab from './AgentTab';
 import BankTab from './BankTab';
+import VideoTab from './VideoTab';
 import Exams from './Exams';
 import Keys from './Keys';
 import Overview from './Overview';
@@ -29,6 +30,7 @@ const TABS = [
   {id: 'students', label: 'Сурагчид', icon: Users},
   {id: 'topics', label: 'Сэдэв', icon: BookOpen},
   {id: 'bank', label: 'Бодлого', icon: Library},
+  {id: 'video', label: 'Видео', icon: PlayCircle},
   {id: 'tasks', label: 'Даалгавар', icon: ClipboardList},
   {id: 'questions', label: 'Асуулт', icon: MessageCircleQuestion},
   {id: 'keys', label: 'Түлхүүр', icon: KeyRound},
@@ -117,6 +119,8 @@ export default function Admin({student, topic, report}: {student?: string; topic
           <Keys data={data} initial={query.get('test') ?? undefined} />
         ) : tab === 'bank' ? (
           <BankTab />
+        ) : tab === 'video' ? (
+          <VideoTab />
         ) : tab === 'agent' ? (
           <AgentTab />
         ) : tab === 'settings' ? (

@@ -45,6 +45,7 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const People = lazy(() => import('./pages/People'));
 const Topics = lazy(() => import('./pages/Topics'));
 const Bank = lazy(() => import('./pages/Bank'));
+const Videos = lazy(() => import('./pages/Videos'));
 const TopicView = lazy(() => import('./pages/TopicView'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Daily = lazy(() => import('./pages/Daily'));
@@ -102,6 +103,7 @@ export default function App() {
   else if (path === '/people') page = <People />;
   else if (path === '/topics') page = <Topics />;
   else if (path === '/bank') page = <Bank />;
+  else if (path === '/videos') page = <Videos />;
   else if (path === '/mistakes') page = <Mistakes />;
   else if (path === '/daily') page = <Daily />;
   else if (path === '/questions') page = <Questions />;

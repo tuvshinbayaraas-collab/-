@@ -1,10 +1,11 @@
-import {BookOpen, Check, ChevronRight, FlaskConical, GraduationCap, Library, Lock, LogIn, School, Timer, Trophy} from 'lucide-react';
+import {BookOpen, Check, ChevronRight, FlaskConical, GraduationCap, Library, Lock, LogIn, PlayCircle, School, Timer, Trophy} from 'lucide-react';
 import AppNudge from '../components/AppNudge';
 import {LogoMark} from '../components/Logo';
 import {InactiveNote, loginHref} from '../components/Notices';
 import Today, {Shortcuts} from '../components/Today';
 import {inProgress} from '../lib/attempt';
 import {usePublishedFolders} from '../lib/bank';
+import {usePublishedVideoFolders} from '../lib/videos';
 import {useClasses} from '../lib/classes';
 import {examState, useExamAnswer, useExams, type Exam} from '../lib/exams';
 import {grade, percent, useKeys, type Grade} from '../lib/keys';
@@ -149,6 +150,7 @@ export default function Home() {
             <div className="mt-6">
               <TopicsSection classId={session.profile?.class} uid={session.user!.uid} />
               <BankSection />
+              <VideoSection />
             </div>
           )}
         </div>
@@ -369,6 +371,35 @@ function BankSection() {
             </Link>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+/** The teacher's published video folders (shown only when there are some), each opening in «Видео хичээл». */
+function VideoSection() {
+  const folders = usePublishedVideoFolders();
+  if (!folders?.length) return null;
+  return (
+    <section className="mt-6" data-home-videos>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Видео хичээл</h2>
+        {folders.length > 4 && (
+          <Link href="/videos" className="text-sm text-blue-400 hover:underline">
+            Бүгд ({folders.length})
+          </Link>
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {folders.slice(0, 4).map((f) => (
+          <Link key={f.id} href={`/videos?folder=${encodeURIComponent(f.id)}`} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800 sm:gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-300">
+              <PlayCircle size={20} />
+            </span>
+            <p className="line-clamp-2 min-w-0 flex-1 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{f.name}</p>
+            <ChevronRight size={16} className="shrink-0 text-blue-400" />
+          </Link>
+        ))}
       </div>
     </section>
   );

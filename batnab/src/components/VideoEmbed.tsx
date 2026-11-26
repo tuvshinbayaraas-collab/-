@@ -1,5 +1,5 @@
 import {ExternalLink, Play} from 'lucide-react';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 /** What a video link plays as: YouTube, Google Drive, Vimeo, a video file, or (anything else) a link to open. */
 export type VideoSource = {kind: 'youtube'; id: string; start: number} | {kind: 'drive'; id: string} | {kind: 'vimeo'; id: string; hash?: string} | {kind: 'file'; url: string} | {kind: 'link'; url: string};
@@ -44,21 +44,39 @@ export function videoSource(link: string): VideoSource | null {
   return {kind: 'link', url: u.href};
 }
 
-const frame = (s: VideoSource) =>
+const frame = (s: VideoSource, at?: number) =>
   s.kind === 'youtube'
-    ? `https://www.youtube-nocookie.com/embed/${s.id}?autoplay=1&rel=0&playsinline=1${s.start ? `&start=${s.start}` : ''}`
+    ? `https://www.youtube-nocookie.com/embed/${s.id}?autoplay=1&rel=0&playsinline=1${(at ?? s.start) ? `&start=${at ?? s.start}` : ''}`
     : s.kind === 'drive'
       ? `https://drive.google.com/file/d/${s.id}/preview`
       : s.kind === 'vimeo'
-        ? `https://player.vimeo.com/video/${s.id}?autoplay=1${s.hash ? `&h=${s.hash}` : ''}`
+        ? `https://player.vimeo.com/video/${s.id}?autoplay=1${s.hash ? `&h=${s.hash}` : ''}${at ? `#t=${at}s` : ''}`
         : '';
+
+/** Whether a point in the video can be jumped to (a Google Drive video can't be told where to start). */
+export const canSeek = (s: VideoSource | null) => !!s && (s.kind === 'youtube' || s.kind === 'vimeo' || s.kind === 'file');
 
 /**
  * A video explanation. It loads only when tapped (a phone doesn't spend its data on a video nobody watches); a link
  * that isn't a known player opens in a new tab.
  */
-export default function VideoEmbed({link, title = 'Видео тайлбар', className = ''}: {link: string; title?: string; className?: string}) {
+export default function VideoEmbed({
+  link,
+  title = 'Видео тайлбар',
+  className = '',
+  at,
+}: {
+  link: string;
+  title?: string;
+  className?: string;
+  /** A point to play from (`n` counts the taps, so the same point can be gone back to). */
+  at?: {t: number; n: number};
+}) {
   const [on, setOn] = useState(false);
+  // A point picked: played from there.
+  useEffect(() => {
+    if (at) setOn(true);
+  }, [at]);
   const s = videoSource(link);
   if (!s) return null;
   if (s.kind === 'link')
@@ -71,9 +89,9 @@ export default function VideoEmbed({link, title = 'Видео тайлбар', c
     <div className={`relative aspect-video w-full overflow-hidden rounded-xl bg-black ${className}`}>
       {on ? (
         s.kind === 'file' ? (
-          <video src={s.url} controls autoPlay playsInline className="h-full w-full" />
+          <video key={at?.n} src={at ? `${s.url}#t=${at.t}` : s.url} controls autoPlay playsInline className="h-full w-full" />
         ) : (
-          <iframe src={frame(s)} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="h-full w-full border-0" />
+          <iframe key={at?.n} src={frame(s, at?.t)} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen className="h-full w-full border-0" />
         )
       ) : (
         <button type="button" onClick={() => setOn(true)} aria-label={`${title}: тоглуулах`} className="group absolute inset-0 flex items-center justify-center">

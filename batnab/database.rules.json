@@ -1724,6 +1724,144 @@
     "agentRunner": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       ".write": false
+    },
+    "videoFolders": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && query.orderByChild === 'published' && query.equalTo === true))",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".indexOn": [
+        "published"
+      ],
+      "$fid": {
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['name', 'at'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "published": {
+          ".validate": "newData.val() === true"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "videos": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$fid": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('videoFolders').child($fid).child('published').val() === true",
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/) && (root.child('videoFolders').child($fid).exists() || newData.parent().parent().child('videoFolders').child($fid).exists())",
+        "$vid": {
+          ".validate": "$vid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['title', 'url', 'at'])",
+          "title": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 120"
+          },
+          "url": {
+            ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().matches(/^https?:\\/\\/[^ ]+$/)"
+          },
+          "note": {
+            ".validate": "newData.isString() && newData.val().length <= 1000"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "marks": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-9]{1,2}$/) && newData.hasChildren(['t', 'label'])",
+              "t": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400"
+              },
+              "label": {
+                ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "problems": {
+            "$pid": {
+              ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['text', 'kind'])",
+              "text": {
+                ".validate": "newData.isString() && newData.val().length <= 2000"
+              },
+              "img": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+              },
+              "kind": {
+                ".validate": "newData.val() === 'choice' || newData.val() === 'answer'"
+              },
+              "choices": {
+                "$k": {
+                  ".validate": "$k.matches(/^[A-E]$/) && newData.isString() && newData.val().length <= 200"
+                }
+              },
+              "no": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 9999"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "videoKeys": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$fid": {
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/)",
+        "$vid": {
+          ".validate": "$vid.matches(/^[A-Za-z0-9_-]{1,40}$/)",
+          "$pid": {
+            ".read": "auth != null && root.child('videoAnswers').child(auth.uid).child($pid).child('vid').val() === $vid",
+            ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+          }
+        }
+      }
+    },
+    "videoAnswers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$pid": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('videoFolders').child(newData.child('fid').val()).child('published').val() === true && root.child('videos').child(newData.child('fid').val()).child(newData.child('vid').val()).child('problems').child($pid).exists()",
+          ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['a', 'at', 'fid', 'vid'])",
+          "a": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 300"
+          },
+          "at": {
+            ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber())"
+          },
+          "fid": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+          },
+          "vid": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "videoWatched": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$vid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true",
+          ".validate": "$vid.matches(/^[A-Za-z0-9_-]{1,40}$/) && (newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber()))"
+        }
+      }
     }
   }
 }

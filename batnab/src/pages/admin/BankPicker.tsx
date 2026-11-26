@@ -9,7 +9,22 @@ import {BankPath, BankProblemView, FolderButton} from './BankParts';
  * «Сангаас нэмэх»: problems picked from the problem bank (folder by folder) and copied into the topic, their pictures
  * and right answers with them. The bank keeps its own; the topic is saved as usual.
  */
-export default function BankPicker({tid, onAdd, onUploaded, onClose}: {tid: string; onAdd: (ps: Problem[], keys: Record<string, string>) => void; onUploaded: (iid: string) => void; onClose: () => void}) {
+export default function BankPicker({
+  tid,
+  onAdd,
+  onUploaded,
+  onPick,
+  sub = 'Хавтсаа нээгээд бодлогуудаа сонгоно. Зураг, зөв хариулттай нь сэдэвт хуулагдана.',
+  onClose,
+}: {
+  tid?: string;
+  onAdd?: (ps: Problem[], keys: Record<string, string>) => void;
+  onUploaded?: (iid: string) => void;
+  /** Instead of copying into a topic: the bank's problems picked, as they are (a video takes them). */
+  onPick?: (ps: BankProblem[]) => Promise<void>;
+  sub?: string;
+  onClose: () => void;
+}) {
   const folders = useBankFolders();
   const problems = useBankProblems();
   const [at, setAt] = useState('');
@@ -29,8 +44,11 @@ export default function BankPicker({tid, onAdd, onUploaded, onClose}: {tid: stri
     setBusy(true);
     setError('');
     try {
-      const {problems: ps, keys} = await toTopic(tid, [...picked.values()], newId, onUploaded);
-      onAdd(ps, keys);
+      if (onPick) await onPick([...picked.values()]);
+      else {
+        const {problems: ps, keys} = await toTopic(tid!, [...picked.values()], newId, onUploaded!);
+        onAdd!(ps, keys);
+      }
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -39,7 +57,7 @@ export default function BankPicker({tid, onAdd, onUploaded, onClose}: {tid: stri
     }
   };
   return (
-    <Sheet title="Сангаас нэмэх" sub="Хавтсаа нээгээд бодлогуудаа сонгоно. Зураг, зөв хариулттай нь сэдэвт хуулагдана." onClose={onClose} wide>
+    <Sheet title="Сангаас нэмэх" sub={sub} onClose={onClose} wide>
       {!folders || !problems ? (
         <div className="h-32 animate-pulse rounded-xl bg-neutral-800" />
       ) : !folders.length ? (
