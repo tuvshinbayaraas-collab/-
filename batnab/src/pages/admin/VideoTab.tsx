@@ -53,7 +53,7 @@ export default function VideoTab() {
           <VideoIcon size={18} className="text-rose-300" /> Видео хичээл
         </h2>
         <p className="mt-1 text-sm text-neutral-400">
-          Видеогоо YouTube-д «Жагсаалтад харагдахгүй» (Unlisted) эсвэл Google Drive-д хуулаад холбоосыг нь энд тавина. Сайт видеог өөрөө хадгалахгүй, тиймээс сан дүүрэхгүй. Хавтсаа «Нийтлэх» бол сурагчид цэсний «Видео»-оос үзнэ.
+          Видеогоо YouTube-д «Жагсаалтад харагдахгүй» (Unlisted) байдлаар (эсвэл Google Drive, Facebook-т) хуулаад холбоосыг нь энд тавина. Сайт видеог өөрөө хадгалахгүй, тиймээс сан дүүрэхгүй. Хавтсаа «Нийтлэх» бол сурагчид цэсний «Видео»-оос үзнэ.
           Сэдвийн хичээлд тавьсан видео тэнд өөрөө гарна.
         </p>
       </div>
@@ -219,7 +219,7 @@ function VideoForm({v, onSave, onCancel}: {v?: Video; onSave: (d: VideoDraft) =>
   const source = url.trim() ? videoSource(url.trim()) : null;
   const badTimes = marks.filter((m) => m.label.trim() && parseTime(m.time) === null);
   const save = async () => {
-    if (!source || source.kind === 'link') return setError('YouTube, Google Drive эсвэл Vimeo-гийн видеоны холбоос тавина уу.');
+    if (!source || source.kind === 'link') return setError('YouTube, Google Drive, Facebook эсвэл Vimeo-гийн видеоны холбоос тавина уу.');
     if (!title.trim()) return setError('Гарчиг бичнэ үү.');
     if (badTimes.length) return setError(`Цагийг «3:20» гэж бичнэ үү (${badTimes.map((m) => m.time || 'хоосон').join(', ')}).`);
     setBusy(true);
@@ -235,8 +235,9 @@ function VideoForm({v, onSave, onCancel}: {v?: Video; onSave: (d: VideoDraft) =>
     <div className="space-y-3 rounded-2xl bg-neutral-900 p-4" data-video-form>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Видеоны холбоос</span>
-        <input value={url} onChange={(e) => setUrl(e.target.value.slice(0, 500))} placeholder="https://youtu.be/… эсвэл Google Drive-ийн холбоос" className={field} inputMode="url" />
-        {url.trim() && (!source || source.kind === 'link') && <span className="mt-1 block text-xs text-amber-200">Энэ YouTube, Google Drive, Vimeo-гийн видео биш байна.</span>}
+        <input value={url} onChange={(e) => setUrl(e.target.value.slice(0, 500))} placeholder="https://youtu.be/… эсвэл Google Drive, Facebook-ийн холбоос" className={field} inputMode="url" />
+        {url.trim() && (!source || source.kind === 'link') && <span className="mt-1 block text-xs text-amber-200">Энэ YouTube, Google Drive, Facebook, Vimeo-гийн видео биш байна.</span>}
+        {source?.kind === 'facebook' && <span className="mt-1 block text-xs text-neutral-400">Facebook-ийн видео «Нийтийн» (Public) байх ёстой, үгүй бол сурагчдад тоглохгүй. Цэг дээр нь үсрүүлж чадахгүй.</span>}
         {source?.kind === 'drive' && <span className="mt-1 block text-xs text-neutral-400">Drive дээр файлаа «Холбоостой хэн бүхэн үзэх» болгоно уу. Drive-ийн видеог цэг дээр нь үсрүүлж чадахгүй.</span>}
       </label>
       <label className="block text-sm">
@@ -307,7 +308,7 @@ function VideoAdmin({v, keys, watchers, total}: {v: Video; keys: Record<string, 
               <span className="font-semibold tabular-nums text-rose-300">{timeLabel(m.t)}</span> {m.label}
             </li>
           ))}
-          {!canSeek(videoSource(v.url)) && <li className="px-1 py-1 text-xs text-neutral-500">(Drive-ийн видеог цэг дээр нь үсрүүлэхгүй)</li>}
+          {!canSeek(videoSource(v.url)) && <li className="px-1 py-1 text-xs text-neutral-500">(Drive, Facebook-ийн видеог цэг дээр нь үсрүүлэхгүй)</li>}
         </ul>
       )}
       <div>

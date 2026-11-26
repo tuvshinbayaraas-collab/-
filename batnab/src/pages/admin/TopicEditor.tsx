@@ -726,7 +726,7 @@ function VideoLink({value, onChange}: {value: string; onChange: (v: string) => v
         value={value}
         maxLength={500}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Видео тайлбарын холбоос: YouTube, Google Drive…"
+        placeholder="Видео тайлбарын холбоос: YouTube, Google Drive, Facebook…"
         aria-label="Видео холбоос"
         className={`${field} py-2 text-sm`}
       />

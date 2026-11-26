@@ -183,7 +183,14 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
   return (
     <article className="space-y-4" data-video-view={v.id}>
       <h2 className="text-xl font-semibold [overflow-wrap:anywhere]">{v.title}</h2>
-      <VideoEmbed link={v.url} title="Видеог тоглуулах" at={jump} />
+      {/* On a phone, as wide as the screen. Watched to the end: marked by itself. */}
+      <VideoEmbed
+        link={v.url}
+        title="Видеог тоглуулах"
+        at={jump}
+        onWatched={uid && !seen ? () => void markWatched(uid, v, true).catch(() => {}) : undefined}
+        className="max-sm:-mx-4 max-sm:[&>button]:ml-4 max-sm:[&>div:first-child]:rounded-none"
+      />
       {v.marks.length > 0 && (
         <section aria-label="Видеоны хэсгүүд" className="space-y-1.5">
           <h3 className="text-sm font-semibold text-neutral-400">Хэсгүүд{seek ? ' (дарахад тэндээс эхэлнэ)' : ''}</h3>
