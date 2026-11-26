@@ -1,5 +1,5 @@
-import {BookOpen, BookOpenCheck, CircleHelp, Download, Flame, Gamepad2, GraduationCap, Library, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, PlayCircle, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
-import {lazy, Suspense, useState, type ReactNode} from 'react';
+import {BookOpen, BookOpenCheck, ChevronDown, CircleHelp, Download, Flame, Gamepad2, GraduationCap, Library, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, PlayCircle, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
+import {lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {useLearnIndex} from '../lib/learn';
 import {Link, useLocation} from '../lib/router';
 import {logOut, shownName, useSession} from '../lib/session';
@@ -14,6 +14,90 @@ import Logo from './Logo';
 
 // The bell and its list come in their own file, after the page (it reads a fair bit to know what's new).
 const Bell = lazy(() => import('./Bell'));
+
+const navItem = 'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors';
+
+/**
+ * The main places beside the logo, each on one line: as many as fit, the rest under «Бусад» (a narrower window, or
+ * more places turned on: «Сурах», Leaderboard, games).
+ */
+function NavBar({items, here}: {items: [string, string][]; here: (href: string) => boolean}) {
+  const box = useRef<HTMLElement>(null);
+  const sizes = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(items.length);
+  const [open, setOpen] = useState(false);
+  const key = items.map(([h]) => h).join();
+  useLayoutEffect(() => {
+    const nav = box.current;
+    const all = sizes.current;
+    if (!nav || !all) return;
+    const count = () => {
+      const room = nav.clientWidth;
+      // The places as they would be, and «Бусад» (last).
+      const ws = [...all.children].map((c) => (c as HTMLElement).offsetWidth);
+      const more = ws.pop() ?? 0;
+      const gap = 4;
+      if (ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1) <= room) return setFit(ws.length);
+      let used = more;
+      let n = 0;
+      while (n < ws.length && used + gap + ws[n] <= room) used += gap + ws[n++];
+      setFit(n);
+    };
+    count();
+    const watch = new ResizeObserver(count);
+    watch.observe(nav);
+    return () => watch.disconnect();
+  }, [key]);
+  const shown = items.slice(0, fit);
+  const rest = items.slice(fit);
+  const look = (on: boolean) => `${navItem} ${on ? 'bg-blue-500/15 text-blue-200' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100'}`;
+  return (
+    <nav ref={box} aria-label="Үндсэн цэс" className="relative mr-auto flex min-w-0 flex-1 items-center gap-1">
+      {/* Measured, not seen: how wide each place is. */}
+      <div ref={sizes} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-0 gap-1 overflow-hidden">
+        {items.map(([href, label]) => (
+          <span key={href} className={navItem}>
+            {label}
+          </span>
+        ))}
+        <span className={`${navItem} flex items-center gap-1`}>
+          Бусад <ChevronDown size={14} />
+        </span>
+      </div>
+      {shown.map(([href, label]) => (
+        <Link key={href} href={href} aria-current={here(href) ? 'page' : undefined} className={look(here(href))}>
+          {label}
+        </Link>
+      ))}
+      {rest.length > 0 && (
+        <div className="relative">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" className={`${look(rest.some(([h]) => here(h)))} flex items-center gap-1`}>
+            Бусад <ChevronDown size={14} className={open ? 'rotate-180' : ''} />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+              <div role="menu" className="absolute left-0 top-10 z-50 min-w-44 rounded-xl bg-neutral-800 py-2 shadow-xl" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+                {rest.map(([href, label]) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    role="menuitem"
+                    aria-current={here(href) ? 'page' : undefined}
+                    onClick={() => setOpen(false)}
+                    className={`block whitespace-nowrap px-4 py-2 text-sm ${here(href) ? 'text-blue-200' : 'text-neutral-200 hover:bg-neutral-700'}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </nav>
+  );
+}
 
 export default function Header() {
   const {user, ready, profile, admin} = useSession();
@@ -73,20 +157,7 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b border-neutral-800/80 bg-page px-4 sm:px-6">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4">
         <Logo />
-        {user && wide && nav.length > 0 && (
-          <nav aria-label="Үндсэн цэс" className="mr-auto flex items-center gap-1">
-            {nav.map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                aria-current={here(href) ? 'page' : undefined}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${here(href) ? 'bg-blue-500/15 text-blue-200' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100'}`}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        )}
+        {user && wide && nav.length > 0 && <NavBar items={nav} here={here} />}
         {user ? (
           <div className="flex items-center gap-2">
             {admin && !wide && path !== '/admin' && (
