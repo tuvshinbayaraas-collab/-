@@ -2,7 +2,7 @@ import {FileText, Loader2} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import type {PDFDocumentProxy} from 'pdfjs-dist/legacy/build/pdf.mjs';
 import Sheet from '../../components/Sheet';
-import {eachPage, isPdf, MAX_PDF_PAGES, openPdf} from '../../lib/pdf';
+import {eachPage, isPdf, MAX_PDF_PAGES, openPdf, pdfWords} from '../../lib/pdf';
 
 const box = 'w-20 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-center tabular-nums outline-none focus:border-blue-500';
 
@@ -96,12 +96,15 @@ export function usePageFiles(onFiles: (files: File[]) => void) {
     setPdf(null);
     try {
       const out: File[] = [];
-      await eachPage(doc, from, to, async (c, i, total) => {
+      await eachPage(doc, from, to, async (c, i, total, words) => {
         setBusy(`PDF-ийн хуудас бэлдэж байна ${i + 1}/${total}`);
         const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.92));
         c.width = c.height = 0;
         if (!blob) throw new Error('Хуудсыг зураг болгож чадсангүй.');
-        out.push(new File([blob], `${name}-${from + i}.jpg`, {type: 'image/jpeg'}));
+        const file = new File([blob], `${name}-${from + i}.jpg`, {type: 'image/jpeg'});
+        // Its words go with it: the page is then split by them, as printed, instead of by reading the picture.
+        if (words.length) pdfWords.set(file, words);
+        out.push(file);
       });
       onFiles([...photos, ...out]);
     } catch (e) {

@@ -70,7 +70,9 @@ function parseProblem(folder: string, id: string, v: unknown, key?: unknown): Ba
   };
 }
 
-const inOrder = (a: BankProblem, b: BankProblem) => (a.no ?? 1e9) - (b.no ?? 1e9) || a.at - b.at;
+// As added: page after page, each in the book's order (ids made in one go come in order). Not by number: a test's second
+// part numbered from 1 again (2.1, 2.2, … as 1, 2, …) would land among the first part's.
+const inOrder = (a: BankProblem, b: BankProblem) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /** Every folder's problems with their right answers: folder id → its problems, in the book's order (then as added). */
 export function useBankProblems(on = true) {

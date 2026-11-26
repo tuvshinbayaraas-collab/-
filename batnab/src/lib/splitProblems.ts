@@ -41,7 +41,8 @@ const real = (l: OcrLine) => l.words.filter((w) => !JUNK.test(w.text));
  */
 export function leadNumber(text: string): {n: number; sure: boolean; alt?: number} | null {
   const m = /^[^\p{L}\d]{0,4}(?:\d[.,])?(\d{1,3})\s?([.,)])/u.exec(text);
-  if (!m) return null;
+  // «(1)», «(2)»: a problem's parts, not a problem.
+  if (!m || (m[2] === ')' && m[0].includes('('))) return null;
   const sure = m[2] === '.';
   const n = Number(m[1]);
   const two = Number(m[1].slice(-2));
@@ -57,6 +58,7 @@ const LOOKALIKE: Record<string, string> = {Т: '7', T: '7', З: '3', з: '3', б
  * "Т." (for "7."), "4.18." (a speck before "18.").
  */
 function startsWith(text: string, n: number) {
+  if (/^[^\p{L}\d]{0,3}\(\s?\d{1,3}\s?\)/u.test(text)) return false;
   if (new RegExp(`^[^\\p{L}\\d]{0,4}(?:\\d[.,])?\\d?${n}(?:[\\s.,)]|$)`, 'u').test(text)) return true;
   // Its tens lost ("Т." or "7." for "17."), and only with the full stop after it.
   const m = /^[^\p{L}\d]{0,4}([\p{L}\d]{1,2})([.,)])/u.exec(text);
@@ -87,13 +89,20 @@ export function splitProblems(lines: OcrLine[], cols: {x0: number; x1: number}[]
   if (!read.length) return [];
   const width = cols.map((c) => c.x1 - c.x0);
   const tol = (c: number) => Math.max(18, width[c] * 0.05);
-  // Each column's left margin: where most of its lines start (a problem's number sits there).
+  // Each column's left margin: where most of its lines start (a problem's number sits there). When the problems' text is
+  // set in from their numbers (most lines start further right), where two or more numbers «12.» line up, left of that.
   const margin = cols.map((_, c) => {
-    const xs = read
-      .filter((l) => l.col === c)
+    const mine = read.filter((l) => l.col === c);
+    const xs = mine.map((l) => real(l)[0].bbox.x0).sort((a, b) => a - b);
+    if (!xs.length) return 0;
+    const most = xs[Math.floor(xs.length * 0.15)];
+    const nums = mine
+      .filter((l) => leadNumber(l.text)?.sure)
       .map((l) => real(l)[0].bbox.x0)
+      .filter((x) => x < most - tol(c))
       .sort((a, b) => a - b);
-    return xs.length ? xs[Math.floor(xs.length * 0.15)] : 0;
+    for (let i = 0; i + 1 < nums.length; i++) if (nums[i + 1] - nums[i] <= tol(c) / 2) return nums[i];
+    return most;
   });
   // Each line as its words, less specks out in the margin before them (the page's edge, a "+." left of "3."), and
   // its box from those (marks at the page's edge would stretch it). Reading order: column by column, top to bottom.
@@ -262,6 +271,56 @@ export function splitProblems(lines: OcrLine[], cols: {x0: number; x1: number}[]
       .join('\n');
     return {num: s.n, text: read, regions, ...(s.guessed ? {guessed: true} : {})};
   });
+}
+
+/**
+ * A PDF's printed words as lines, each in its column: words side by side (a raised power with them) make a line; a
+ * fraction's top and bottom are lines of their own, as when read by eye.
+ */
+export function wordsToLines(words: {text: string; x0: number; y0: number; x1: number; y1: number}[], colOf: (b: Box) => number): OcrLine[] {
+  const lines: {col: number; bbox: Box; words: {text: string; bbox: Box}[]}[] = [];
+  for (const w of [...words].sort((a, b) => (a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2)) {
+    const bbox = {x0: w.x0, y0: w.y0, x1: w.x1, y1: w.y1};
+    const col = colOf(bbox);
+    const h = w.y1 - w.y0;
+    // The latest line it sits on (older phones have no findLast).
+    let line: (typeof lines)[number] | undefined;
+    for (let k = lines.length - 1; k >= 0 && !line; k--) {
+      const l = lines[k];
+      if (l.col === col && Math.min(l.bbox.y1, w.y1) - Math.max(l.bbox.y0, w.y0) >= 0.5 * Math.min(h, l.bbox.y1 - l.bbox.y0)) line = l;
+    }
+    if (line) {
+      line.words.push({text: w.text, bbox});
+      line.bbox = {x0: Math.min(line.bbox.x0, w.x0), y0: Math.min(line.bbox.y0, w.y0), x1: Math.max(line.bbox.x1, w.x1), y1: Math.max(line.bbox.y1, w.y1)};
+    } else lines.push({col, bbox, words: [{text: w.text, bbox}]});
+  }
+  return lines.map((l) => {
+    const ws = l.words.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+    const h = l.bbox.y1 - l.bbox.y0;
+    // Runs printed apart in the PDF but with no space between them ("1" "." ) go together.
+    const text = ws.map((w, i) => (i && w.bbox.x0 - ws[i - 1].bbox.x1 > h * 0.15 ? ' ' : '') + w.text).join('');
+    return {col: l.col, text, bbox: l.bbox, words: ws};
+  });
+}
+
+/**
+ * The page's header and footer (a title or page number set apart at the top or bottom edge, repeated on each page) left
+ * out of the lines, and how far down the problems go (`floor`: a logo beside the footer is no part of the last one).
+ */
+export function withoutMargins(lines: OcrLine[], H: number): {lines: OcrLine[]; floor: number} {
+  if (lines.length < 3) return {lines, floor: H};
+  const h = median(lines.map((l) => l.bbox.y1 - l.bbox.y0)) || 20;
+  const inTop = (l: OcrLine) => l.bbox.y1 < H * 0.09;
+  const inBottom = (l: OcrLine) => l.bbox.y0 > H * 0.91;
+  const body = lines.filter((l) => !inTop(l) && !inBottom(l));
+  if (!body.length) return {lines, floor: H};
+  const bodyTop = Math.min(...body.map((l) => l.bbox.y0));
+  const bodyBottom = Math.max(...body.map((l) => l.bbox.y1));
+  const header = (l: OcrLine) => inTop(l) && bodyTop - l.bbox.y1 > h * 1.2 && !leadNumber(l.text);
+  const footer = (l: OcrLine) => inBottom(l) && l.bbox.y0 - bodyBottom > h * 1.2 && !leadNumber(l.text);
+  const feet = lines.filter(footer);
+  const floor = feet.length ? Math.max(bodyBottom + h * 0.3, Math.min(...feet.map((l) => l.bbox.y0)) - h * 2) : H;
+  return {lines: lines.filter((l) => !header(l) && !footer(l)), floor};
 }
 
 // ---- the page's picture: `dark[y * w + x]` is 1 where there is ink ----

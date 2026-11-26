@@ -38,14 +38,19 @@ const thumb = (page: Page, regions: Region[]) => {
   c.width = c.height = 0;
   return url;
 };
-function itemsOf(page: Page): Item[] {
-  // Nothing numbered found: the whole page as one problem, to cut by hand.
-  const all = [...page.lines]
+/** The whole page as one problem, to cut by hand (asked for on a page where no numbered problem was found). */
+function wholePage(page: Page): Item {
+  const regions = [{col: -1, x0: 0, y0: 0, x1: page.canvas.width, y1: page.canvas.height}];
+  const text = [...page.lines]
     .sort((a, b) => a.col - b.col || a.bbox.y0 - b.bbox.y0)
     .map((l) => l.text)
     .filter(Boolean)
     .join('\n');
-  const found = page.problems.length ? page.problems : [{num: 1, guessed: true, text: all, regions: [{col: -1, x0: 0, y0: 0, x1: page.canvas.width, y1: page.canvas.height}]}];
+  return {id: ids++, num: 1, guessed: true, regions, text, use: 'img', kind: 'answer', key: '', on: true, thumb: thumb(page, regions)};
+}
+function itemsOf(page: Page): Item[] {
+  // No numbered problem on the page (a title page, formulas, instructions): nothing to add, the page is passed by.
+  const found = page.problems;
   const choice = found.map((f) => hasChoices(f.text) || !!parseChoices(f.text));
   // A test's page: when most problems show А)–Д), so do the rest (choices written as formulas are not read).
   const test = choice.filter(Boolean).length >= found.length * 0.6;
@@ -245,8 +250,16 @@ export default function ProblemsDialog({
     if (d && page) edit(d.id, (it) => ({...it, thumb: thumb(page, it.regions)}));
   };
 
+  /** On to the next page (or closed after the last) without adding from this one: the agent's request counts it done. */
+  const pass = () => {
+    agent?.onPage(at);
+    if (at + 1 < count) setAt(at + 1);
+    else onClose();
+  };
   const add = async () => {
-    if (!page || !chosen.length) return;
+    // None to add from this page (none found, or all left out): on to the next.
+    if (page && !chosen.length) return pass();
+    if (!page) return;
     setAdding({done: 0, total: chosen.length});
     setError('');
     try {
@@ -400,12 +413,19 @@ export default function ProblemsDialog({
                 </div>
               </div>
             ) : (
-              <p className="mt-2 text-xs text-neutral-500">Хүрээн дээр дарж сонгоод хэмжээг нь засах, нэгтгэх, хуваах боломжтой.</p>
+              items.length > 0 && <p className="mt-2 text-xs text-neutral-500">Хүрээн дээр дарж сонгоод хэмжээг нь засах, нэгтгэх, хуваах боломжтой.</p>
             )}
           </div>
 
           <div className="min-w-0 space-y-3">
-            {page.problems.length === 0 && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">Дугаартай бодлого олдсонгүй, тиймээс бүх хуудсыг нэг бодлого болгосон. Хүрээг нь тохируулах эсвэл «Хоёр хуваах» товчоор хуваана уу.</p>}
+            {!items.length && (
+              <div className="rounded-xl bg-neutral-800/60 p-4 text-sm text-neutral-300" data-no-problems>
+                <p>Энэ хуудсанд дугаартай бодлого алга (гарчиг, томьёо, заавар байх). «{at + 1 < count ? 'Алгасаад цааш' : 'Дуусгах'}» дарж цааш явна.</p>
+                <button type="button" onClick={() => setItems([wholePage(page)])} className={`${pill} mt-3`}>
+                  <Scissors size={15} /> Энэ хуудсыг өөрөө хайчлах
+                </button>
+              </div>
+            )}
             {items.length > 1 && (dupes.size > 0 || !inOrder(items)) && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">
                 <AlertTriangle size={16} className="shrink-0" />
@@ -415,7 +435,7 @@ export default function ProblemsDialog({
                 </button>
               </div>
             )}
-            <p className="text-xs text-neutral-500">
+            <p className={`text-xs text-neutral-500 ${items.length ? '' : 'hidden'}`}>
               {agent
                 ? 'Зураггүй бодлого бичвэрээр нэмэгдэнэ (сайтын сан хэмнэнэ), зурагтай нь зургаар. Бичвэрийг зурагтай нь тулгаж шалгаарай. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.'
                 : 'Бодлого бүр зураг хэлбэрээр нэмэгдэнэ. Бичвэр хэрэгтэй бол «Бичвэр» эсвэл «Хоёулаа»-г сонгоно. Зөв хариултыг энд сонгож болно. Сонгоогүй бодлогын хариултыг та «Шалгах» хэсэгт шалгана.'}
@@ -470,7 +490,7 @@ export default function ProblemsDialog({
 
       {/* Down over the panel's bottom padding too, so the list doesn't show beneath it. */}
       <div className="sticky -bottom-[max(1.25rem,env(safe-area-inset-bottom))] -mx-5 -mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-800 bg-neutral-900 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
-        {page && (
+        {page && items.length > 0 && (
           <span className="mr-auto text-sm text-neutral-400">
             {chosen.length}/{items.length} сонгосон{answered > 0 && ` · ${answered} хариулттай`}
           </span>
@@ -478,8 +498,8 @@ export default function ProblemsDialog({
         <button onClick={close} disabled={!!adding} className="rounded-full bg-neutral-800 px-4 py-2 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50">
           Болих
         </button>
-        <button onClick={add} disabled={!page || !chosen.length || !!adding} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
-          {adding ? `Нэмж байна ${adding.done}/${adding.total}…` : `${chosen.length} бодлого нэмэх`}
+        <button onClick={add} disabled={!page || !!adding} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-black hover:bg-blue-400 disabled:opacity-50">
+          {adding ? `Нэмж байна ${adding.done}/${adding.total}…` : page && !chosen.length ? (at + 1 < count ? 'Алгасаад цааш' : 'Дуусгах') : `${chosen.length} бодлого нэмэх`}
         </button>
       </div>
       {zoom && <ZoomView url={zoom} onClose={() => setZoom(null)} />}

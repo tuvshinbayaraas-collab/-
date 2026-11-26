@@ -2,8 +2,9 @@
 // problem. The photo is turned straight and its paper made white, its columns found and read (ocr.ts), the problems
 // placed (splitProblems.ts), and each problem's part of the page cut out, so formulas and figures stay as printed.
 import {readLines} from './ocr';
+import {pdfWords} from './pdf';
 import {loadImage} from './photo';
-import {findGutter, findSkew, gutterNear, splitProblems, type FoundProblem, type OcrLine, type Region} from './splitProblems';
+import {findGutter, findSkew, gutterNear, splitProblems, withoutMargins, wordsToLines, type FoundProblem, type OcrLine, type Region} from './splitProblems';
 
 /** As sharp as reading needs and a phone handles. */
 const MAX = 2000;
@@ -140,8 +141,8 @@ export function releasePage(page: Page) {
   for (const c of [page.canvas, ...page.cols]) c.width = c.height = 0;
 }
 
-/** The photo as a page to read: no larger than reading needs, turned straight, its paper made white. */
-export async function preparePage(file: File, signal?: AbortSignal) {
+/** The photo as a page to read: no larger than reading needs, turned straight (a PDF's page is), its paper made white. */
+export async function preparePage(file: File, signal?: AbortSignal, straight = false) {
   const step = async () => {
     await breathe();
     if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
@@ -159,8 +160,8 @@ export async function preparePage(file: File, signal?: AbortSignal) {
   }
   await step();
   // Level lines read better and cut apart cleanly.
-  const m = darkMap(page);
-  const angle = Math.atan(findSkew(m.dark, m.w, m.h));
+  const m = straight ? null : darkMap(page);
+  const angle = m ? Math.atan(findSkew(m.dark, m.w, m.h)) : 0;
   if (Math.abs(angle) > 0.002) {
     const turned = rotate(page, -angle);
     page.width = page.height = 0;
@@ -214,22 +215,37 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
     await breathe();
     if (signal?.aborted) throw new DOMException('Болисон', 'AbortError');
   };
+  // A PDF made from a document has its words in it, where they are printed: no reading by eye (a scan has none).
+  const printed = pdfWords.get(file);
+  const words = printed && printed.filter((w) => /[\p{L}\d]/u.test(w.text)).length >= 8 ? printed : null;
   onProgress(0, 'Зургийг тэгшилж байна');
-  const page = await preparePage(file, signal);
+  const page = await preparePage(file, signal, !!words);
   onProgress(0.04, 'Багануудыг хайж байна');
   await step();
 
   // Two columns: each read on its own (the other one painted out), split along the gutter, a little slanted if need be.
   const W = page.width;
   const H = page.height;
-  const {ranges, cols} = columns(page);
+  const {ranges, cols, at} = columns(page);
 
-  const lines: OcrLine[] = [];
-  for (let i = 0; i < cols.length; i++) {
-    await step();
-    const read = await readLines(cols[i], (p, stage) => onProgress(0.05 + (0.93 * (i + p)) / cols.length, cols.length > 1 ? `${stage} (${i + 1}/${cols.length} багана)` : stage));
-    lines.push(...read.map((l) => ({...l, col: i})));
-  }
+  let lines: OcrLine[] = [];
+  let floor = H;
+  if (words) {
+    // The PDF's own words (the page drawn as large as it is read here, so where they are holds): the header and footer
+    // left out (the last problem then stops above them).
+    ({lines, floor} = withoutMargins(
+      wordsToLines(
+        words,
+        (b) => (at && (b.x0 + b.x1) / 2 > at((b.y0 + b.y1) / 2) ? 1 : 0),
+      ),
+      H,
+    ));
+  } else
+    for (let i = 0; i < cols.length; i++) {
+      await step();
+      const read = await readLines(cols[i], (p, stage) => onProgress(0.05 + (0.93 * (i + p)) / cols.length, cols.length > 1 ? `${stage} (${i + 1}/${cols.length} багана)` : stage));
+      lines.push(...read.map((l) => ({...l, col: i})));
+    }
   // Each column's ink per row, between where its text starts and ends (not the page's edge beside it).
   const level = inkLevel(page.getContext('2d', {willReadFrequently: true})!.getImageData(0, 0, W, H).data);
   const quantile = (xs: number[], q: number) => xs.sort((a, b) => a - b)[Math.floor((xs.length - 1) * q)];
@@ -239,8 +255,12 @@ export async function readPage(file: File, onProgress: (progress: number, stage:
     const x1 = Math.min(ranges[i].x1, mine.length ? quantile(mine.map((l) => l.bbox.x1), 0.9) + Math.round(W * 0.01) : ranges[i].x1);
     const rows: number[] = new Array(H).fill(0);
     if (x1 - x0 < 2) return rows;
-    const d = c.getContext('2d', {willReadFrequently: true})!.getImageData(x0, 0, x1 - x0, H).data;
-    for (let p = 0; p < d.length; p += 4) if (lum(d, p) < level) rows[Math.floor(p / 4 / (x1 - x0))]++;
+    const w = x1 - x0;
+    const d = c.getContext('2d', {willReadFrequently: true})!.getImageData(x0, 0, w, H).data;
+    // A rule printed down beside the problems (a third of the page long and more) is in none of them.
+    const down = new Uint32Array(w);
+    for (let p = 0; p < d.length; p += 4) if (lum(d, p) < level) down[(p / 4) % w]++;
+    for (let p = 0; p < d.length; p += 4) if (lum(d, p) < level && down[(p / 4) % w] < H * 0.3 && p / 4 / w < floor) rows[Math.floor(p / 4 / w)]++;
     return rows;
   });
   onProgress(0.99, 'Бодлогуудыг салгаж байна');
