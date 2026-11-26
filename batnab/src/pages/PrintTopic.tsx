@@ -5,7 +5,7 @@ import {Rich} from '../components/TopicParts';
 import {useLive} from '../lib/live';
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
-import {LETTER_CODES, LETTER_LABELS, problemNo, useTopicImage, useTopics, type Letter, type Problem} from '../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, lettersOf, problemNo, useTopicImage, useTopics, type Letter, type Problem} from '../lib/topics';
 import Loading from '../components/Loading';
 
 type Space = 'none' | 'small' | 'big';
@@ -162,9 +162,9 @@ function Choices({p}: {p: Problem}) {
     );
   return (
     <ul className="grid grid-cols-2 gap-x-6 gap-y-1 pt-1 text-sm sm:grid-cols-3">
-      {LETTER_CODES.map((l, j) => (
+      {lettersOf(p).map((l) => (
         <li key={l}>
-          <span className="font-semibold">{LETTER_LABELS[l]})</span> {texts[j] ? <Rich text={texts[j]!} className="inline-block" /> : null}
+          <span className="font-semibold">{LETTER_LABELS[l]})</span> <Rich text={p.choices![l]!.trim()} className="inline-block" />
         </li>
       ))}
     </ul>

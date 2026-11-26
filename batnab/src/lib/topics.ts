@@ -50,6 +50,14 @@ export const problemNo = (p: Problem, i: number) => p.no ?? i + 1;
 export const LETTER_CODES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type Letter = (typeof LETTER_CODES)[number];
 export const LETTER_LABELS: Record<Letter, string> = {A: 'А', B: 'Б', C: 'В', D: 'Г', E: 'Д'};
+/**
+ * The letters a choice problem offers: those whose choice is written (a test of four has no Д), or all five when its
+ * picture shows the choices.
+ */
+export function lettersOf(p: {choices?: Partial<Record<Letter, string>>}): readonly Letter[] {
+  const written = LETTER_CODES.filter((l) => p.choices?.[l]?.trim());
+  return written.length ? written : LETTER_CODES;
+}
 
 export interface Topic {
   id: string;

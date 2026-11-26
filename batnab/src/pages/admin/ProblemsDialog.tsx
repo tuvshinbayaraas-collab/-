@@ -52,8 +52,16 @@ function itemsOf(page: Page): Item[] {
   // As the picture: text read here comes out wrong too often (formulas above all) to be used unless picked by hand.
   // The agent's text is good: a problem with nothing drawn goes in as text, so no picture is stored for it.
   const use = (f: (typeof found)[number]): Use => (page.agent && !f.drawing && f.text.trim() ? 'text' : 'img');
-  return found.map((f, i) => ({id: ids++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: use(f), kind: choice[i] || test ? 'choice' : 'answer', key: '', on: true, thumb: thumb(page, f.regions)}));
+  // The agent says which have choices (a page of a test can have some to write the answer to): no guessing then.
+  const kind = (i: number): Problem['kind'] => (page.agent ? (choice[i] ? 'choice' : 'answer') : choice[i] || test ? 'choice' : 'answer');
+  return found.map((f, i) => ({id: ids++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: use(f), kind: kind(i), key: '', on: true, thumb: thumb(page, f.regions)}));
 }
+
+/** The choices А)–Д) written in a problem's text, by letter (none when it has none written). */
+const choicesOf = (text: string) => {
+  const parsed = parseChoices(text);
+  return parsed ? (Object.fromEntries(parsed.choices.slice(0, 5).map((c, j) => [LETTER_CODES[j], c])) as Partial<Record<Letter, string>>) : undefined;
+};
 
 /** Whether the numbers go 1 by 1 (n, n+1, …): when not, one was read or cut wrong. */
 const inOrder = (xs: Item[]) => xs.every((it, i) => i === 0 || it.num === xs[i - 1].num + 1);
@@ -428,7 +436,7 @@ export default function ProblemsDialog({
                   <img src={it.thumb} alt="" className="mx-auto max-h-48 w-auto max-w-full" />
                 </button>
                 <div className="mt-2">
-                  <AnswerPicker p={{id: '', text: '', kind: it.kind}} answer={it.key} onAnswer={(key) => edit(it.id, (x) => ({...x, key}))} onKind={(kind) => edit(it.id, (x) => (x.kind === kind ? x : {...x, kind, key: ''}))} />
+                  <AnswerPicker p={{id: '', text: '', kind: it.kind, choices: it.use === 'img' ? undefined : choicesOf(it.text)}} answer={it.key} onAnswer={(key) => edit(it.id, (x) => ({...x, key}))} onKind={(kind) => edit(it.id, (x) => (x.kind === kind ? x : {...x, kind, key: ''}))} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="flex rounded-full bg-neutral-800 p-0.5 text-xs" role="radiogroup" aria-label="Юугаар нэмэх">

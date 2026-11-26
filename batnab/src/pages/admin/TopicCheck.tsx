@@ -1,7 +1,7 @@
 import {Check, ChevronDown, MessageSquare, X} from 'lucide-react';
 import {useRef, useState} from 'react';
 import {Rich, TopicPicture, WorkPhoto} from '../../components/TopicParts';
-import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, setMarks, verdict, type Letter, type Mark, type Marks, type Problem, type Progress, type Topic} from '../../lib/topics';
+import {LETTER_LABELS, lettersOf, normalize, problemNo, setMarks, verdict, type Letter, type Mark, type Marks, type Problem, type Progress, type Topic} from '../../lib/topics';
 import type {Student} from './data';
 
 /** An answer the teacher looks at: whose, what they wrote, and how it stands. */
@@ -115,7 +115,7 @@ function ProblemCheck(props: {topic: Topic; p: Problem; no: number; entries: Ent
             <div className="mt-3">
               <p className="text-xs text-neutral-400">{keyed ? 'Зөв хариулт:' : 'Зөв хариултыг сонговол бүх хариулт өөрөө шалгагдана:'}</p>
               <div className="mt-1 flex gap-1.5">
-                {LETTER_CODES.map((l) => (
+                {lettersOf(p).map((l) => (
                   <button
                     key={l}
                     type="button"

@@ -4,7 +4,7 @@ import AskButton from './Ask';
 import ReportButton from './ReportMistake';
 import {useDbConnected} from '../lib/connection';
 import {auth} from '../lib/firebase';
-import {answer, answerRound, LETTER_CODES, LETTER_LABELS, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
+import {answer, answerRound, LETTER_LABELS, lettersOf, normalize, readKey, sendWork, useTopicImage, useWork, verdict, type Letter, type Mark, type Problem} from '../lib/topics';
 import VideoEmbed from './VideoEmbed';
 import MathText from './MathText';
 import HelpLadder from './HelpLadder';
@@ -359,7 +359,7 @@ export function ProblemView(props: {
         <form onSubmit={check} className="mt-4">
           {p.kind === 'choice' ? (
             <div className="flex flex-wrap gap-2">
-              {LETTER_CODES.map((l) => {
+              {lettersOf(p).map((l) => {
                 const text = p.choices?.[l];
                 const picked = (done ? outcome.a : pick) === l;
                 const right = done && outcome.key === l;

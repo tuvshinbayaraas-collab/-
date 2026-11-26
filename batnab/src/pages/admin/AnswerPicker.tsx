@@ -1,5 +1,5 @@
 import {Check} from 'lucide-react';
-import {LETTER_CODES, LETTER_LABELS, normalize, type Problem} from '../../lib/topics';
+import {LETTER_LABELS, lettersOf, normalize, type Problem} from '../../lib/topics';
 import {field} from './MathField';
 
 /** The right answer: the А–Д letters (a second tap clears it) or the written answer; and which of the two it is. */
@@ -8,7 +8,7 @@ export default function AnswerPicker({p, answer, onAnswer, onKind}: {p: Problem;
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       {p.kind === 'choice' ? (
         <div className="flex gap-1.5" role="group" aria-label="Зөв хариулт">
-          {LETTER_CODES.map((l) => (
+          {lettersOf(p).map((l) => (
             <button
               key={l}
               type="button"

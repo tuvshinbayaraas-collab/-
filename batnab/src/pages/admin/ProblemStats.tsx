@@ -2,7 +2,7 @@ import {AlertTriangle, ChevronDown} from 'lucide-react';
 import {useState} from 'react';
 import {Rich, TopicPicture} from '../../components/TopicParts';
 import {Link} from '../../lib/router';
-import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, type Letter, type Problem, type Topic} from '../../lib/topics';
+import {LETTER_LABELS, lettersOf, normalize, problemNo, type Letter, type Problem, type Topic} from '../../lib/topics';
 import type {Student} from './data';
 
 /** One student's first answer to one problem and how it went (null: the teacher hasn't checked it). */
@@ -143,7 +143,7 @@ function Detail({topic, x, keyed, judged}: {topic: Topic; x: ProblemStat; keyed?
       </p>
       {p.kind === 'choice' && x.answers.length > 0 && (
         <div className="space-y-1">
-          {LETTER_CODES.map((l) => {
+          {lettersOf(p).map((l) => {
             const n = x.answers.filter((a) => a.a === l).length;
             const right = keyed === l;
             return (

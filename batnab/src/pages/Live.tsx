@@ -37,7 +37,7 @@ import {
 import {Link} from '../lib/router';
 import {useSession} from '../lib/session';
 import {useNow} from '../lib/time';
-import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, useTopics, type Letter} from '../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, lettersOf, normalize, problemNo, useTopics, type Letter} from '../lib/topics';
 import Loading from '../components/Loading';
 
 /** /live: the teacher runs the quiz (on the board), a student plays it on their phone. */
@@ -476,7 +476,7 @@ function Choices({q, keyed, counts, big, picked, onPick, disabled}: {q: LiveQues
   const total = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3">
-      {LETTER_CODES.map((l) => {
+      {lettersOf(q).map((l) => {
         const text = q.choices?.[l];
         const right = keyed === l;
         const dim = keyed !== undefined && !right;

@@ -299,6 +299,21 @@ export interface AgentFound {
   choices?: Partial<Record<'A' | 'B' | 'C' | 'D' | 'E', string>>;
 }
 const MARK_OF = {A: 'А', B: 'Б', C: 'В', D: 'Г', E: 'Д'} as const;
+/**
+ * A problem's parts a., b., c. (or а., б., в.), which the book prints each on its own line, run together into one line
+ * by the agent: on their own lines again. Only when they come in order from a. (a lone «a.» may be anything).
+ */
+function partLines(text: string) {
+  for (const marks of ['abcde', 'абвгд']) {
+    const at = (m: string) => text.search(new RegExp(`(^|\\s)${m}\\.\\s`));
+    const a = at(marks[0]);
+    const b = at(marks[1]);
+    if (a < 0 || b < 0 || b < a) continue;
+    return text.replace(new RegExp(`[ \\t]+(?=[${marks}]\\.\\s)`, 'g'), '\n');
+  }
+  return text;
+}
+
 /** Where the agent marks something drawn in a problem («[зураг]»). */
 const DRAWING = /\[\s*зураг\s*\]/i;
 const DRAWINGS = /\s*\[\s*зураг\s*\]\s*/gi;
@@ -549,7 +564,7 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
     const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => plain(f.choices?.[k])).map((k) => `${MARK_OF[k]}) ${plain(f.choices![k])}`);
     const parts = f.boxes.map((_, bi) => regions.get(`${pi}/${bi}`)!);
     const marked = DRAWING.test(f.text) || Object.values(f.choices ?? {}).some((c) => DRAWING.test(c ?? ''));
-    const text = [plain(f.text), choices.join('  ')].filter(Boolean).join('\n');
+    const text = [partLines(plain(f.text)), choices.join('  ')].filter(Boolean).join('\n');
     return {num: f.num, text, regions: parts, drawing: marked || parts.some(drawn)};
   });
   return {canvas: c, cols, rowInk: fit.map((f) => f.rows), lines: [], problems, agent: true};

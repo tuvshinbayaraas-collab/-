@@ -19,7 +19,9 @@ first column, then down the second; page by page):
 - `text`: what the problem asks, as printed, in Mongolian, without its number and without its choices. Write every
   formula in LaTeX between `$…$` (for example `$\frac{x+1}{2}$`, `$\sqrt{3}$`, `$x^2$`). If it has a drawing (a figure,
   a graph, a table, a picture), write the words around it and put `[зураг]` where the drawing is: such a problem is
-  kept as a picture, every other one as your text, so do not leave the mark out.
+  kept as a picture, every other one as your text, so do not leave the mark out. Where the book starts a new line
+  for a part of the problem (its parts a., b., c. or 2.1, 2.2, a «Бодолт:», each line of a worked solution), start a
+  new line too (`\n`).
 - `choices`: when it has choices А)–Д), their texts under the keys A (А), B (Б), C (В), D (Г), E (Д), formulas in `$…$`.
   Leave it out when there are none, and when the choices are drawings (then `[зураг]` in the text).
 
