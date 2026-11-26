@@ -19,6 +19,7 @@ const NODES: [string, number][] = [
   ['topicImages', 2],
   ['bankFolders', 1],
   ['bankProblems', 2],
+  ['bankKeys', 2],
   ['bankImages', 1],
   ['topicKeys', 2],
   ['topicProgress', 3],
@@ -46,6 +47,7 @@ const NODES: [string, number][] = [
   ['pollIdeas', 0],
   ['pollPicks', 0],
   ['classWork', 0],
+  ['bankAnswers', 0],
   ['classRoster', 0],
   ['classNudges', 0],
   ['classReminders', 0],
@@ -66,7 +68,7 @@ const NODES: [string, number][] = [
 /** What can be put back, in the parts the teacher picks from. */
 export const PARTS = [
   {id: 'topics', label: 'Сэдвүүд', sub: 'хичээл, бодлого, зураг, зөв хариулт', nodes: ['topics', 'topicImages', 'topicKeys']},
-  {id: 'bank', label: 'Бодлогын сан', sub: 'хавтас, бодлого, зураг', nodes: ['bankFolders', 'bankProblems', 'bankImages']},
+  {id: 'bank', label: 'Бодлогын сан', sub: 'хавтас, бодлого, зураг, зөв хариулт', nodes: ['bankFolders', 'bankProblems', 'bankKeys', 'bankImages']},
   {id: 'classes', label: 'Ангиуд', sub: '', nodes: ['classes']},
   {id: 'users', label: 'Сурагчдын бүртгэл', sub: 'нэр, анги (нэвтрэх нууц үг биш)', nodes: ['users']},
   {id: 'work', label: 'Сурагчдын хариулт, дүн', sub: 'тест, сэдэв, багшийн шалгалт, түүх, медаль', nodes: ['results', 'history', 'topicProgress', 'topicMarks', 'topicWork', 'topicRounds', 'medals', 'gameMedals', 'gameRounds']},
@@ -180,15 +182,24 @@ export async function restoreBackup(b: Backup, parts: PartId[], onStep?: (done: 
       if (b.data[node] === undefined) continue;
       for (const [path, raw] of records(node, b.data[node], depth)) {
         // A topic put back goes without its save stamps (they'd be refused over a later save; editors take it in).
-        const v = node === 'users' ? fitUser(raw, classes, photosNow !== false) : node === 'topics' ? withoutStamp(raw) : raw;
-        const n = JSON.stringify(v ?? null).length + path.length;
-        if (size && size + n > LIMIT) {
-          jobs.push({part, batch: cur});
-          cur = {};
-          size = 0;
+        let v = node === 'users' ? fitUser(raw, classes, photosNow !== false) : node === 'topics' ? withoutStamp(raw) : raw;
+        // A bank problem from an older file still carries its right answer: that goes to bankKeys (out of students' reach).
+        const extra: [string, unknown][] = [];
+        if (node === 'bankProblems' && v && typeof v === 'object' && 'key' in (v as object)) {
+          const {key, ...rest} = v as Record<string, unknown>;
+          v = rest;
+          if (typeof key === 'string' && key) extra.push([path.replace(/^bankProblems\//, 'bankKeys/'), key]);
         }
-        cur[path] = v;
-        size += n;
+        for (const [p, x] of [[path, v] as [string, unknown], ...extra]) {
+          const n = JSON.stringify(x ?? null).length + p.length;
+          if (size && size + n > LIMIT) {
+            jobs.push({part, batch: cur});
+            cur = {};
+            size = 0;
+          }
+          cur[p] = x;
+          size += n;
+        }
       }
     }
     if (size) jobs.push({part, batch: cur});

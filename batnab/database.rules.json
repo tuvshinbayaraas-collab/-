@@ -1539,7 +1539,7 @@
       }
     },
     "bankFolders": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && query.orderByChild === 'published' && query.equalTo === true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$fid": {
         ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['name', 'parent', 'at'])",
@@ -1552,10 +1552,16 @@
         "at": {
           ".validate": "newData.isNumber()"
         },
+        "published": {
+          ".validate": "newData.val() === true"
+        },
         "$other": {
           ".validate": false
         }
-      }
+      },
+      ".indexOn": [
+        "published"
+      ]
     },
     "bankProblems": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
@@ -1579,7 +1585,7 @@
             }
           },
           "key": {
-            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+            ".validate": false
           },
           "no": {
             ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 9999"
@@ -1590,14 +1596,49 @@
           "$other": {
             ".validate": false
           }
-        }
+        },
+        ".read": "auth != null && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('bankFolders').child($fid).child('published').val() === true"
       }
     },
     "bankImages": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true))",
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$iid": {
         ".validate": "$iid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 500000"
+      }
+    },
+    "bankKeys": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$fid": {
+        ".validate": "$fid.matches(/^[A-Za-z0-9_-]{1,40}$/)",
+        "$pid": {
+          ".read": "auth != null && root.child('bankAnswers').child(auth.uid).child($pid).child('fid').val() === $fid",
+          ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+        }
+      }
+    },
+    "bankAnswers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$pid": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('users').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('bankFolders').child(newData.child('fid').val()).child('published').val() === true && root.child('bankProblems').child(newData.child('fid').val()).child($pid).exists()",
+          ".validate": "$pid.matches(/^[A-Za-z0-9_-]{1,40}$/) && newData.hasChildren(['a', 'at', 'fid'])",
+          "a": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 300"
+          },
+          "at": {
+            ".validate": "newData.val() === now || ((auth != null && root.child('admins').child(auth.uid).val() === true) && newData.isNumber())"
+          },
+          "fid": {
+            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,40}$/)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
       }
     },
     "agentTasks": {

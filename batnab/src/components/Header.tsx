@@ -1,4 +1,4 @@
-import {BookOpen, BookOpenCheck, CircleHelp, Download, Flame, Gamepad2, GraduationCap, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
+import {BookOpen, BookOpenCheck, CircleHelp, Download, Flame, Gamepad2, GraduationCap, Library, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
 import {lazy, Suspense, useState, type ReactNode} from 'react';
 import {useLearnIndex} from '../lib/learn';
 import {Link, useLocation} from '../lib/router';
@@ -56,6 +56,7 @@ export default function Header() {
       ? [
           ['/', 'Нүүр'],
           ['/topics', 'Сэдвүүд'],
+          ['/bank', 'Бодлогын сан'],
           ...(learn ? ([['/learn', 'Сурах']] as [string, string][]) : []),
           ['/daily', 'Өдрийн дасгал'],
           ['/results', 'Миний дүн'],
@@ -118,6 +119,7 @@ export default function Header() {
                         <>
                           {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
                           {item('/topics', <BookOpen size={20} />, 'Сэдвүүд')}
+                          {item('/bank', <Library size={20} />, 'Бодлогын сан')}
                           {learn && item('/learn', <BookOpenCheck size={20} />, 'Сурах')}
                           {item('/live', <Zap size={20} />, 'Шууд тэмцээн')}
                           {!admin && item('/daily', <Flame size={20} />, 'Өдрийн дасгал')}

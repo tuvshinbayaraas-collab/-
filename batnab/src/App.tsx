@@ -44,6 +44,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const People = lazy(() => import('./pages/People'));
 const Topics = lazy(() => import('./pages/Topics'));
+const Bank = lazy(() => import('./pages/Bank'));
 const TopicView = lazy(() => import('./pages/TopicView'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Daily = lazy(() => import('./pages/Daily'));
@@ -100,6 +101,7 @@ export default function App() {
   else if (parts[0] === 'u' && parts.length === 2) page = <PublicProfile uid={parts[1]} />;
   else if (path === '/people') page = <People />;
   else if (path === '/topics') page = <Topics />;
+  else if (path === '/bank') page = <Bank />;
   else if (path === '/mistakes') page = <Mistakes />;
   else if (path === '/daily') page = <Daily />;
   else if (path === '/questions') page = <Questions />;
