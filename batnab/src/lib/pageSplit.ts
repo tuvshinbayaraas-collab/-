@@ -388,6 +388,23 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
       x0 = Math.max(x0, Math.round(Math.min(...theirs.map((b) => b.x0)) - W * 0.03));
       x1 = Math.min(x1, Math.round(Math.max(...theirs.map((b) => b.x1)) + W * 0.03));
     }
+    // Not the rule down the gutter or the page's dark edge (ink down most of the page, though faint, broken and a little
+    // slanted in a photo: looked for a few pixels wide), in the margin beside the print: past it.
+    const faint = Math.max(level, 180);
+    const stroke = (x: number) => {
+      let n = 0;
+      for (let y = 0; y < H; y += 2)
+        for (let dx = -2; dx <= 2; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < W && side(xx, y) === i && lum(all, (y * W + xx) * 4) < faint) {
+            n++;
+            break;
+          }
+        }
+      return n * 2 > H * 0.45;
+    };
+    for (let x = x0; x < Math.min(x1, x0 + pad * 3); x++) if (stroke(x)) x0 = x + 2;
+    for (let x = x1 - 1; x >= Math.max(x0, x1 - pad * 3); x--) if (stroke(x)) x1 = x - 1;
     const rows = new Array<number>(H).fill(0);
     for (let y = 0; y < H; y++) for (let x = x0; x < x1; x++) if (print[y * W + x] && side(x, y) === i) rows[y]++;
     const lines: {s: number; e: number; left: number}[] = [];
@@ -553,7 +570,8 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
       const w = (bx - ax + 1) * step;
       // A lone upright stroke is the rule between the columns (or a bar), not a drawing.
       if (w <= step * 2) continue;
-      if (h > lineH * 3 || (h > lineH * 2 && w > lineH * 3)) return true;
+      // Tall and thin (a system's brace, a bracket, an integral sign) is print, not a drawing.
+      if ((h > lineH * 3 && w > lineH * 1.5) || (h > lineH * 2 && w > lineH * 3)) return true;
     }
     return false;
   };
@@ -561,11 +579,13 @@ export async function agentPage(url: string, found: AgentFound[]): Promise<Page>
   // The agent marks a drawing «[зураг]» where it is (agents/split.md); seen here too, for what it may miss.
   const problems: FoundProblem[] = found.map((f, pi) => {
     const plain = (v?: string) => (v ?? '').replace(DRAWINGS, ' ').replace(/[ \t]{2,}/g, ' ').trim();
-    const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => plain(f.choices?.[k])).map((k) => `${MARK_OF[k]}) ${plain(f.choices![k])}`);
+    // A bare number among formula choices ("6,4" beside "$-0,4$") typeset as math too, so they look alike.
+    const num = (v: string) => (/^[-−]?\d+(?:[.,]\d+)?$/.test(v) ? '$' + v.replace('−', '-') + '$' : v);
+    const choices = (Object.keys(MARK_OF) as (keyof typeof MARK_OF)[]).filter((k) => plain(f.choices?.[k])).map((k) => `${MARK_OF[k]}) ${num(plain(f.choices![k]))}`);
     const parts = f.boxes.map((_, bi) => regions.get(`${pi}/${bi}`)!);
     const marked = DRAWING.test(f.text) || Object.values(f.choices ?? {}).some((c) => DRAWING.test(c ?? ''));
     const text = [partLines(plain(f.text)), choices.join('  ')].filter(Boolean).join('\n');
-    return {num: f.num, text, regions: parts, drawing: marked || parts.some(drawn)};
+    return {num: f.num, text, regions: parts, drawing: marked || parts.some(drawn), choice: Object.values(f.choices ?? {}).some((c) => !!c?.trim())};
   });
   return {canvas: c, cols, rowInk: fit.map((f) => f.rows), lines: [], problems, agent: true};
 }

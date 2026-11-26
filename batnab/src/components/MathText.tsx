@@ -5,8 +5,16 @@ import {useMemo} from 'react';
 // "\$" is a dollar sign, not the start or end of math: kept aside while the text is cut.
 const DOLLAR = '\u0000';
 
-/** Text with inline math between $…$ ("\$" for a dollar sign), typeset with KaTeX; `display` sets fractions full size. */
-export default function MathText({text, className, display}: {text: string; className?: string; display?: boolean}) {
+/** Math that is hard to read small (a fraction, a limit, a sum, an integral, a system, a matrix): full size in text. */
+const TALL = /\\(d?frac|lim|sum|int|iint|prod|binom|begin\{(cases|[pbvBV]?matrix|array)\})/;
+/** A comma between digits is the decimal mark ("3,1"): no space after it, as KaTeX puts after a list's comma ("3, 1"). */
+const decimals = (tex: string) => tex.replace(/(\d),(?=\d)/g, '$1{,}');
+
+/**
+ * Text with inline math between $…$ ("\$" for a dollar sign), typeset with KaTeX; `display` sets fractions full size
+ * ('tall': only the math that is hard to read small).
+ */
+export default function MathText({text, className, display}: {text: string; className?: string; display?: boolean | 'tall'}) {
   const html = useMemo(() => {
     const parts = text
       .replace(/\u0000/g, '')
@@ -25,7 +33,8 @@ export default function MathText({text, className, display}: {text: string; clas
         html += plain(part);
         continue;
       }
-      const math = katex.renderToString((display ? '\\displaystyle ' : '') + part.slice(1, -1).split(DOLLAR).join('\\$'), {throwOnError: false});
+      const tex = decimals(part.slice(1, -1).split(DOLLAR).join('\\$'));
+      const math = katex.renderToString((display === true || (display === 'tall' && TALL.test(tex)) ? '\\displaystyle ' : '') + tex, {throwOnError: false});
       // A Mongolian ending on short math ("$x$-ийг", "$0$-ээс") stays on its line (a long formula may still wrap).
       const suffix = part.length <= 14 ? /^-\p{L}+/u.exec(parts[i + 1] ?? '') : null;
       if (suffix) {

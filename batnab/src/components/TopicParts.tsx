@@ -18,7 +18,7 @@ export function Rich({text, className = ''}: {text: string; className?: string})
       {text.split(/\n/).map((line, i) =>
         line.trim() ? (
           <p key={i}>
-            <MathText text={line} />
+            <MathText text={line} display="tall" />
           </p>
         ) : (
           <div key={i} className="h-1" />

@@ -53,7 +53,9 @@ function itemsOf(page: Page): Item[] {
   // The agent's text is good: a problem with nothing drawn goes in as text, so no picture is stored for it.
   const use = (f: (typeof found)[number]): Use => (page.agent && !f.drawing && f.text.trim() ? 'text' : 'img');
   // The agent says which have choices (a page of a test can have some to write the answer to): no guessing then.
-  const kind = (i: number): Problem['kind'] => (page.agent ? (choice[i] ? 'choice' : 'answer') : choice[i] || test ? 'choice' : 'answer');
+  // (A drawing with no choices read, on a page of a test: its choices are drawn, as graphs to pick from.)
+  const kind = (i: number): Problem['kind'] =>
+    page.agent ? (found[i].choice || choice[i] || (found[i].drawing && test) ? 'choice' : 'answer') : choice[i] || test ? 'choice' : 'answer';
   return found.map((f, i) => ({id: ids++, num: f.num, guessed: f.guessed, regions: f.regions, text: f.text, use: use(f), kind: kind(i), key: '', on: true, thumb: thumb(page, f.regions)}));
 }
 
@@ -260,9 +262,10 @@ export default function ProblemsDialog({
         }
         let text = it.use === 'img' ? '' : it.text.trim();
         let choices: Partial<Record<Letter, string>> | undefined;
-        const parsed = it.use !== 'img' && it.kind === 'choice' ? parseChoices(text) : null;
+        // A picture from the agent keeps the choices it read, on the buttons (the picture shows them too).
+        const parsed = it.kind === 'choice' && (it.use !== 'img' || page.agent) ? parseChoices(it.text.trim()) : null;
         if (parsed) {
-          text = parsed.stem;
+          if (it.use !== 'img') text = parsed.stem;
           choices = Object.fromEntries(parsed.choices.slice(0, 5).map((c, j) => [LETTER_CODES[j], c.slice(0, 200)]));
         }
         const id = newId();

@@ -27,6 +27,8 @@ export interface FoundProblem {
   regions: Region[];
   /** It has something drawn (a graph, a figure, a table): kept as a picture. Known only for the agent's pages. */
   drawing?: boolean;
+  /** It has choices А)–Д), as the agent read it (drawn ones too). Known only for the agent's pages. */
+  choice?: boolean;
 }
 
 /** A "word" that is only marks: the page edge's shadow, the column rule, specks. */
