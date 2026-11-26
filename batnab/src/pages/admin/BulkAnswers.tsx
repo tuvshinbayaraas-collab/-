@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import Sheet from '../../components/Sheet';
-import {LETTER_CODES, LETTER_LABELS, normalize, problemNo, type Letter, type Problem} from '../../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, normalize, problemNos, type Letter, type Problem} from '../../lib/topics';
 import {field} from './MathField';
 
 const LETTERS = 'АБВГД';
@@ -31,7 +31,7 @@ export function parseAnswers(text: string, problems: Problem[]) {
     } else if (letter && !/^[a-e]$/i.test(v)) wrong.push(`${label}: хариулт бичих бодлого («${v}»)`);
     else found[p.id] = normalize(v);
   };
-  const nos = problems.map((p, i) => problemNo(p, i));
+  const nos = problemNos(problems);
   // "12. В", "12В", "12) 2,5", "12-3": a number, then its answer (a number with a decimal comma kept whole). "3 -2"
   // is two answers, the second negative.
   const numbered = [...text.matchAll(/(\d{1,4})(?:(?:\s*[.):]|[–-])\s*(-?\d+(?:[.,]\d+)?(?=[\s,;]|$)|[^\s,;]+)|\s*([АБВГДабвгдA-Ea-e])(?!\p{L}))/gu)];
@@ -112,7 +112,7 @@ export default function BulkAnswers({problems, answers, onApply, onClose}: {prob
           <div className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1.5">
             {problems.map((p, i) => (
               <div key={p.id} className={`rounded-lg px-2 py-1.5 text-center text-sm ${found[p.id] ? 'bg-green-500/15 text-green-200 ring-1 ring-green-500/40' : 'bg-neutral-800/60 text-neutral-400'}`}>
-                <span className="block text-[10px] text-neutral-500">{problemNo(p, i)}</span>
+                <span className="block text-[10px] text-neutral-500">{problemNos(problems)[i]}</span>
                 <span className="font-semibold">{shown(p)}</span>
               </div>
             ))}

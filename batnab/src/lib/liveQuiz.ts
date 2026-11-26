@@ -15,7 +15,7 @@ import {useEffect, useState} from 'react';
 import {auth, db} from './firebase';
 import {useLive, useSignIns} from './live';
 import {serverNow} from './time';
-import {readKey, verdict, type Letter, type Problem, type Topic} from './topics';
+import {problemNo, readKey, verdict, type Letter, type Problem, type Topic} from './topics';
 
 export type LiveState = 'lobby' | 'q' | 'reveal' | 'done';
 
@@ -196,7 +196,7 @@ async function questionOf(t: Topic, pid: string): Promise<LiveQuestion> {
   if (!p) throw new Error('Энэ бодлого сэдвээс устгагдсан байна. Дараагийнх руу шилжинэ үү.');
   const img = p.img ? await get(ref(db, `topicImages/${t.id}/${p.img}`)).then((s) => (typeof s.val() === 'string' ? (s.val() as string) : null)) : null;
   const choices = p.kind === 'choice' && p.choices ? Object.fromEntries(Object.entries(p.choices).filter(([, c]) => c?.trim())) : null;
-  return {no: p.no ?? i + 1, text: p.text, ...(img ? {img} : {}), kind: p.kind, ...(choices && Object.keys(choices).length ? {choices} : {})};
+  return {no: problemNo(t.problems, i), text: p.text, ...(img ? {img} : {}), kind: p.kind, ...(choices && Object.keys(choices).length ? {choices} : {})};
 }
 
 /** A new quiz, waiting for the students to join (the last one's players, answers and scores cleared). */

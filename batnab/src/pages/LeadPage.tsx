@@ -771,7 +771,7 @@ function Reports({uid, cls}: {uid: string; cls: string}) {
   const test = kind === 'test' ? TESTS.find((t) => t.id === ref) : undefined;
   const count = test?.count ?? topic?.problems.length ?? 0;
   // The problem picked, by its number: a test's by its place, a topic's by its own number.
-  const numberOf = (i: number) => (topic ? problemNo(topic.problems[i], i) : i + 1);
+  const numberOf = (i: number) => (topic ? problemNo(topic.problems, i) : i + 1);
   const label = n ? `${test?.title ?? topic?.title} · ${numberOf(n - 1)}-р бодлого` : '';
   const ctx = n ? (test ? {s: 't' as const, t: test.id, q: String(n - 1)} : topic ? {s: 'p' as const, t: topic.id, q: topic.problems[n - 1].id} : null) : null;
   const text = reportText(reason, words);

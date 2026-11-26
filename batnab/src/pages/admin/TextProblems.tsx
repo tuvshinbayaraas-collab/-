@@ -4,7 +4,7 @@ import Sheet from '../../components/Sheet';
 import MathText from '../../components/MathText';
 import {Rich} from '../../components/TopicParts';
 import {parseProblems, problemWarnings, type TextProblem} from '../../lib/problemText';
-import {LETTER_CODES, LETTER_LABELS, problemNo, type Problem} from '../../lib/topics';
+import {LETTER_CODES, LETTER_LABELS, problemNos, type Problem} from '../../lib/topics';
 import {field} from './MathField';
 
 export interface TextImport {
@@ -33,7 +33,7 @@ export default function TextProblems({problems, onApply, onClose}: {problems: Pr
   const [dropPictures, setDropPictures] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const parsed = parseProblems(text);
-  const have = new Set(problems.map((p, i) => problemNo(p, i)));
+  const have = new Set(problemNos(problems));
   const filling = replace ? parsed.filter((p) => have.has(p.no)).length : 0;
   const seen = new Map<number, number>();
   for (const p of parsed) seen.set(p.no, (seen.get(p.no) ?? 0) + 1);
@@ -130,7 +130,7 @@ export default function TextProblems({problems, onApply, onClose}: {problems: Pr
 /** The topic's problems with `x` put in (see TextProblems); new ones get ids from `newId`. */
 export function applyText(problems: Problem[], x: TextImport, newId: () => string): Problem[] {
   const out = problems.map((p) => ({...p}));
-  const at = new Map(out.map((p, i) => [problemNo(p, i), i]));
+  const at = new Map(problemNos(out).map((n, i) => [n, i]));
   for (const q of x.problems) {
     const i = x.replace ? at.get(q.no) : undefined;
     if (i === undefined) {

@@ -7,7 +7,7 @@ import Loading from '../components/Loading';
 import {answerBank, bankKey, useBankAnswers, useBankImage, useFolderProblems, usePublishedFolders, within, type BankAnswer, type BankFolder, type BankProblem} from '../lib/bank';
 import {navigate, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
-import {LETTER_LABELS, lettersOf, verdict, type Letter} from '../lib/topics';
+import {LETTER_LABELS, lettersOf, problemNos, verdict, type Letter} from '../lib/topics';
 import {BankPath, FolderButton} from './admin/BankParts';
 
 /** Problems shown at once (a big folder is shown in parts, its pictures loaded as they come). */
@@ -79,6 +79,7 @@ function FolderProblems({folder, uid, answers}: {folder: BankFolder; uid: string
   if (!list) return <Loading small />;
   if (!list.length) return <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">Энэ хавтсанд бодлого алга.</p>;
   const done = list.filter((p) => answers[p.id]).length;
+  const nos = problemNos(list);
   return (
     <section className="space-y-3" aria-label="Бодлогууд">
       <p className="text-sm text-neutral-400" data-bank-progress>
@@ -86,7 +87,7 @@ function FolderProblems({folder, uid, answers}: {folder: BankFolder; uid: string
       </p>
       <ol className="space-y-3">
         {list.slice(0, shown).map((p, i) => (
-          <BankCard key={p.id} p={p} num={p.no ?? i + 1} uid={uid} answer={answers[p.id]} />
+          <BankCard key={p.id} p={p} num={nos[i]} uid={uid} answer={answers[p.id]} />
         ))}
       </ol>
       {list.length > shown && (

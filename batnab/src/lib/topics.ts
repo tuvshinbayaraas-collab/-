@@ -44,8 +44,19 @@ export interface Problem {
   no?: number;
 }
 
-/** The number a problem goes by: the book's, or its place in the topic. */
-export const problemNo = (p: Problem, i: number) => p.no ?? i + 1;
+/**
+ * The numbers problems go by, in their order: always one after another, none twice, none going back. The book's own
+ * («18.», read off its page or typed) when the whole list's run on like that (12, 13, 14…; one with no number of its
+ * own goes on from the one before); otherwise 1, 2, 3… (a test's second part numbered from 1 again, a page added twice,
+ * a problem moved or taken out).
+ */
+export function problemNos(ps: readonly {no?: number}[]): number[] {
+  const first = ps[0]?.no;
+  const run = typeof first === 'number' && ps.every((p, i) => p.no === undefined || p.no === first + i);
+  return ps.map((_, i) => (run ? first + i : i + 1));
+}
+/** The number the `i`-th of `ps` goes by (see problemNos). */
+export const problemNo = (ps: readonly {no?: number}[], i: number) => problemNos(ps)[i] ?? i + 1;
 
 export const LETTER_CODES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type Letter = (typeof LETTER_CODES)[number];

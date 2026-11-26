@@ -4,14 +4,14 @@ import {pathTo, useBankImage, type BankFolder, type BankProblem} from '../../lib
 import {LETTER_CODES, LETTER_LABELS} from '../../lib/topics';
 
 /** A bank problem as a card shows it: its number, picture or text, choices, and right answer. */
-export function BankProblemView({p, compact}: {p: BankProblem; compact?: boolean}) {
+export function BankProblemView({p, no, compact}: {p: BankProblem; no: number; compact?: boolean}) {
   const url = useBankImage(p.img);
   const key = p.key ? (p.kind === 'choice' ? (LETTER_LABELS[p.key as keyof typeof LETTER_LABELS] ?? p.key) : p.key) : null;
   return (
     <div className="min-w-0 space-y-2">
       {p.img &&
         (url ? (
-          <img src={url} alt={`${p.no ?? ''}-р бодлогын зураг`.trim()} className={`w-full rounded-lg bg-white object-contain ${compact ? 'max-h-40' : 'max-h-72'}`} />
+          <img src={url} alt={`${no}-р бодлогын зураг`} className={`w-full rounded-lg bg-white object-contain ${compact ? 'max-h-40' : 'max-h-72'}`} />
         ) : (
           <div className="h-24 animate-pulse rounded-lg bg-neutral-800" />
         ))}

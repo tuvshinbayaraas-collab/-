@@ -106,7 +106,7 @@ export default function PrintTopic({id}: {id: string}) {
           {t.problems.map((p, i) => (
             <li key={p.id} className="mb-6 break-inside-avoid">
               <div className="flex gap-2">
-                <span className="shrink-0 font-bold">{problemNo(p, i)}.</span>
+                <span className="shrink-0 font-bold">{problemNo(t.problems, i)}.</span>
                 <div className="min-w-0 flex-1 space-y-2">
                   {p.text && <Rich text={p.text} />}
                   {p.img && <Picture tid={t.id} iid={p.img} onState={track} />}
@@ -127,7 +127,7 @@ export default function PrintTopic({id}: {id: string}) {
                 const shown = k ? (p.kind === 'choice' ? (LETTER_LABELS[k as Letter] ?? k) : k) : '—';
                 return (
                   <li key={p.id} className="break-inside-avoid text-sm">
-                    <span className="font-semibold">{problemNo(p, i)}.</span> {shown}
+                    <span className="font-semibold">{problemNo(t.problems, i)}.</span> {shown}
                     {solutions && (p.sol || p.solImg) && (
                       <div className="mt-1 space-y-1 pl-5">
                         {p.sol && <Rich text={p.sol} className="text-sm" />}

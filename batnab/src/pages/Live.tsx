@@ -168,7 +168,7 @@ function Setup() {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {problems.map((p) => {
                   const on = !off.has(p.id);
-                  const no = problemNo(p, t.problems.indexOf(p));
+                  const no = problemNo(t.problems, t.problems.indexOf(p));
                   return (
                     <button
                       key={p.id}

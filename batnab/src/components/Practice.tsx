@@ -54,7 +54,7 @@ export function mistakeLabel(m: {s: 'p' | 't'; t: string; q: string}, topics: To
   if (m.s === 't') return `${testInfo(m.t)?.title ?? m.t} · ${Number(m.q) + 1}-р бодлого`;
   const t = topics?.find((x) => x.id === m.t);
   const i = t?.problems.findIndex((p) => p.id === m.q) ?? -1;
-  return t && i >= 0 ? `${t.title} · ${problemNo(t.problems[i], i)}-р бодлого` : 'Сэдвийн бодлого';
+  return t && i >= 0 ? `${t.title} · ${problemNo(t.problems, i)}-р бодлого` : 'Сэдвийн бодлого';
 }
 
 /** What a notebook problem is on, to group and filter by: a test question's topic, or the teacher's topic. */

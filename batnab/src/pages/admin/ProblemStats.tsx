@@ -2,7 +2,7 @@ import {AlertTriangle, ChevronDown} from 'lucide-react';
 import {useState} from 'react';
 import {Rich, TopicPicture} from '../../components/TopicParts';
 import {Link} from '../../lib/router';
-import {LETTER_LABELS, lettersOf, normalize, problemNo, type Letter, type Problem, type Topic} from '../../lib/topics';
+import {LETTER_LABELS, lettersOf, normalize, problemNos, type Letter, type Problem, type Topic} from '../../lib/topics';
 import type {Student} from './data';
 
 /** One student's first answer to one problem and how it went (null: the teacher hasn't checked it). */
@@ -26,6 +26,7 @@ export interface ProblemStat {
 }
 
 export function problemStats(topic: Topic, students: Student[], first: (uid: string, pid: string) => {a: string; v: boolean | null} | undefined): ProblemStat[] {
+  const nos = problemNos(topic.problems);
   return topic.problems.map((p, i) => {
     const answers: Answer[] = students.flatMap((s) => {
       const f = first(s.uid, p.id);
@@ -35,7 +36,7 @@ export function problemStats(topic: Topic, students: Student[], first: (uid: str
     const wrong = answers.filter((x) => x.v === false).length;
     return {
       p,
-      no: problemNo(p, i),
+      no: nos[i],
       answers,
       right,
       wrong,

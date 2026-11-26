@@ -4,6 +4,7 @@ import {finishTask, loadPages, pageAdded, type AgentTask} from '../../lib/agents
 import {addFolder, addProblems, deleteFolder, deleteProblems, MAX_NAME, moveOldKeys, moveProblems, pathTo, renameFolder, setKey, setKind, setPublished, uploadBankImage, useBankFolders, useBankProblems, within, type BankFolder, type BankProblem} from '../../lib/bank';
 import {agentPage} from '../../lib/pageSplit';
 import {navigate, useLocation} from '../../lib/router';
+import {problemNos} from '../../lib/topics';
 import Loading from '../../components/Loading';
 import {AgentSplitButton, AgentSplits, PAGE_FILES} from './AgentSplit';
 import AnswerPicker from './AnswerPicker';
@@ -242,6 +243,7 @@ function FolderProblems({folder, folders, list}: {folder: BankFolder; folders: B
   const [error, setError] = useState('');
   const [shown, setShown] = useState(PART);
   const chosen = list.filter((p) => picked.has(p.id));
+  const nos = problemNos(list);
   const run = (f: () => Promise<unknown>) => void f().catch((e) => setError((e as Error).message));
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -367,13 +369,13 @@ function FolderProblems({folder, folders, list}: {folder: BankFolder; folders: B
         <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">Энэ хавтсанд бодлого алга.</p>
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
-          {list.slice(0, shown).map((p) => (
+          {list.slice(0, shown).map((p, i) => (
             <li key={p.id} className={`space-y-2 rounded-2xl border p-3 ${picked.has(p.id) ? 'border-blue-500 bg-blue-500/5' : 'border-transparent bg-neutral-900'}`} data-bank-problem={p.id}>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-blue-500" aria-label={`${p.no ?? ''}-р бодлогыг сонгох`.trim()} />
-                <span className="font-semibold">{p.no ? `${p.no}.` : 'Бодлого'}</span>
+                <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-blue-500" aria-label={`${nos[i]}-р бодлогыг сонгох`} />
+                <span className="font-semibold">{nos[i]}.</span>
               </label>
-              <BankProblemView p={p} />
+              <BankProblemView p={p} no={nos[i]} />
               <AnswerPicker p={{id: p.id, text: p.text, kind: p.kind, ...(p.choices ? {choices: p.choices} : {})}} answer={p.key ?? ''} onAnswer={(a) => run(() => setKey(p, a))} onKind={(k) => run(() => setKind(p, k))} />
             </li>
           ))}

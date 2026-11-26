@@ -85,7 +85,7 @@ export default function TopicCheck(props: {topic: Topic; students: Student[]; pr
         </p>
       )}
       {list.map(({p, i, entries, waiting}) => (
-        <ProblemCheck key={p.id} topic={topic} p={p} no={problemNo(p, i)} entries={entries} waiting={waiting} keyed={keys[p.id]} onKey={(k) => onKey(p.id, k)} onMark={(uids, ok, note) => mark(uids, p.id, ok, note)} />
+        <ProblemCheck key={p.id} topic={topic} p={p} no={problemNo(topic.problems, i)} entries={entries} waiting={waiting} keyed={keys[p.id]} onKey={(k) => onKey(p.id, k)} onMark={(uids, ok, note) => mark(uids, p.id, ok, note)} />
       ))}
     </div>
   );

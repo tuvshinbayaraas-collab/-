@@ -2,7 +2,7 @@ import {Loader2} from 'lucide-react';
 import {useState} from 'react';
 import Sheet from '../../components/Sheet';
 import {toTopic, useBankFolders, useBankProblems, within, type BankProblem} from '../../lib/bank';
-import {newId, type Problem} from '../../lib/topics';
+import {newId, problemNos, type Problem} from '../../lib/topics';
 import {BankPath, BankProblemView, FolderButton} from './BankParts';
 
 /**
@@ -17,6 +17,7 @@ export default function BankPicker({tid, onAdd, onUploaded, onClose}: {tid: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const here = problems?.[at] ?? [];
+  const nos = problemNos(here);
   const kids = (folders ?? []).filter((f) => f.parent === at);
   const toggle = (p: BankProblem) =>
     setPicked((m) => {
@@ -65,13 +66,13 @@ export default function BankPicker({tid, onAdd, onUploaded, onClose}: {tid: stri
                 </button>
               </div>
               <ul className="grid gap-2 sm:grid-cols-2">
-                {here.map((p) => (
+                {here.map((p, i) => (
                   <li key={p.id}>
                     <label className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${picked.has(p.id) ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-800 hover:bg-neutral-800/50'}`} data-bank-problem={p.id}>
-                      <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p)} className="mt-1 h-4 w-4 shrink-0 accent-blue-500" aria-label={`${p.no ?? ''}-р бодлогыг сонгох`.trim()} />
+                      <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p)} className="mt-1 h-4 w-4 shrink-0 accent-blue-500" aria-label={`${nos[i]}-р бодлогыг сонгох`} />
                       <span className="min-w-0 flex-1">
-                        {p.no && <span className="mb-1 block text-xs font-semibold text-neutral-400">{p.no}.</span>}
-                        <BankProblemView p={p} compact />
+                        <span className="mb-1 block text-xs font-semibold text-neutral-400">{nos[i]}.</span>
+                        <BankProblemView p={p} no={nos[i]} compact />
                       </span>
                     </label>
                   </li>

@@ -211,12 +211,12 @@ export default function TopicView({id}: {id: string}) {
                   key={`${current}/${p.id}`}
                   tid={t.id}
                   p={p}
-                  num={problemNo(p, i)}
+                  num={problemNo(t.problems, i)}
                   first={mine[p.id]}
                   mark={current === 1 ? marked[p.id] : undefined}
                   round={current > 1 ? current : undefined}
                   teacher={session.admin}
-                  ask={`${t.title} · ${problemNo(p, i)}-р бодлого`}
+                  ask={`${t.title} · ${problemNo(t.problems, i)}-р бодлого`}
                   onOutcome={(o) => {
                     setKeys((m) => (m[p.id] === o.key ? m : {...m, [p.id]: o.key}));
                     // A wrong first answer goes into the mistakes notebook (once): wrong by the teacher's mark, else the key.
@@ -303,10 +303,10 @@ function TopicMap(props: {
                   type="button"
                   role="listitem"
                   onClick={() => onJump(i)}
-                  title={`${problemNo(p, i)}-р бодлого: ${s === 'right' ? 'зөв' : s === 'wrong' ? 'буруу' : s === 'wait' ? 'шалгагдаж байна' : s === 'free' ? 'бодсон (шалгахгүй)' : 'бодоогүй'}`}
+                  title={`${problemNo(problems, i)}-р бодлого: ${s === 'right' ? 'зөв' : s === 'wrong' ? 'буруу' : s === 'wait' ? 'шалгагдаж байна' : s === 'free' ? 'бодсон (шалгахгүй)' : 'бодоогүй'}`}
                   className={`h-9 rounded-lg text-sm font-semibold tabular-nums hover:brightness-125 ${STATE[s]}`}
                 >
-                  {problemNo(p, i)}
+                  {problemNo(problems, i)}
                 </button>
               );
             })}

@@ -78,7 +78,7 @@ function timeFor(a: Assignment, topics: Topic[] | null, mine: Record<string, Tim
     const t = mine?.[topicTimeKey(a.ref)];
     if (!t || !t.all) return null;
     const ps = topics?.find((x) => x.id === a.ref)?.problems ?? [];
-    return {all: t.all, q: ps.flatMap((p, i) => (t.q[p.id] ? [{label: `${problemNo(p, i)}`, s: t.q[p.id]}] : []))};
+    return {all: t.all, q: ps.flatMap((p, i) => (t.q[p.id] ? [{label: `${problemNo(ps, i)}`, s: t.q[p.id]}] : []))};
   }
   const r = results.filter((x) => x.test === a.ref && x.at >= a.createdAt).sort((x, y) => x.at - y.at)[0];
   const t = r

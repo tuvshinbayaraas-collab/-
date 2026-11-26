@@ -138,7 +138,7 @@ function useStudentNotes(uid: string | undefined, classId: string | undefined, o
         kind: 'mark',
         at: m.at,
         ok: m.ok,
-        text: `Багш шалгалаа: ${t.title} · ${problemNo(t.problems[i], i)}-р бодлого · ${m.ok ? 'зөв' : 'буруу'}${m.note ? `: «${m.note}»` : ''}`,
+        text: `Багш шалгалаа: ${t.title} · ${problemNo(t.problems, i)}-р бодлого · ${m.ok ? 'зөв' : 'буруу'}${m.note ? `: «${m.note}»` : ''}`,
         href: `/topics/${tid}`,
       });
     }

@@ -59,7 +59,7 @@ function TopicProblem({ctx}: {ctx: About}) {
   return (
     <div className="space-y-2">
       <div className="flex gap-2 leading-relaxed">
-        <span className="shrink-0 font-bold">{problemNo(p, i)}.</span>
+        <span className="shrink-0 font-bold">{problemNo(t!.problems, i)}.</span>
         {p.text ? <Rich text={p.text} className="min-w-0 flex-1 text-neutral-100" /> : <span className="text-neutral-500">(зурагтай бодлого)</span>}
       </div>
       {p.img && (

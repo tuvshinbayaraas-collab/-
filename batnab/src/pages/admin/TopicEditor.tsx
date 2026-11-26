@@ -374,6 +374,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 tid={draft.id}
                 p={p}
                 num={i + 1}
+                no={problemNo(draft.problems, i)}
                 count={draft.problems.length}
                 open={opened.has(p.id)}
                 onToggle={() => toggle(p.id)}
@@ -382,7 +383,7 @@ function Editor({topic, keys, data}: {topic: Topic; keys: Record<string, string>
                 onChange={(f) => change((t) => ({...t, problems: t.problems.map((x) => (x.id === p.id ? f(x) : x))}))}
                 onAnswer={(a) => setAnswers((k) => ({...k, [p.id]: a}))}
                 onMove={(to) => change((t) => ({...t, problems: moveTo(t.problems, i, to)}))}
-                onRemove={() => confirm(`${problemNo(p, i)}-р бодлогыг устгах уу?`) && change((t) => ({...t, problems: t.problems.filter((x) => x.id !== p.id)}))}
+                onRemove={() => confirm(`${problemNo(draft.problems, i)}-р бодлогыг устгах уу?`) && change((t) => ({...t, problems: t.problems.filter((x) => x.id !== p.id)}))}
                 onCopy={() => {
                   const id = newId();
                   change((t) => ({...t, problems: [...t.problems.slice(0, i + 1), {...structuredClone(p), id}, ...t.problems.slice(i + 1)]}));
@@ -912,6 +913,8 @@ function ProblemEditor(props: {
   tid: string;
   p: Problem;
   num: number;
+  /** The number students see it by (problemNos). */
+  no: number;
   count: number;
   open: boolean;
   onToggle: () => void;
@@ -942,7 +945,7 @@ function ProblemEditor(props: {
     onChange((x) => ({...x, kind: k}));
     onAnswer('');
   };
-  const no = problemNo(p, num - 1);
+  const no = props.no;
   return (
     <div className={`rounded-2xl bg-neutral-900 p-4 sm:p-5 ${open ? 'ring-1 ring-neutral-700' : ''}`}>
       <div className="flex items-center gap-1">
@@ -1042,7 +1045,7 @@ function ProblemEditor(props: {
               aria-label="Номын дугаар"
               className={`${field} w-24 py-1.5`}
             />
-            <span className="text-xs text-neutral-500">Сурагчид «{no}-р бодлого» гэж харна. Хоосон бол дарааллаар нь.</span>
+            <span className="text-xs text-neutral-500">Сурагчид «{no}-р бодлого» гэж харна. Бүх бодлогын номын дугаар дараалсан (12, 13, 14…) бол тэгж, үгүй бол 1-ээс дарааллаар.</span>
           </label>
 
           <details className="rounded-xl bg-neutral-800/40 p-3" open={!!(p.sol || p.solImg || p.vid)}>
@@ -1172,7 +1175,7 @@ function Trash({tid, problems, onBack}: {tid: string; problems: Problem[]; onBac
   const where = (x: Trashed) => {
     if (!x.pid) return 'Хичээлийн зураг';
     const i = problems.findIndex((p) => p.id === x.pid);
-    return i < 0 ? 'Устгасан бодлогын зураг (хичээлд тавигдана)' : `${problemNo(problems[i], i)}-р бодлогын ${x.field === 'solImg' ? 'бодолтын ' : ''}зураг`;
+    return i < 0 ? 'Устгасан бодлогын зураг (хичээлд тавигдана)' : `${problemNo(problems, i)}-р бодлогын ${x.field === 'solImg' ? 'бодолтын ' : ''}зураг`;
   };
   return (
     <Card>

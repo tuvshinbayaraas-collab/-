@@ -155,7 +155,7 @@ export default function Daily() {
               const p = t?.problems.find((x) => x.id === pid);
               // Gone, or (solving again) its right answer taken off since: can't be checked, so it can be skipped.
               if (!t || !p || (kind === 'a' && !p.k)) return saved.done.includes(item) ? null : <Skip key={item} onSkip={() => markDone(item)} />;
-              const label = `${t.title} · ${problemNo(p, t.problems.indexOf(p))}-р бодлого`;
+              const label = `${t.title} · ${problemNo(t.problems, t.problems.indexOf(p))}-р бодлого`;
               return kind === 'n' ? (
                 <ol key={item}>
                   <ProblemView
