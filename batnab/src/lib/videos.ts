@@ -152,6 +152,16 @@ export const saveVideo = (v: Video, d: VideoDraft) => {
 };
 export const deleteVideo = (v: Video) => update(ref(db), {[`videos/${v.folder}/${v.id}`]: null, [`videoKeys/${v.folder}/${v.id}`]: null});
 
+/** A video moved one place up or down in its folder (the order is by when added: the two trade theirs). */
+export function moveVideo(list: Video[], i: number, by: -1 | 1) {
+  const a = list[i];
+  const b = list[i + by];
+  if (!a || !b) return Promise.resolve();
+  // Two added in one go can have the same time: then the moved one goes just past the other.
+  const [ta, tb] = a.at === b.at ? [b.at + by, a.at] : [b.at, a.at];
+  return update(ref(db), {[`videos/${a.folder}/${a.id}/at`]: ta, [`videos/${b.folder}/${b.id}/at`]: tb});
+}
+
 /** Bank problems put under a video: copied (their pictures stay in the bank), with their right answers. */
 export function linkProblems(v: Video, ps: BankProblem[]) {
   const ops: Record<string, unknown> = {};

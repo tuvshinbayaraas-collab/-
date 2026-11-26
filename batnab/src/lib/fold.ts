@@ -32,6 +32,9 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 
+/** Folds (or opens) `id` without a hook (several at once: «all open»). */
+export const setFolded = (id: string, on: boolean) => set(id, on);
+
 /** Whether `id` is folded, and a toggle. */
 export function useFolded(id: string): [boolean, () => void] {
   const on = useSyncExternalStore(subscribe, () => folded.includes(id));

@@ -1,9 +1,10 @@
-import {Check, ChevronRight, Eye, EyeOff, Folder, FolderPlus, Link2, Pencil, Plus, Trash2, Video as VideoIcon, X} from 'lucide-react';
+import {ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, Folder, FolderPlus, Info, Link2, Pencil, PlayCircle, Plus, Trash2, Video as VideoIcon, X} from 'lucide-react';
 import {useState} from 'react';
 import Loading from '../../components/Loading';
 import {Rich} from '../../components/TopicParts';
 import VideoEmbed, {canSeek, videoSource} from '../../components/VideoEmbed';
 import {useBankImage} from '../../lib/bank';
+import {setFolded, useFolded} from '../../lib/fold';
 import {useLive} from '../../lib/live';
 import {navigate, useLocation} from '../../lib/router';
 import {LETTER_LABELS} from '../../lib/topics';
@@ -13,6 +14,7 @@ import {
   deleteVideo,
   deleteVideoFolder,
   linkProblems,
+  moveVideo,
   MAX_MARKS,
   MAX_NOTE,
   MAX_PROBLEMS,
@@ -48,14 +50,9 @@ export default function VideoTab() {
   const folder = folders.find((f) => f.id === at);
   return (
     <div className="space-y-4" data-video-tab>
-      <div className="rounded-2xl bg-neutral-900 p-4">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <VideoIcon size={18} className="text-rose-300" /> Видео хичээл
-        </h2>
-        <p className="mt-1 text-sm text-neutral-400">
+      <Intro>
           Видеогоо YouTube-д «Жагсаалтад харагдахгүй» (Unlisted) байдлаар эсвэл Google Drive, Facebook-т хуулаад холбоосыг нь энд тавина. Хавтсаа «Нийтлэх» бол сурагчид цэсний «Видео»-оос үзнэ.
-        </p>
-      </div>
+      </Intro>
       {at && !folder ? (
         <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">
           Энэ хавтас олдсонгүй.{' '}
@@ -68,6 +65,24 @@ export default function VideoTab() {
       ) : (
         <Folders folders={folders} />
       )}
+    </div>
+  );
+}
+
+/** «Видео хичээл» and how videos go in: folded away once read (remembered on this device). */
+function Intro({children}: {children: React.ReactNode}) {
+  const [folded, toggle] = useFolded('video-intro');
+  return (
+    <div className="rounded-2xl bg-neutral-900 p-4" data-video-intro>
+      <button type="button" onClick={toggle} aria-expanded={!folded} className="flex w-full items-center gap-2 text-left font-semibold">
+        <VideoIcon size={18} className="text-rose-300" /> <span className="mr-auto">Видео хичээл</span>
+        <span className="flex items-center gap-1 text-xs font-normal text-neutral-400">
+          {folded ? <Info size={14} /> : null}
+          {folded ? 'Хэрхэн оруулах вэ' : 'Хураах'}
+        </span>
+        <ChevronDown size={16} className={`text-neutral-500 transition-transform ${folded ? '' : 'rotate-180'}`} />
+      </button>
+      {!folded && <p className="mt-1 text-sm text-neutral-400">{children}</p>}
     </div>
   );
 }
@@ -184,7 +199,12 @@ function FolderView({folder}: {folder: VideoFolder}) {
       {error && <p className="text-sm text-red-300">Болсонгүй: {error}</p>}
       {adding ? (
         <VideoForm
-          onSave={(d) => addVideo(folder.id, d).then(() => setAdding(false))}
+          onSave={(d) =>
+            addVideo(folder.id, d).then((id) => {
+              setFolded(`video-open:${id}`, true);
+              setAdding(false);
+            })
+          }
           onCancel={() => setAdding(false)}
         />
       ) : (
@@ -197,11 +217,35 @@ function FolderView({folder}: {folder: VideoFolder}) {
       ) : !videos.length ? (
         <p className="rounded-2xl bg-neutral-900 p-6 text-center text-sm text-neutral-400">Энэ хавтсанд видео алга.</p>
       ) : (
-        <ul className="space-y-3">
-          {videos.map((v) => (
-            <VideoAdmin key={v.id} v={v} keys={keys?.[v.id] ?? {}} watchers={students.filter(([uid]) => watched?.[uid] && (watched[uid] as Record<string, unknown>)[v.id]).map(([, u]) => u.name || u.username || '')} total={students.length} />
-          ))}
-        </ul>
+        <section className="space-y-2" aria-label="Видеонууд">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="mr-auto text-sm text-neutral-400">{videos.length} видео</p>
+            {videos.length > 1 && (
+              <>
+                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, true))} className={pill} data-videos-open>
+                  <ChevronsUpDown size={15} /> Бүгдийг дэлгэх
+                </button>
+                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, false))} className={pill} data-videos-fold>
+                  <ChevronsDownUp size={15} /> Бүгдийг хураах
+                </button>
+              </>
+            )}
+          </div>
+          <ul className="space-y-2">
+            {videos.map((v, i) => (
+              <VideoAdmin
+                key={v.id}
+                v={v}
+                keys={keys?.[v.id] ?? {}}
+                watchers={students.filter(([uid]) => watched?.[uid] && (watched[uid] as Record<string, unknown>)[v.id]).map(([, u]) => u.name || u.username || '')}
+                total={students.length}
+                onMove={i > 0 || i < videos.length - 1 ? (by) => void run(moveVideo(videos, i, by)) : undefined}
+                first={i === 0}
+                last={i === videos.length - 1}
+              />
+            ))}
+          </ul>
+        </section>
       )}
     </section>
   );
@@ -278,60 +322,114 @@ function VideoForm({v, onSave, onCancel}: {v?: Video; onSave: (d: VideoDraft) =>
   );
 }
 
-function VideoAdmin({v, keys, watchers, total}: {v: Video; keys: Record<string, string>; watchers: string[]; total: number}) {
+/** A video's small picture: YouTube's own, else a play sign. */
+function Thumb({url}: {url: string}) {
+  const s = videoSource(url);
+  return (
+    <span className="relative flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-800 sm:w-32">
+      {s?.kind === 'youtube' && <img src={`https://i.ytimg.com/vi/${s.id}/mqdefault.jpg`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
+      <PlayCircle size={22} className="relative text-white drop-shadow" />
+    </span>
+  );
+}
+
+function VideoAdmin({
+  v,
+  keys,
+  watchers,
+  total,
+  onMove,
+  first,
+  last,
+}: {
+  v: Video;
+  keys: Record<string, string>;
+  watchers: string[];
+  total: number;
+  onMove?: (by: -1 | 1) => void;
+  first: boolean;
+  last: boolean;
+}) {
+  // Folded unless opened (remembered on this device): a folder of many videos stays short.
+  const [open, toggle] = useFolded(`video-open:${v.id}`);
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
   const [who, setWho] = useState(false);
   const [error, setError] = useState('');
   const run = (p: Promise<unknown>) => p.catch((e) => setError((e as Error).message));
   if (editing) return <li><VideoForm v={v} onSave={(d) => saveVideo(v, d).then(() => setEditing(false))} onCancel={() => setEditing(false)} /></li>;
+  const facts = [v.marks.length ? `${v.marks.length} хэсэг` : '', v.problems.length ? `${v.problems.length} бодлого` : '', `${watchers.length}/${total} үзсэн`].filter(Boolean).join(' · ');
+  const icon = 'rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-30';
   return (
-    <li className="space-y-3 rounded-2xl bg-neutral-900 p-4" data-video={v.id}>
-      <div className="flex flex-wrap items-start gap-2">
-        <h3 className="mr-auto min-w-0 text-lg font-semibold [overflow-wrap:anywhere]">{v.title}</h3>
-        <button type="button" onClick={() => setEditing(true)} className={pill}>
-          <Pencil size={15} /> Засах
+    <li className="rounded-2xl bg-neutral-900" data-video={v.id} data-open={open ? 'yes' : 'no'}>
+      <div className="flex items-center gap-2 p-2 sm:gap-3 sm:p-3">
+        <button type="button" onClick={toggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left" data-video-toggle>
+          <Thumb url={v.url} />
+          <span className="min-w-0 flex-1">
+            <span className="line-clamp-2 font-semibold [overflow-wrap:anywhere]">{v.title}</span>
+            <span className="block text-xs text-neutral-400">{facts}</span>
+          </span>
+          <ChevronDown size={18} className={`shrink-0 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        <button type="button" onClick={() => confirm(`«${v.title}» видеог устгах уу?`) && void run(deleteVideo(v))} className={pill}>
-          <Trash2 size={15} /> Устгах
-        </button>
+        {onMove && (
+          <div className="flex shrink-0 flex-col">
+            <button type="button" onClick={() => onMove(-1)} disabled={first} aria-label={`«${v.title}»-г дээш зөөх`} className={icon} data-move-up>
+              <ArrowUp size={15} />
+            </button>
+            <button type="button" onClick={() => onMove(1)} disabled={last} aria-label={`«${v.title}»-г доош зөөх`} className={icon} data-move-down>
+              <ArrowDown size={15} />
+            </button>
+          </div>
+        )}
       </div>
-      <div className="max-w-xl">
-        <VideoEmbed link={v.url} title="Тоглуулах" />
-      </div>
-      {v.note && <p className="whitespace-pre-line text-sm text-neutral-300">{v.note}</p>}
-      {v.marks.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5 text-sm">
-          {v.marks.map((m, i) => (
-            <li key={i} className="rounded-full bg-neutral-800 px-3 py-1">
-              <span className="font-semibold tabular-nums text-rose-300">{timeLabel(m.t)}</span> {m.label}
-            </li>
-          ))}
-          {!canSeek(videoSource(v.url)) && <li className="px-1 py-1 text-xs text-neutral-500">(Drive, Facebook-ийн видеог цэг дээр нь үсрүүлэхгүй)</li>}
-        </ul>
+      {open && (
+        <div className="space-y-3 border-t border-neutral-800 p-4">
+          <div className="flex flex-wrap items-start gap-2">
+            <button type="button" onClick={() => setEditing(true)} className={pill}>
+              <Pencil size={15} /> Засах
+            </button>
+            <button type="button" onClick={() => confirm(`«${v.title}» видеог устгах уу?`) && void run(deleteVideo(v))} className={pill}>
+              <Trash2 size={15} /> Устгах
+            </button>
+          </div>
+          <div className="max-w-xl">
+            <VideoEmbed link={v.url} title="Тоглуулах" />
+          </div>
+          {v.note && <p className="whitespace-pre-line text-sm text-neutral-300">{v.note}</p>}
+          {v.marks.length > 0 && (
+            <ul className="flex flex-wrap gap-1.5 text-sm">
+              {v.marks.map((m, i) => (
+                <li key={i} className="rounded-full bg-neutral-800 px-3 py-1">
+                  <span className="font-semibold tabular-nums text-rose-300">{timeLabel(m.t)}</span> {m.label}
+                </li>
+              ))}
+              {!canSeek(videoSource(v.url)) && <li className="px-1 py-1 text-xs text-neutral-500">(Drive, Facebook-ийн видеог цэг дээр нь үсрүүлэхгүй)</li>}
+            </ul>
+          )}
+          <div>
+            <button type="button" onClick={() => setWho(!who)} aria-expanded={who} className="flex items-center gap-1.5 text-sm text-neutral-300 hover:underline" data-watched-count>
+              <Check size={15} className="text-green-400" /> {watchers.length}/{total} сурагч үзсэн
+            </button>
+            {who && <p className="mt-1 text-sm text-neutral-400">{watchers.length ? watchers.sort((a, b) => a.localeCompare(b, 'mn')).join(', ') : 'Одоогоор хэн ч үзсэн гэж тэмдэглээгүй.'}</p>}
+          </div>
+          <div className="space-y-2 border-t border-neutral-800 pt-3">
+            <p className="text-sm font-medium">Үзсэний дараа бодох бодлого ({v.problems.length})</p>
+            {v.problems.length > 0 && (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {v.problems.map((p, i) => (
+                  <LinkedProblem key={p.id} no={i + 1} p={p} answer={keys[p.id]} onRemove={() => void run(unlinkProblem(v, p.id))} />
+                ))}
+              </ul>
+            )}
+            {v.problems.length < MAX_PROBLEMS && (
+              <button type="button" onClick={() => setPicking(true)} className={pill}>
+                <Link2 size={15} /> Сангаас бодлого холбох
+              </button>
+            )}
+          </div>
+          {error && <p className="text-sm text-red-300">Болсонгүй: {error}</p>}
+        </div>
       )}
-      <div>
-        <button type="button" onClick={() => setWho(!who)} aria-expanded={who} className="flex items-center gap-1.5 text-sm text-neutral-300 hover:underline" data-watched-count>
-          <Check size={15} className="text-green-400" /> {watchers.length}/{total} сурагч үзсэн
-        </button>
-        {who && <p className="mt-1 text-sm text-neutral-400">{watchers.length ? watchers.sort((a, b) => a.localeCompare(b, 'mn')).join(', ') : 'Одоогоор хэн ч үзсэн гэж тэмдэглээгүй.'}</p>}
-      </div>
-      <div className="space-y-2 border-t border-neutral-800 pt-3">
-        <p className="text-sm font-medium">Үзсэний дараа бодох бодлого ({v.problems.length})</p>
-        {v.problems.length > 0 && (
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {v.problems.map((p, i) => (
-              <LinkedProblem key={p.id} no={i + 1} p={p} answer={keys[p.id]} onRemove={() => void run(unlinkProblem(v, p.id))} />
-            ))}
-          </ul>
-        )}
-        {v.problems.length < MAX_PROBLEMS && (
-          <button type="button" onClick={() => setPicking(true)} className={pill}>
-            <Link2 size={15} /> Сангаас бодлого холбох
-          </button>
-        )}
-      </div>
-      {error && <p className="text-sm text-red-300">Болсонгүй: {error}</p>}
       {picking && <BankPicker sub="Видеоны доор бодох бодлогуудаа сонгоно. Зураг, зөв хариулттай нь хуулагдана." onPick={(ps) => linkProblems(v, ps)} onClose={() => setPicking(false)} />}
     </li>
   );
