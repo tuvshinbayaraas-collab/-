@@ -1,9 +1,10 @@
-import {BookOpen, Check, ChevronRight, FlaskConical, GraduationCap, Lock, LogIn, School, Timer, Trophy} from 'lucide-react';
+import {BookOpen, Check, ChevronRight, FlaskConical, GraduationCap, Library, Lock, LogIn, School, Timer, Trophy} from 'lucide-react';
 import AppNudge from '../components/AppNudge';
 import {LogoMark} from '../components/Logo';
 import {InactiveNote, loginHref} from '../components/Notices';
 import Today, {Shortcuts} from '../components/Today';
 import {inProgress} from '../lib/attempt';
+import {usePublishedFolders} from '../lib/bank';
 import {useClasses} from '../lib/classes';
 import {examState, useExamAnswer, useExams, type Exam} from '../lib/exams';
 import {grade, percent, useKeys, type Grade} from '../lib/keys';
@@ -147,6 +148,7 @@ export default function Home() {
           {student && (
             <div className="mt-6">
               <TopicsSection classId={session.profile?.class} uid={session.user!.uid} />
+              <BankSection />
             </div>
           )}
         </div>
@@ -331,6 +333,42 @@ function TopicsSection({classId, uid}: {classId?: string; uid: string}) {
               </Link>
             );
           })}
+      </div>
+    </section>
+  );
+}
+
+/** The problem bank's folders the teacher has published (shown only when there are some), each opening in «Бодлогын сан». */
+function BankSection() {
+  const folders = usePublishedFolders();
+  const top = (folders ?? []).filter((f) => !f.parent);
+  if (!top.length) return null;
+  return (
+    <section className="mt-6" data-home-bank>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Бодлогын сан</h2>
+        {top.length > 4 && (
+          <Link href="/bank" className="text-sm text-blue-400 hover:underline">
+            Бүгд ({top.length})
+          </Link>
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {top.slice(0, 4).map((f) => {
+          const inner = folders!.filter((x) => x.parent === f.id).length;
+          return (
+            <Link key={f.id} href={`/bank?folder=${encodeURIComponent(f.id)}`} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800 sm:gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-300">
+                <Library size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{f.name}</p>
+                <p className="text-sm text-neutral-400">{inner ? `${inner} хавтас` : 'Бодлого бодох'}</p>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-blue-400" />
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

@@ -170,6 +170,11 @@ function Publish({folder, folders, problems}: {folder: BankFolder; folders: Bank
       >
         {folder.published ? 'Нийтлэлээс авах' : 'Нийтлэх'}
       </button>
+      {folder.published && (
+        <button type="button" onClick={() => navigate(`/bank?folder=${encodeURIComponent(folder.id)}`)} className="rounded-full px-3 py-1.5 text-sm font-medium text-blue-300 hover:bg-neutral-800" data-preview>
+          Сурагчаар харах
+        </button>
+      )}
       {error && <p className="basis-full text-sm text-red-300">Болсонгүй: {error}</p>}
     </div>
   );
