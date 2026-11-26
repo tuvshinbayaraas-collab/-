@@ -36,6 +36,15 @@ export default function SolveCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer, key, p.id]);
   const letters = lettersOf(p);
+  // How wide the choices need to be: short ones («5», «−3») side by side, longer ones two to a row, sentences one each.
+  const longest = Math.max(0, ...letters.map((l) => (p.choices?.[l] ?? '').replace(/\$|\\[a-z]+|[{}]/gi, '').trim().length));
+  const n = letters.length;
+  const cols =
+    longest <= 4
+      ? `${['grid-cols-1', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-3'][n]} ${['', 'sm:grid-cols-1', 'sm:grid-cols-2', 'sm:grid-cols-3', 'sm:grid-cols-4', 'sm:grid-cols-5'][n]}`
+      : longest <= 14
+        ? `grid-cols-2 ${['', 'sm:grid-cols-1', 'sm:grid-cols-2', 'sm:grid-cols-3', 'sm:grid-cols-4', 'sm:grid-cols-5'][n]}`
+        : 'grid-cols-1 sm:grid-cols-2';
   const send = async () => {
     if (!uid || !pick.trim()) return;
     setBusy(true);
@@ -62,7 +71,7 @@ export default function SolveCard({
       {p.text && <Rich text={p.text} className="mt-2" />}
       <div className="mt-4">
         {p.kind === 'choice' ? (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Хариулт сонгох">
+          <div className={`grid gap-2 ${cols}`} role="group" aria-label="Хариулт сонгох">
             {letters.map((l) => {
               const text = p.choices?.[l];
               const picked = (mine ?? pick) === l;
@@ -88,7 +97,7 @@ export default function SolveCard({
                   disabled={mine !== undefined || !uid}
                   aria-pressed={picked}
                   onClick={() => setPick(l)}
-                  className={`flex min-w-[4.5rem] flex-[1_1_auto] items-center gap-2 rounded-xl border px-3 py-2 text-left ${tone}`}
+                  className={`flex min-w-0 items-center gap-1.5 rounded-xl border px-2 py-2 text-left sm:gap-2 sm:px-3 ${tone}`}
                 >
                   <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${right ? 'bg-green-500 text-black' : wrong ? 'bg-red-500 text-black' : picked ? 'bg-blue-500 text-black' : 'bg-neutral-800'}`}>{LETTER_LABELS[l]}</span>
                   {text && <MathText text={text} className="min-w-0 [overflow-wrap:anywhere]" />}

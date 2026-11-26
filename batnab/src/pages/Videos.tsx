@@ -46,7 +46,8 @@ export default function Videos() {
     .flatMap((t) => t.lesson.flatMap((b, i) => (b.t === 'vid' && videoSource(b.url) ? [{t, url: b.url, key: `${t.id}-${i}`}] : [])));
   return (
     <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-6" data-videos>
-      <header className="flex items-center gap-3">
+      {/* In a folder or a video only the way back shows: the video comes up first on a phone. */}
+      <header className={at ? 'sr-only' : 'flex items-center gap-3'}>
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-300">
           <PlayCircle size={24} />
         </span>
@@ -84,11 +85,11 @@ export default function Videos() {
       ) : (
         <>
           {folders.length > 0 && (
-            <section className="grid gap-2 sm:grid-cols-2" aria-label="Хавтсууд">
+            <section className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Хавтсууд">
               {folders.map((f) => (
                 <Link key={f.id} href={to(f.id)} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 hover:bg-neutral-800" data-video-folder={f.id}>
                   <Folder size={20} className="shrink-0 text-rose-300" />
-                  <span className="min-w-0 flex-1 truncate font-semibold">{f.name}</span>
+                  <span className="line-clamp-2 min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{f.name}</span>
                   <ChevronRight size={16} className="shrink-0 text-neutral-500" />
                 </Link>
               ))}

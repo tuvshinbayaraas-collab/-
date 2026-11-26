@@ -53,8 +53,7 @@ export default function VideoTab() {
           <VideoIcon size={18} className="text-rose-300" /> Видео хичээл
         </h2>
         <p className="mt-1 text-sm text-neutral-400">
-          Видеогоо YouTube-д «Жагсаалтад харагдахгүй» (Unlisted) байдлаар (эсвэл Google Drive, Facebook-т) хуулаад холбоосыг нь энд тавина. Сайт видеог өөрөө хадгалахгүй, тиймээс сан дүүрэхгүй. Хавтсаа «Нийтлэх» бол сурагчид цэсний «Видео»-оос үзнэ.
-          Сэдвийн хичээлд тавьсан видео тэнд өөрөө гарна.
+          Видеогоо YouTube-д «Жагсаалтад харагдахгүй» (Unlisted) байдлаар эсвэл Google Drive, Facebook-т хуулаад холбоосыг нь энд тавина. Хавтсаа «Нийтлэх» бол сурагчид цэсний «Видео»-оос үзнэ.
         </p>
       </div>
       {at && !folder ? (
@@ -89,11 +88,11 @@ function Folders({folders}: {folders: VideoFolder[]}) {
   return (
     <section className="space-y-3">
       {folders.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {folders.map((f) => (
             <button key={f.id} type="button" onClick={() => go(f.id)} className="flex items-center gap-3 rounded-2xl bg-neutral-900 p-4 text-left hover:bg-neutral-800" data-video-folder={f.id}>
               <Folder size={20} className="shrink-0 text-rose-300" />
-              <span className="min-w-0 flex-1 truncate font-semibold">{f.name}</span>
+              <span className="line-clamp-2 min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{f.name}</span>
               {f.published && (
                 <span className="flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-300">
                   <Eye size={12} /> Нийтэлсэн
@@ -165,7 +164,7 @@ function FolderView({folder}: {folder: VideoFolder}) {
       </div>
       <div className={`flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 ${folder.published ? 'bg-green-500/10' : 'bg-neutral-900'}`} data-video-publish={folder.published ? 'on' : 'off'}>
         {folder.published ? <Eye size={18} className="shrink-0 text-green-300" /> : <EyeOff size={18} className="shrink-0 text-neutral-400" />}
-        <p className="min-w-0 flex-1 text-sm">{folder.published ? <span className="font-semibold text-green-200">Нийтэлсэн. Сурагчид «Видео»-оос үзнэ.</span> : <span><b>Нийтлээгүй.</b> <span className="text-neutral-400">Зөвхөн та харна.</span></span>}</p>
+        <p className="min-w-0 flex-1 basis-[calc(100%-3rem)] text-sm sm:basis-auto">{folder.published ? <span className="font-semibold text-green-200">Нийтэлсэн. Сурагчид «Видео»-оос үзнэ.</span> : <span><b>Нийтлээгүй.</b> <span className="text-neutral-400">Зөвхөн та харна.</span></span>}</p>
         <button
           type="button"
           role="switch"
@@ -253,8 +252,8 @@ function VideoForm({v, onSave, onCancel}: {v?: Video; onSave: (d: VideoDraft) =>
         <p className="text-xs text-neutral-400">Сурагч дарахад видео тэр хэсгээс эхэлнэ. Жишээ нь «3:20 — Дискриминант».</p>
         {marks.map((m, i) => (
           <div key={i} className="flex gap-2">
-            <input value={m.time} onChange={(e) => setMarks((ms) => ms.map((x, j) => (j === i ? {...x, time: e.target.value.slice(0, 8)} : x)))} placeholder="3:20" aria-label="Цаг" className={`${field} w-20 shrink-0 ${m.label.trim() && parseTime(m.time) === null ? 'border-amber-500' : ''}`} />
-            <input value={m.label} onChange={(e) => setMarks((ms) => ms.map((x, j) => (j === i ? {...x, label: e.target.value.slice(0, 80)} : x)))} placeholder="Юу ярьж байна" aria-label="Тэмдгийн нэр" className={field} />
+            <input value={m.time} onChange={(e) => setMarks((ms) => ms.map((x, j) => (j === i ? {...x, time: e.target.value.slice(0, 8)} : x)))} placeholder="3:20" aria-label="Цаг" className={`w-20 shrink-0 rounded-xl border bg-neutral-950 px-3 py-2 text-sm tabular-nums outline-none focus:border-blue-500 ${m.label.trim() && parseTime(m.time) === null ? 'border-amber-500' : 'border-neutral-700'}`} />
+            <input value={m.label} onChange={(e) => setMarks((ms) => ms.map((x, j) => (j === i ? {...x, label: e.target.value.slice(0, 80)} : x)))} placeholder="Юу ярьж байна" aria-label="Тэмдгийн нэр" className={`${field} min-w-0`} />
             <button type="button" onClick={() => setMarks((ms) => ms.filter((_, j) => j !== i))} aria-label="Тэмдгийг хасах" className="shrink-0 rounded-full p-2 text-neutral-400 hover:bg-neutral-800">
               <X size={16} />
             </button>
@@ -298,7 +297,7 @@ function VideoAdmin({v, keys, watchers, total}: {v: Video; keys: Record<string, 
         </button>
       </div>
       <div className="max-w-xl">
-        <VideoEmbed link={v.url} title={v.title} />
+        <VideoEmbed link={v.url} title="Тоглуулах" />
       </div>
       {v.note && <p className="whitespace-pre-line text-sm text-neutral-300">{v.note}</p>}
       {v.marks.length > 0 && (
