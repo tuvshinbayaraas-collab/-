@@ -1,4 +1,4 @@
-import {ExternalLink, Maximize, Play, RotateCcw} from 'lucide-react';
+import {ExternalLink, Maximize, Play, RotateCcw, RotateCw, SkipBack, SkipForward, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 
 /** What a video link plays as: YouTube, Google Drive, Vimeo, Facebook, a video file, or (anything else) a link to open. */
@@ -83,15 +83,24 @@ export default function VideoEmbed({
   title = 'Видео тайлбар',
   className = '',
   at,
+  from,
+  marks,
   onWatched,
+  onTime,
 }: {
   link: string;
   title?: string;
   className?: string;
   /** A point to play from (`n` counts the taps, so the same point can be gone back to). */
   at?: {t: number; n: number};
+  /** Where to start when first played (where the student stopped last time). */
+  from?: number;
+  /** Its parts («3:20 Дискриминант»): gone through on the whole screen. */
+  marks?: {t: number; label: string}[];
   /** Watched to the end (nine tenths of it): a YouTube video tells. */
   onWatched?: () => void;
+  /** Where it is playing, and how long it is (a YouTube video or a file tells). */
+  onTime?: (t: number, length: number) => void;
 }) {
   const [on, setOn] = useState(false);
   const s = videoSource(link);
@@ -107,6 +116,16 @@ export default function VideoEmbed({
   watched.current = onWatched;
   const [full, setFull] = useState(false);
   const youtube = s?.kind === 'youtube';
+  const file = useRef<HTMLVideoElement>(null);
+  // Where it is and how fast (for the buttons on the whole screen and the page's parts).
+  const [time, setTime] = useState(0);
+  const [rate, setRate] = useState(1);
+  const timed = useRef(onTime);
+  timed.current = onTime;
+  const tell = (t: number, d: number) => {
+    setTime(t);
+    timed.current?.(t, d);
+  };
 
   const send = (func: string, args: unknown[] = []) => player.current?.contentWindow?.postMessage(JSON.stringify({event: 'command', func, args, id: 1, channel: 'widget'}), '*');
 
@@ -161,6 +180,7 @@ export default function VideoEmbed({
         }
         const t = Number(info.currentTime);
         const d = Number(info.duration);
+        if (Number.isFinite(t) && info.currentTime !== undefined) tell(t, Number.isFinite(d) ? d : 0);
         if (d > 0 && t / d >= 0.9) done();
       }
     };
@@ -187,6 +207,30 @@ export default function VideoEmbed({
       .then(() => (screen.orientation as {lock?: (o: string) => Promise<void>} | undefined)?.lock?.('landscape').catch(() => {}))
       .catch(() => {});
 
+  const control = (youtube && ready) || s?.kind === 'file';
+  const seek = (t: number) => {
+    const to = Math.max(0, Math.round(t));
+    if (s?.kind === 'file' && file.current) file.current.currentTime = to;
+    else if (youtube && ready) {
+      send('seekTo', [to, true]);
+      send('playVideo');
+    } else return;
+    setTime(to);
+  };
+  const RATES = [1, 1.25, 1.5, 2, 0.75];
+  const faster = () => {
+    const r = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
+    if (s?.kind === 'file' && file.current) file.current.playbackRate = r;
+    else send('setPlaybackRate', [r]);
+    setRate(r);
+  };
+  // The part playing, the one before (its start, when a little way in) and the next.
+  const parts = marks ?? [];
+  const here = parts.reduce<number>((k, m, i) => (m.t <= time + 0.5 ? i : k), -1);
+  const back = here >= 0 && time - parts[here].t > 3 ? parts[here] : parts[here - 1];
+  const next = parts[here + 1];
+  const bar = 'flex h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-full bg-white/15 px-2.5 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-40';
+
   if (!s) return null;
   if (s.kind === 'link')
     return (
@@ -200,7 +244,16 @@ export default function VideoEmbed({
       <div ref={box} className={`relative aspect-video w-full overflow-hidden bg-black ${full ? '' : 'rounded-xl'}`} data-player={s.kind}>
         {on ? (
           s.kind === 'file' ? (
-            <video key={load.n} src={load.t ? `${s.url}#t=${load.t}` : s.url} controls autoPlay playsInline className="h-full w-full" />
+            <video
+              key={load.n}
+              ref={file}
+              src={load.t ? `${s.url}#t=${load.t}` : s.url}
+              controls
+              autoPlay
+              playsInline
+              onTimeUpdate={(e) => tell(e.currentTarget.currentTime, e.currentTarget.duration || 0)}
+              className="h-full w-full"
+            />
           ) : (
             <iframe
               key={load.n}
@@ -213,12 +266,56 @@ export default function VideoEmbed({
             />
           )
         ) : (
-          <button type="button" onClick={() => setOn(true)} aria-label={`${title}: тоглуулах`} className="group absolute inset-0 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              // From where the student stopped last time, when known.
+              if (from) setLoad((l) => ({t: from, n: l.n + 1}));
+              setOn(true);
+            }}
+            aria-label={`${title}: тоглуулах`}
+            className="group absolute inset-0 flex items-center justify-center"
+          >
             {s.kind === 'youtube' && <img src={`https://i.ytimg.com/vi/${s.id}/hqdefault.jpg`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" />}
             <span className="relative flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform group-hover:scale-105">
               <Play size={18} fill="currentColor" /> {title}
             </span>
           </button>
+        )}
+        {full && (
+          <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-1.5 bg-gradient-to-b from-black/90 via-black/70 to-transparent px-3 pb-6 pt-2" data-video-bar>
+            {control && (
+              <>
+                <button type="button" onClick={() => seek(time - 10)} aria-label="10 секунд ухраах" className={bar} data-bar-back>
+                  <RotateCcw size={16} /> 10
+                </button>
+                <button type="button" onClick={() => seek(time + 10)} aria-label="10 секунд урагшлуулах" className={bar} data-bar-on>
+                  10 <RotateCw size={16} />
+                </button>
+                <button type="button" onClick={faster} aria-label={`Хурд: ${rate}×. Солих`} className={`${bar} tabular-nums`} data-bar-rate>
+                  {rate}×
+                </button>
+              </>
+            )}
+            {control && parts.length > 0 ? (
+              <>
+                <button type="button" onClick={() => back && seek(back.t)} disabled={!back} aria-label="Өмнөх хэсэг" className={bar} data-bar-prev>
+                  <SkipBack size={16} />
+                </button>
+                <span className="min-w-0 flex-1 truncate px-1 text-sm font-medium text-white" data-bar-part>
+                  {here >= 0 ? parts[here].label : ''}
+                </span>
+                <button type="button" onClick={() => next && seek(next.t)} disabled={!next} aria-label="Дараагийн хэсэг" className={bar} data-bar-next>
+                  <SkipForward size={16} />
+                </button>
+              </>
+            ) : (
+              <span className="flex-1" />
+            )}
+            <button type="button" onClick={() => void document.exitFullscreen?.().catch(() => {})} className={`${bar} ml-1`} data-bar-exit>
+              <X size={16} /> Гарах
+            </button>
+          </div>
         )}
         {/* Paused: YouTube's bar and its other videos («More videos») kept off the picture, its middle left to see (a
             formula on the board); done: its suggestions covered. A tap plays on. */}

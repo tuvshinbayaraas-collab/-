@@ -1,5 +1,5 @@
 import {Check, ChevronRight, Folder, PlayCircle} from 'lucide-react';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import Loading from '../components/Loading';
 import {InactiveNote, LockedNote} from '../components/Notices';
 import SolveCard from '../components/SolveCard';
@@ -8,6 +8,29 @@ import {Link, navigate, useLocation} from '../lib/router';
 import {useSession} from '../lib/session';
 import {forClassOf, useTopics} from '../lib/topics';
 import {answerVideo, markWatched, timeLabel, usePublishedVideoFolders, useVideoAnswers, useVideos, useWatched, videoKey, type Video} from '../lib/videos';
+
+// Where each video was stopped, on this device: video id → seconds (gone once watched to the end).
+const PLACE = 'batnab.videoAt';
+function places(): Record<string, number> {
+  try {
+    const v = JSON.parse(localStorage.getItem(PLACE) ?? '{}');
+    return v && typeof v === 'object' ? (v as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+function keepPlace(vid: string, t: number | null) {
+  try {
+    const all = places();
+    if (t === null) delete all[vid];
+    else all[vid] = Math.round(t);
+    // The newest fifty kept.
+    const kept = Object.fromEntries(Object.entries(all).slice(-50));
+    localStorage.setItem(PLACE, JSON.stringify(kept));
+  } catch {
+    // storage blocked: not remembered this time
+  }
+}
 
 const to = (fid: string, vid = '') => (fid ? `/videos?folder=${encodeURIComponent(fid)}${vid ? `&v=${encodeURIComponent(vid)}` : ''}` : '/videos');
 
@@ -165,10 +188,19 @@ function FolderVideos({fid, vid, uid, watched}: {fid: string; vid: string; uid: 
 
 function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean}) {
   const [jump, setJump] = useState<{t: number; n: number} | undefined>(undefined);
+  // Where it is playing (the part playing is marked), and where it was stopped last time (it goes on from there).
+  const [now, setNow] = useState(-1);
+  const [stopped] = useState(() => {
+    const t = places()[v.id];
+    return typeof t === 'number' && t >= 10 ? t : 0;
+  });
+  const [fromStart, setFromStart] = useState(false);
+  const saved = useRef(stopped);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const answers = useVideoAnswers(uid);
   const seek = canSeek(videoSource(v.url));
+  const playing = now < 0 ? -1 : v.marks.reduce<number>((k, m, i) => (m.t <= now + 0.5 ? i : k), -1);
   const toggle = () => {
     if (!uid) return;
     setBusy(true);
@@ -189,17 +221,51 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
         link={v.url}
         title="Видеог тоглуулах"
         at={jump}
+        from={fromStart ? undefined : stopped || undefined}
+        marks={v.marks}
+        onTime={(t, d) => {
+          setNow(t);
+          // Kept every few seconds; let go once seen to the end.
+          if (d > 0 && t / d >= 0.95) keepPlace(v.id, null);
+          else if (Math.abs(t - saved.current) >= 5) {
+            saved.current = t;
+            keepPlace(v.id, t);
+          }
+        }}
         onWatched={uid && !seen ? () => void markWatched(uid, v, true).catch(() => {}) : undefined}
         className="max-sm:-mx-4 max-sm:[&>button]:ml-4 max-sm:[&>div:first-child]:rounded-none"
       />
+      {stopped > 0 && !fromStart && now < 0 && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-neutral-900 px-3 py-2 text-sm text-neutral-300" data-video-resume>
+          <span>
+            Өмнө <b className="tabular-nums">{timeLabel(stopped)}</b> хүртэл үзсэн. Тоглуулахад тэндээс үргэлжилнэ.
+          </span>
+          <button type="button" onClick={() => setFromStart(true)} className="font-semibold text-blue-400 hover:underline">
+            Эхнээс нь үзэх
+          </button>
+        </p>
+      )}
       {v.marks.length > 0 && (
         <section aria-label="Видеоны хэсгүүд" className="space-y-1.5">
-          <h3 className="text-sm font-semibold text-neutral-400">Хэсгүүд{seek ? ' (дарахад тэндээс эхэлнэ)' : ''}</h3>
+          <h3 className="text-sm font-semibold text-neutral-400">
+            Хэсгүүд{seek ? ' (дарахад тэндээс эхэлнэ)' : ''}
+            {playing >= 0 && (
+              <span className="ml-2 font-normal text-rose-300" data-video-now>
+                · Одоо: {v.marks[playing].label}
+              </span>
+            )}
+          </h3>
           <ul className="flex flex-col gap-1">
             {v.marks.map((m, i) =>
               seek ? (
                 <li key={i}>
-                  <button type="button" onClick={() => setJump((j) => ({t: m.t, n: (j?.n ?? 0) + 1}))} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-neutral-800" data-video-mark={m.t}>
+                  <button
+                    type="button"
+                    onClick={() => setJump((j) => ({t: m.t, n: (j?.n ?? 0) + 1}))}
+                    aria-current={i === playing ? 'true' : undefined}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left ${i === playing ? 'bg-rose-500/15 ring-1 ring-rose-500/40' : 'hover:bg-neutral-800'}`}
+                    data-video-mark={m.t}
+                  >
                     <span className="w-14 shrink-0 font-semibold tabular-nums text-rose-300">{timeLabel(m.t)}</span>
                     <span className="min-w-0 [overflow-wrap:anywhere]">{m.label}</span>
                   </button>
