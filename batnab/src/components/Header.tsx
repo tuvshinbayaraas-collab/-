@@ -1,0 +1,277 @@
+import {BookOpen, BookOpenCheck, ChevronDown, CircleHelp, Download, Flame, Gamepad2, GraduationCap, Library, ListChecks, LogIn, LogOut, MessageCircleQuestion, Moon, NotebookPen, PlayCircle, Settings, Sun, Trophy, UserRound, Users, Zap} from 'lucide-react';
+import {lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
+import {useLearnIndex} from '../lib/learn';
+import {Link, useLocation} from '../lib/router';
+import {logOut, shownName, useSession} from '../lib/session';
+import {useSettings} from '../lib/settings';
+import {useWide} from '../lib/wide';
+import {lightSupported, useTheme} from '../lib/theme';
+import Avatar from './Avatar';
+import {openGuide} from '../lib/guide';
+import {BetaBadge, useGetApp} from './GetApp';
+import {useGuideRole} from './Guide';
+import Logo from './Logo';
+
+// The bell and its list come in their own file, after the page (it reads a fair bit to know what's new).
+const Bell = lazy(() => import('./Bell'));
+
+const navItem = 'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors';
+
+/**
+ * The main places beside the logo, each on one line: as many as fit, the rest under «Бусад» (a narrower window, or
+ * more places turned on: «Сурах», Leaderboard, games).
+ */
+function NavBar({items, here}: {items: [string, string][]; here: (href: string) => boolean}) {
+  const box = useRef<HTMLElement>(null);
+  const sizes = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(items.length);
+  const [open, setOpen] = useState(false);
+  const key = items.map(([h]) => h).join();
+  useLayoutEffect(() => {
+    const nav = box.current;
+    const all = sizes.current;
+    if (!nav || !all) return;
+    const count = () => {
+      const room = nav.clientWidth;
+      // The places as they would be, and «Бусад» (last).
+      const ws = [...all.children].map((c) => (c as HTMLElement).offsetWidth);
+      const more = ws.pop() ?? 0;
+      const gap = 4;
+      if (ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1) <= room) return setFit(ws.length);
+      let used = more;
+      let n = 0;
+      while (n < ws.length && used + gap + ws[n] <= room) used += gap + ws[n++];
+      setFit(n);
+    };
+    count();
+    const watch = new ResizeObserver(count);
+    watch.observe(nav);
+    return () => watch.disconnect();
+  }, [key]);
+  const shown = items.slice(0, fit);
+  const rest = items.slice(fit);
+  const look = (on: boolean) => `${navItem} ${on ? 'bg-blue-500/15 text-blue-200' : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100'}`;
+  return (
+    <nav ref={box} aria-label="Үндсэн цэс" className="relative mr-auto flex min-w-0 flex-1 items-center gap-1">
+      {/* Measured, not seen: how wide each place is. */}
+      <div ref={sizes} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-0 gap-1 overflow-hidden">
+        {items.map(([href, label]) => (
+          <span key={href} className={navItem}>
+            {label}
+          </span>
+        ))}
+        <span className={`${navItem} flex items-center gap-1`}>
+          Бусад <ChevronDown size={14} />
+        </span>
+      </div>
+      {shown.map(([href, label]) => (
+        <Link key={href} href={href} aria-current={here(href) ? 'page' : undefined} className={look(here(href))}>
+          {label}
+        </Link>
+      ))}
+      {rest.length > 0 && (
+        <div className="relative">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" className={`${look(rest.some(([h]) => here(h)))} flex items-center gap-1`}>
+            Бусад <ChevronDown size={14} className={open ? 'rotate-180' : ''} />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+              <div role="menu" className="absolute left-0 top-10 z-50 min-w-44 rounded-xl bg-neutral-800 py-2 shadow-xl" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+                {rest.map(([href, label]) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    role="menuitem"
+                    aria-current={here(href) ? 'page' : undefined}
+                    onClick={() => setOpen(false)}
+                    className={`block whitespace-nowrap px-4 py-2 text-sm ${here(href) ? 'text-blue-200' : 'text-neutral-200 hover:bg-neutral-700'}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </nav>
+  );
+}
+
+export default function Header() {
+  const {user, ready, profile, admin} = useSession();
+  const {path} = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const app = useGetApp();
+  const guideRole = useGuideRole();
+  const settings = useSettings();
+  // «Сурах» once a test has its solutions.
+  const learnIndex = useLearnIndex();
+  const learn = !!learnIndex && Object.keys(learnIndex).length > 0;
+  const name = shownName(profile);
+  // What's on the page now ("Төхөөрөмжийн" included): the menu offers the other one.
+  const {light, setTheme} = useTheme();
+
+  // The pages as small tiles, three to a row (the menu fits a phone's screen); the account's own actions as rows.
+  const item = (href: string, icon: ReactNode, label: string) => (
+    <Link
+      href={href}
+      onClick={() => setMenuOpen(false)}
+      aria-current={path === href ? 'page' : undefined}
+      className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-center text-xs leading-tight hover:bg-neutral-700 ${path === href ? 'bg-neutral-700/70 text-neutral-50' : ''}`}
+    >
+      {icon}
+      <span className="w-full break-words">{label}</span>
+    </Link>
+  );
+  const row = 'flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-neutral-700';
+
+  // On a computer, the main places as links beside the logo (on a phone they're in the menu under the avatar).
+  const wide = useWide();
+  const active = profile && !profile.disabled;
+  const nav: [string, string][] = admin
+    ? [
+        ['/admin', 'Багшийн самбар'],
+        ['/live', 'Шууд тэмцээн'],
+        ['/admin/report', 'Тайлан'],
+      ]
+    : active
+      ? [
+          ['/', 'Нүүр'],
+          ['/topics', 'Сэдвүүд'],
+          ['/bank', 'Бодлогын сан'],
+          ['/videos', 'Видео'],
+          ...(learn ? ([['/learn', 'Сурах']] as [string, string][]) : []),
+          ['/daily', 'Өдрийн дасгал'],
+          ['/results', 'Миний дүн'],
+          ...(settings?.leaderboard ? ([['/leaderboard', 'Leaderboard']] as [string, string][]) : []),
+          ...(settings?.games !== false ? ([['/games', 'Тоглоом']] as [string, string][]) : []),
+          ['/people', 'Сурагчид'],
+        ]
+      : [];
+  const here = (href: string) =>
+    href === '/' ? path === '/' : path === href || (href !== '/admin' && path.startsWith(href + '/')) || (href === '/admin' && path.startsWith('/admin') && !path.startsWith('/admin/report'));
+
+  return (
+    <header className="sticky top-0 z-30 border-b border-neutral-800/80 bg-page px-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4">
+        <Logo />
+        {user && wide && nav.length > 0 && <NavBar items={nav} here={here} />}
+        {user ? (
+          <div className="flex items-center gap-2">
+            {admin && !wide && path !== '/admin' && (
+              <Link href="/admin" className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-blue-300 hover:bg-blue-500/10 sm:flex">
+                <GraduationCap size={18} /> Багшийн самбар
+              </Link>
+            )}
+            {(admin || (profile && !profile.disabled)) && (
+              <Suspense fallback={<span className="block h-[34px] w-[34px]" />}>
+                <Bell />
+              </Suspense>
+            )}
+            <div className="relative">
+              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Миний бүртгэл" className="block rounded-full">
+                <Avatar name={name} photo={profile?.photo} frame={profile?.frame} size={32} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-11 z-50 max-h-[calc(100vh-4rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-xl bg-neutral-800 py-2 shadow-xl supports-[height:100dvh]:max-h-[calc(100dvh-4rem)]">
+                    <div className="flex items-center gap-3 border-b border-neutral-700 px-4 pb-2.5 pt-1">
+                      <Avatar name={name} photo={profile?.photo} frame={profile?.frame} size={40} />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{name}</p>
+                        <p className="truncate text-sm text-neutral-400">{profile ? `@${profile.username}` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-0.5 border-b border-neutral-700 px-2 py-2">
+                      {admin && item('/admin', <GraduationCap size={20} />, 'Багшийн самбар')}
+                      {profile && !profile.disabled && (
+                        <>
+                          {!admin && item('/results', <ListChecks size={20} />, 'Миний дүнгүүд')}
+                          {item('/topics', <BookOpen size={20} />, 'Сэдвүүд')}
+                          {item('/bank', <Library size={20} />, 'Бодлогын сан')}
+                          {item('/videos', <PlayCircle size={20} />, 'Видео хичээл')}
+                          {learn && item('/learn', <BookOpenCheck size={20} />, 'Сурах')}
+                          {item('/live', <Zap size={20} />, 'Шууд тэмцээн')}
+                          {!admin && item('/daily', <Flame size={20} />, 'Өдрийн дасгал')}
+                          {!admin && item('/mistakes', <NotebookPen size={20} />, 'Алдааны дэвтэр')}
+                          {!admin && item('/questions', <MessageCircleQuestion size={20} />, 'Асуултууд')}
+                          {settings?.leaderboard && item('/leaderboard', <Trophy size={20} />, 'Leaderboard')}
+                          {(admin || settings?.games !== false) && item('/games', <Gamepad2 size={20} />, 'Тоглоом')}
+                          {item('/people', <Users size={20} />, 'Сурагчид')}
+                          {item('/profile', <UserRound size={20} />, 'Профайл')}
+                          {item('/settings', <Settings size={20} />, 'Тохиргоо')}
+                        </>
+                      )}
+                    </div>
+                    {guideRole && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          openGuide();
+                        }}
+                        className={row}
+                      >
+                        <CircleHelp size={20} /> Заавар
+                      </button>
+                    )}
+                    {lightSupported && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setTheme(light ? 'dark' : 'light');
+                        }}
+                        className={row}
+                      >
+                        {light ? <Moon size={20} /> : <Sun size={20} />} {light ? 'Бараан загвар' : 'Гэрэлтэй загвар'}
+                      </button>
+                    )}
+                    {!app.installed && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          app.start();
+                        }}
+                        className={row}
+                      >
+                        <Download size={20} /> Апп татах
+                        <span className="ml-auto">
+                          <BetaBadge />
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        logOut();
+                      }}
+                      className={row}
+                    >
+                      <LogOut size={20} /> Гарах
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          ready && (
+            <div className="flex items-center gap-1">
+              <button onClick={openGuide} aria-label="Заавар" title="Заавар" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200">
+                <CircleHelp size={20} />
+              </button>
+              {path !== '/login' && (
+                <Link href="/login" className="flex items-center gap-2 rounded-full border border-neutral-700 px-3 py-1.5 text-sm font-medium text-blue-400 hover:bg-blue-500/10">
+                  <LogIn size={18} />
+                  Нэвтрэх
+                </Link>
+              )}
+            </div>
+          )
+        )}
+      </div>
+    </header>
+  );
+}

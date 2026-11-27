@@ -1,0 +1,61 @@
+# Builds the Windows program in batnab/desktop (a Tauri window that opens batnab.web.app) on a Windows runner and
+# publishes the installer as the "batnab-desktop" release, at
+#   https://github.com/<this repository>/releases/download/batnab-desktop/Batnab-Setup.exe
+# which is where the site's "Апп татах" on a Windows computer downloads it from. Needs no secrets: the installer is
+# not code-signed, so Windows SmartScreen asks once before it runs (the site explains what to press).
+name: Batnab Windows app
+
+on:
+  push:
+    branches: [main, claude/youtube-site-batnab-jfgjry]
+    paths: ['batnab/desktop/**', '.github/workflows/batnab-desktop.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: batnab-desktop
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: batnab/desktop
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: batnab/desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: batnab/desktop/src-tauri
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Name the installer
+        run: |
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe Batnab-Setup.exe
+          ls -l Batnab-Setup.exe
+
+      - name: Publish it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view batnab-desktop >/dev/null 2>&1; then
+            gh release create batnab-desktop --target "$GITHUB_SHA" --title "Batnab — Windows програм" \
+              --notes "Batnab-Setup.exe-г татаж нээгээд суулгана. Windows «Windows protected your PC» гэвэл «More info» → «Run anyway» дарна."
+          fi
+          gh release upload batnab-desktop Batnab-Setup.exe --clobber
+          size=$(du -h Batnab-Setup.exe | cut -f1)
+          echo "### Batnab-Setup.exe ($size): https://github.com/${GITHUB_REPOSITORY}/releases/download/batnab-desktop/Batnab-Setup.exe" >> "$GITHUB_STEP_SUMMARY"

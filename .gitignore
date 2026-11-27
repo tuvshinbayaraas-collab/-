@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# The agents' scratch folder (batnab-agent.yml): never committed.
+.agent/
