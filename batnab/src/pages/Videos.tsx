@@ -167,10 +167,7 @@ function FolderVideos({fid, vid, uid, watched}: {fid: string; vid: string; uid: 
               <Thumb url={x.url} />
               <span className="min-w-0 flex-1">
                 <span className="line-clamp-2 font-semibold [overflow-wrap:anywhere]">{x.title}</span>
-                <span className="flex flex-wrap gap-x-2 text-sm text-neutral-400">
-                  {x.marks.length > 0 && <span>{x.marks.length} хэсэг</span>}
-                  {x.problems.length > 0 && <span>{x.problems.length} бодлого</span>}
-                </span>
+                <span className="block text-sm text-neutral-400">{[x.marks.length ? `${x.marks.length} хэсэг` : '', x.problems.length ? `${x.problems.length} бодлого` : ''].filter(Boolean).join(' · ')}</span>
               </span>
               {watched[x.id] ? (
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-300">
