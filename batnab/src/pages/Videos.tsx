@@ -248,12 +248,7 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
       {v.marks.length > 0 && (
         <section aria-label="Видеоны хэсгүүд" className="space-y-1.5">
           <h3 className="text-sm font-semibold text-neutral-400">
-            Хэсгүүд{seek ? ' (дарахад тэндээс эхэлнэ)' : ''}
-            {playing >= 0 && (
-              <span className="ml-2 font-normal text-rose-300" data-video-now>
-                · Одоо: {v.marks[playing].label}
-              </span>
-            )}
+            Хэсгүүд{seek && <span className="font-normal"> · дарахад тэндээс эхэлнэ</span>}
           </h3>
           <ul className="flex flex-col gap-1">
             {v.marks.map((m, i) =>
@@ -267,7 +262,12 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
                     data-video-mark={m.t}
                   >
                     <span className="w-14 shrink-0 font-semibold tabular-nums text-rose-300">{timeLabel(m.t)}</span>
-                    <span className="min-w-0 [overflow-wrap:anywhere]">{m.label}</span>
+                    <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{m.label}</span>
+                    {i === playing && (
+                      <span className="shrink-0 rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white" data-video-now>
+                        Одоо
+                      </span>
+                    )}
                   </button>
                 </li>
               ) : (

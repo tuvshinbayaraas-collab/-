@@ -222,11 +222,13 @@ function FolderView({folder}: {folder: VideoFolder}) {
             <p className="mr-auto text-sm text-neutral-400">{videos.length} видео</p>
             {videos.length > 1 && (
               <>
-                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, true))} className={pill} data-videos-open>
-                  <ChevronsUpDown size={15} /> Бүгдийг дэлгэх
+                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, true))} aria-label="Бүгдийг дэлгэх" className={pill} data-videos-open>
+                  <ChevronsUpDown size={15} /> <span className="max-sm:hidden">Бүгдийг дэлгэх</span>
+                  <span className="sm:hidden">Дэлгэх</span>
                 </button>
-                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, false))} className={pill} data-videos-fold>
-                  <ChevronsDownUp size={15} /> Бүгдийг хураах
+                <button type="button" onClick={() => videos.forEach((v) => setFolded(`video-open:${v.id}`, false))} aria-label="Бүгдийг хураах" className={pill} data-videos-fold>
+                  <ChevronsDownUp size={15} /> <span className="max-sm:hidden">Бүгдийг хураах</span>
+                  <span className="sm:hidden">Хураах</span>
                 </button>
               </>
             )}
