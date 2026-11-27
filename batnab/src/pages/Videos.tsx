@@ -9,21 +9,22 @@ import {useSession} from '../lib/session';
 import {forClassOf, useTopics} from '../lib/topics';
 import {answerVideo, markWatched, timeLabel, usePublishedVideoFolders, useVideoAnswers, useVideos, useWatched, videoKey, type Video} from '../lib/videos';
 
-// Where each video was stopped, on this device: video id → seconds (gone once watched to the end).
+// Where each video was stopped, on this device: video id → {t: seconds, u: its link} (gone once watched to the end; a
+// video whose link has changed since starts from the start).
 const PLACE = 'batnab.videoAt';
-function places(): Record<string, number> {
+function places(): Record<string, {t: number; u: string}> {
   try {
     const v = JSON.parse(localStorage.getItem(PLACE) ?? '{}');
-    return v && typeof v === 'object' ? (v as Record<string, number>) : {};
+    return v && typeof v === 'object' ? (v as Record<string, {t: number; u: string}>) : {};
   } catch {
     return {};
   }
 }
-function keepPlace(vid: string, t: number | null) {
+function keepPlace(vid: string, u: string, t: number | null) {
   try {
     const all = places();
-    if (t === null) delete all[vid];
-    else all[vid] = Math.round(t);
+    delete all[vid];
+    if (t !== null) all[vid] = {t: Math.round(t), u};
     // The newest fifty kept.
     const kept = Object.fromEntries(Object.entries(all).slice(-50));
     localStorage.setItem(PLACE, JSON.stringify(kept));
@@ -191,8 +192,8 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
   // Where it is playing (the part playing is marked), and where it was stopped last time (it goes on from there).
   const [now, setNow] = useState(-1);
   const [stopped] = useState(() => {
-    const t = places()[v.id];
-    return typeof t === 'number' && t >= 10 ? t : 0;
+    const p = places()[v.id];
+    return p && typeof p.t === 'number' && p.u === v.url && p.t >= 10 ? p.t : 0;
   });
   const [fromStart, setFromStart] = useState(false);
   const saved = useRef(stopped);
@@ -226,10 +227,10 @@ function OneVideo({v, uid, seen}: {v: Video; uid: string | null; seen: boolean})
         onTime={(t, d) => {
           setNow(t);
           // Kept every few seconds; let go once seen to the end.
-          if (d > 0 && t / d >= 0.95) keepPlace(v.id, null);
+          if (d > 0 && t / d >= 0.95) keepPlace(v.id, v.url, null);
           else if (Math.abs(t - saved.current) >= 5) {
             saved.current = t;
-            keepPlace(v.id, t);
+            keepPlace(v.id, v.url, t);
           }
         }}
         onWatched={uid && !seen ? () => void markWatched(uid, v, true).catch(() => {}) : undefined}

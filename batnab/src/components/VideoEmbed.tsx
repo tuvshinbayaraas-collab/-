@@ -109,6 +109,17 @@ export default function VideoEmbed({
   // Whether the YouTube player answers (then it is told where to go, instead of being loaded again from there).
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<number | null>(null);
+  // Played at least once (a phone can keep a video from starting by itself: then YouTube's own button is what starts it,
+  // and nothing of ours goes over it), and the cover put away by a tap (until it plays again).
+  const [played, setPlayed] = useState(false);
+  const [away, setAway] = useState(false);
+  const see = (n: number) => {
+    setState(n);
+    if (n === 1 || n === 3) {
+      setPlayed(true);
+      setAway(false);
+    }
+  };
   // Where the player was loaded from, and a count to load it again.
   const [load, setLoad] = useState<{t?: number; n: number}>({n: 0});
   const told = useRef(false);
@@ -145,6 +156,8 @@ export default function VideoEmbed({
     if (!on || !youtube) return;
     setReady(false);
     setState(null);
+    setPlayed(false);
+    setAway(false);
     const hello = () => player.current?.contentWindow?.postMessage(JSON.stringify({event: 'listening', id: 1, channel: 'widget'}), '*');
     let tries = 0;
     const ask = window.setInterval(() => {
@@ -169,13 +182,13 @@ export default function VideoEmbed({
         window.clearInterval(ask);
       }
       if (m.event === 'onStateChange' && typeof m.info === 'number') {
-        setState(m.info);
+        see(m.info);
         if (m.info === ENDED) done();
       }
       const info = (m.event === 'infoDelivery' || m.event === 'initialDelivery') && m.info && typeof m.info === 'object' ? (m.info as {playerState?: unknown; currentTime?: unknown; duration?: unknown}) : null;
       if (info) {
         if (typeof info.playerState === 'number') {
-          setState(info.playerState);
+          see(info.playerState);
           if (info.playerState === ENDED) done();
         }
         const t = Number(info.currentTime);
@@ -238,7 +251,7 @@ export default function VideoEmbed({
         <Play size={16} /> {title} <ExternalLink size={14} />
       </a>
     );
-  const covered = youtube && ready && (state === PAUSED || state === ENDED);
+  const covered = youtube && ready && played && !away && (state === PAUSED || state === ENDED);
   return (
     <div className={className}>
       <div ref={box} className={`relative aspect-video w-full overflow-hidden bg-black ${full ? '' : 'rounded-xl'}`} data-player={s.kind}>
@@ -323,6 +336,8 @@ export default function VideoEmbed({
           <button
             type="button"
             onClick={() => {
+              // Put away at once: should the phone not let it play from here, YouTube's own button is there to tap.
+              setAway(true);
               if (state === ENDED) send('seekTo', [0, true]);
               send('playVideo');
             }}
