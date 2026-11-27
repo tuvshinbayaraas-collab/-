@@ -71,3 +71,26 @@ jobs:
           npx --yes firebase-tools@15 deploy --only hosting,database --project rgtbn-bb94f --non-interactive
           node scripts/setup.mjs
           echo "### Deployed to https://batnab.web.app" >> "$GITHUB_STEP_SUMMARY"
+
+      # The same site at a second address, https://11-6.web.app: its Hosting site is made the first time (when the name
+      # is free and allowed), then deployed with the same files. A failure here leaves batnab.web.app as deployed above.
+      - name: Also at 11-6.web.app
+        if: steps.key.outputs.present == 'true'
+        continue-on-error: true
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RGTBN_BB94F }}
+          SITE: '11-6'
+        run: |
+          trap 'rm -f "$RUNNER_TEMP/sa.json" firebase.extra.json' EXIT
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          if ! npx --yes firebase-tools@15 hosting:sites:list --project rgtbn-bb94f --json | grep -q "sites/$SITE\""; then
+            if ! npx --yes firebase-tools@15 hosting:sites:create "$SITE" --project rgtbn-bb94f --non-interactive; then
+              echo "### $SITE.web.app could not be made: the name is taken by another project or not allowed" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          # batnab.web.app's settings (files, rewrites, headers), for this site.
+          node -e "const c=require('./firebase.json');const h=c.hosting.find((x)=>x.site==='batnab');require('fs').writeFileSync('firebase.extra.json',JSON.stringify({hosting:[{...h,site:process.env.SITE}]}))"
+          npx --yes firebase-tools@15 deploy --only hosting --config firebase.extra.json --project rgtbn-bb94f --non-interactive
+          echo "### Also at https://$SITE.web.app" >> "$GITHUB_STEP_SUMMARY"
